@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import * as stylex from '@stylexjs/stylex';
 import { colorVars, radiusVars, shadowVars } from '@astryxdesign/core/theme/tokens.stylex';
@@ -92,8 +92,6 @@ const styles = stylex.create({
   },
   cropContainer: {
     position: 'relative',
-    height: '100%',
-    width: '100%',
     overflow: 'hidden',
     borderRadius: radiusVars['--radius-container'],
     boxShadow: shadowVars['--shadow-high'],
@@ -223,6 +221,13 @@ export async function getCroppedImg(
   return promise;
 }
 
+type BoxSize = { width: number; height: number };
+
+function fitAspectBox(outer: BoxSize, aspect: number): BoxSize {
+  const width = Math.min(outer.width, outer.height * aspect);
+  return { width, height: width / aspect };
+}
+
 export interface MediaCropModalProps {
   isOpen: boolean;
   imageSrc: string | null;
@@ -260,8 +265,10 @@ export function MediaCropModal({
   const [mounted, setMounted] = useState(false);
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+  const [viewportSize, setViewportSize] = useState<BoxSize | null>(null);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<PixelCrop | null>(null);
   const [processing, setProcessing] = useState(false);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -290,13 +297,23 @@ export function MediaCropModal({
     }
   }, [imageSrc]);
 
+  useEffect(() => {
+    if (!mounted || !isOpen) return;
+    const el = viewportRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      setViewportSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [mounted, isOpen, imageSrc]);
+
   const onCropChange = (location: Point) => {
     setCrop(location);
   };
 
   const onZoomChange = (newZoom: number) => {
-    const clamped = Math.max(1, Math.min(3, newZoom));
-    setZoom(clamped);
+    setZoom(Math.max(1, Math.min(3, newZoom)));
   };
 
   const onCropCompleteCallback = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
@@ -356,9 +373,19 @@ export function MediaCropModal({
         </div>
 
         {/* Center: Crop Viewport with comfortable Outer Padding (留白) */}
-        <div {...stylex.props(styles.viewport)}>
-          {/* Inner Cropper Container */}
-          <div {...stylex.props(styles.cropContainer)}>
+        <div ref={viewportRef} {...stylex.props(styles.viewport)}>
+          {/* Inner Cropper Container, shaped to the crop aspect */}
+          <div
+            {...stylex.props(styles.cropContainer)}
+            style={
+              viewportSize
+                ? {
+                    width: fitAspectBox(viewportSize, aspect).width,
+                    height: fitAspectBox(viewportSize, aspect).height,
+                  }
+                : undefined
+            }
+          >
             <Cropper
               image={imageSrc}
               crop={crop}
@@ -399,8 +426,7 @@ export function MediaCropModal({
               step={1}
               value={Math.round(zoom * 100)}
               onChange={(val: number) => {
-                const nextZoom = Math.max(1, Math.min(3, val / 100));
-                setZoom(nextZoom);
+                setZoom(Math.max(1, Math.min(3, val / 100)));
               }}
               formatValue={(val: number) => `${(val / 100).toFixed(1)}x`}
               valueDisplay="text"
