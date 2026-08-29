@@ -14,7 +14,7 @@ import { Text } from '@astryxdesign/core/Text';
 import { useAppToast } from '@/lib/toast';
 import { authClient } from '@/lib/auth-client';
 import { nativeAttrs } from '@/lib/native-attrs';
-import { changePassword } from '@/server/actions/settings';
+import { changePassword, updateProfile } from '@/server/actions/settings';
 import * as stylex from '@stylexjs/stylex';
 
 const styles = stylex.create({
@@ -69,6 +69,21 @@ export function AccountSettings({
   const [newPassword, setNewPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [currentImage, setCurrentImage] = useState<string | null>(image);
+  const [profileName, setProfileName] = useState(name);
+  const [profileBio, setProfileBio] = useState(bio);
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const saveProfile = async () => {
+    setSavingProfile(true);
+    const res = await updateProfile({ name: profileName, bio: profileBio });
+    setSavingProfile(false);
+    if (res?.error) {
+      toast.error(res.error);
+      return;
+    }
+    toast.success('资料已保存');
+    router.refresh();
+  };
 
   const handleUrlChange = async (url: string | null) => {
     try {
@@ -112,7 +127,7 @@ export function AccountSettings({
         </Link>
         <div>
           <h1 {...stylex.props(styles.title)}>账户与资料</h1>
-          <p {...stylex.props(styles.subtitle)}>管理你的账号信息与安全凭证</p>
+          <p {...stylex.props(styles.subtitle)}>管理你的个人资料、账号信息与安全凭证</p>
         </div>
       </div>
 
@@ -120,11 +135,35 @@ export function AccountSettings({
         <VStack gap={4}>
           <h2 {...stylex.props(styles.sectionTitle)}>个人资料 & 头像</h2>
           <AvatarPicker
-            name={name || '社区创世者'}
+            name={profileName || '社区创世者'}
             avatarUrl={currentImage}
             onUrlChange={handleUrlChange}
             showEmojiColorTab={false}
           />
+          <TextInput
+            label="昵称"
+            value={profileName}
+            onChange={setProfileName}
+            {...nativeAttrs({ maxLength: 50 })}
+            htmlName="profile-name"
+          />
+          <TextInput
+            label="个性签名"
+            isOptional
+            value={profileBio}
+            onChange={setProfileBio}
+            {...nativeAttrs({ maxLength: 200 })}
+            htmlName="profile-bio"
+          />
+          <div>
+            <Button
+              label="保存资料"
+              variant="primary"
+              onClick={saveProfile}
+              isDisabled={savingProfile}
+              isLoading={savingProfile}
+            />
+          </div>
         </VStack>
       </Section>
 

@@ -1,16 +1,5 @@
-import { GeneralSettings } from '@/components/settings/general-settings';
-import { requireUserId } from '@/lib/session';
-import { getUserProfile } from '@/server/feed';
+import { redirect } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
-
-export default async function SettingsPage() {
-  const userId = await requireUserId();
-  const profile = await getUserProfile(userId);
-
-  return (
-    <GeneralSettings
-      profile={{ name: profile?.name ?? '', bio: profile?.bio ?? null }}
-    />
-  );
+export default function SettingsPage() {
+  redirect('/settings/account');
 }

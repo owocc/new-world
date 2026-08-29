@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Sliders,
   User,
   Palette,
   BarChart3,
@@ -33,16 +32,10 @@ const SECTIONS = [
     title: '基础设置',
     items: [
       {
-        href: '/settings/general',
-        label: '通用设置',
-        icon: Sliders,
-        isMatch: (p: string) => p === '/settings' || p.startsWith('/settings/general'),
-      },
-      {
         href: '/settings/account',
         label: '账户与资料',
         icon: User,
-        isMatch: (p: string) => p.startsWith('/settings/account'),
+        isMatch: (p: string) => p === '/settings' || p.startsWith('/settings/account'),
       },
       {
         href: '/settings/appearance',

@@ -194,7 +194,6 @@ export async function saveVisionConfig(input: z.input<typeof visionConfigSchema>
   if (!parsed.success) return { error: '保存失败' };
   await setSetting(userId, 'ai_vision', parsed.data);
   revalidatePath('/settings/vision');
-  revalidatePath('/settings/general');
   return { ok: true };
 }
 
