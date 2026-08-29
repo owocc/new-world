@@ -65,10 +65,9 @@ const styles = stylex.create({
     transition: 'color 175ms ease, background-color 175ms ease',
   },
   chatActive: {
-    backgroundColor: 'var(--color-neutral)',
+    backgroundColor: 'var(--color-background-muted)',
     color: 'var(--color-text-primary)',
     fontWeight: 'var(--font-weight-medium)',
-    boxShadow: 'var(--shadow-low)',
   },
   chatInactive: {
     color: 'var(--color-text-secondary)',
@@ -77,10 +76,10 @@ const styles = stylex.create({
   chatInfo: {minWidth: 0, flex: 1},
   chatHeader: {display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--spacing-2)'},
   chatName: {display: 'flex', minWidth: 0, alignItems: 'center', gap: '6px'},
-  chatNameText: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '15px', fontWeight: 'var(--font-weight-medium)'},
-  time: {flexShrink: 0, color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs)'},
+  chatNameText: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--font-size-base)', fontWeight: 'var(--font-weight-medium)'},
+  time: {flexShrink: 0, color: 'var(--color-text-secondary)', fontSize: '11px', lineHeight: '1.2'},
   previewRow: {display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--spacing-2)', marginTop: '2px'},
-  preview: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--color-text-secondary)', fontSize: '13px'},
+  preview: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)'},
 });
 type CharacterRow = typeof aiCharacters.$inferSelect;
 
@@ -192,6 +191,7 @@ export function ConversationList({
                         date={chat.lastMessageAt}
                         short
                         xstyle={styles.time}
+                        style={{ fontSize: '11px', lineHeight: 1.2, color: 'var(--color-text-secondary)' }}
                       />
                     )}
                   </div>

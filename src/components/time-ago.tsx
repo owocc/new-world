@@ -44,19 +44,21 @@ export function TimeAgo({
   live = false,
   short = false,
   className,
+  style,
   xstyle,
 }: {
   date: Date | string;
   live?: boolean;
   short?: boolean;
   className?: string;
+  style?: React.CSSProperties;
   xstyle?: stylex.StyleXStyles;
 }) {
   const d = typeof date === 'string' ? new Date(date) : date;
   const label = useRelativeTime(date, live);
   const display = short && label.includes('前') ? label.replace(' 分钟前', '分').replace(' 小时前', '时').replace(' 天前', '天') : label;
   return (
-    <time {...stylex.props(styles.root, xstyle)} className={className} suppressHydrationWarning dateTime={d.toISOString()}>
+    <time {...stylex.props(styles.root, xstyle)} className={className} style={style} suppressHydrationWarning dateTime={d.toISOString()}>
       {display}
     </time>
   );

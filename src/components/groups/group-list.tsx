@@ -19,13 +19,13 @@ const styles = stylex.create({
   empty: {paddingInline: '24px', paddingBlock: '40px', textAlign: 'center'},
   nav: {flex: 1, overflowY: 'auto'},
   link: {display: 'flex', alignItems: 'center', gap: '12px', marginInline: '8px', marginBottom: '2px', borderRadius: 'var(--radius-container)', paddingInline: '10px', paddingBlock: '10px', color: 'var(--color-text-secondary)', transition: 'background-color 150ms ease, color 150ms ease', ':hover': {backgroundColor: 'var(--color-overlay-hover)', color: 'var(--color-text-primary)'}},
-  activeLink: {backgroundColor: 'var(--color-neutral)', color: 'var(--color-text-primary)', fontWeight: 'var(--font-weight-medium)', boxShadow: 'var(--shadow-low)'},
+  activeLink: {backgroundColor: 'var(--color-background-muted)', color: 'var(--color-text-primary)', fontWeight: 'var(--font-weight-medium)'},
   content: {minWidth: 0, flex: 1},
   topRow: {display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px'},
-  name: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '15px', fontWeight: 'var(--font-weight-medium)'},
-  time: {flexShrink: 0, fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)'},
+  name: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--font-size-base)', fontWeight: 'var(--font-weight-medium)'},
+  time: {flexShrink: 0, fontSize: '11px', lineHeight: '1.2', color: 'var(--color-text-secondary)'},
   bottomRow: {display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: '2px'},
-  preview: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px', color: 'var(--color-text-secondary)'},
+  preview: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)'},
 });
 export function GroupList({
   groups,
@@ -78,6 +78,7 @@ export function GroupList({
                         date={g.lastMessageAt}
                         short
                         xstyle={styles.time}
+                        style={{ fontSize: '11px', lineHeight: 1.2, color: 'var(--color-text-secondary)' }}
                       />
                     )}
                   </div>
