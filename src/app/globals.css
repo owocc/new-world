@@ -12,10 +12,12 @@
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
+    background-color: var(--color-background-body);
   }
   body {
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    background-color: var(--color-background-body);
   }
   * {
     scrollbar-width: thin;
@@ -23,27 +25,5 @@
   }
   ::selection {
     background: var(--color-accent-muted);
-  }
-}
-
-/* 
- * AppShell Outer Content Container:
- * 四周统一圆角内嵌卡片布局 + 右侧与底部呼吸边距
- */
-@media (min-width: 768px) {
-  .astryx-app-shell .astryx-layout-content {
-    margin: 0 var(--spacing-3, 12px) var(--spacing-3, 12px) 0 !important;
-    border-radius: var(--radius-page, 24px) !important;
-    background-color: var(--color-background-surface) !important;
-    border: 1px solid var(--color-border) !important;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
-    overflow: hidden !important;
-  }
-
-  /* Hide the 1-corner legacy backdrop */
-  .astryx-app-shell [class*="elevatedBackdrop"],
-  .astryx-app-shell .x10l6tqk,
-  .astryx-app-shell .x183tx6i {
-    display: none !important;
   }
 }

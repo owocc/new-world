@@ -42,16 +42,18 @@ export default async function NewCharacterPage() {
     .where(eq(providerConfigs.userId, userId));
 
   return (
-    <div className="mx-auto w-full max-w-[640px] px-4 pb-10 pt-4">
-      <Link
-        href="/characters"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-secondary transition-colors hover:text-primary"
-      >
-        <ArrowLeft size={16} />
-        返回居民
-      </Link>
-      <h1 className="mb-4 text-xl font-semibold tracking-tight">新增居民</h1>
-      <CharacterEditor initial={emptyCharacter} providers={providers} />
+    <div className="h-full min-h-0 w-full overflow-y-auto sm:p-2.5">
+      <div className="mx-auto w-full max-w-[680px] p-4 sm:p-6 sm:rounded-2xl sm:border sm:border-border sm:bg-surface sm:shadow-xs pb-12">
+        <Link
+          href="/characters"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm text-secondary transition-colors hover:text-primary"
+        >
+          <ArrowLeft size={16} />
+          返回联系人
+        </Link>
+        <h1 className="mb-4 text-xl font-semibold tracking-tight">新增居民</h1>
+        <CharacterEditor initial={emptyCharacter} providers={providers} />
+      </div>
     </div>
   );
 }

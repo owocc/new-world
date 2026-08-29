@@ -10,7 +10,7 @@ import {Users} from 'lucide-react';
 import {CharacterCard, RelationshipEditor, type CharacterListItem} from '@/components/character-card';
 import {requireUserId} from '@/lib/session';
 
-export const metadata = {title: 'AI 居民'};
+export const metadata = {title: '联系人'};
 export const dynamic = 'force-dynamic';
 
 export default async function CharactersPage() {
@@ -35,56 +35,58 @@ export default async function CharactersPage() {
   items.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
   return (
-    <div className="mx-auto w-full max-w-[960px] px-4 pb-10 pt-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold tracking-tight">居民</h1>
-        <Link href="/characters/new">
-          <Button label="新增居民" variant="primary" size="sm" icon={<Plus size={15} />} />
-        </Link>
+    <div className="h-full min-h-0 w-full overflow-y-auto sm:p-2.5">
+      <div className="mx-auto w-full max-w-[960px] p-4 sm:p-6 sm:rounded-2xl sm:border sm:border-border sm:bg-surface sm:shadow-xs pb-12">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold tracking-tight">联系人</h1>
+          <Link href="/characters/new">
+            <Button label="新增居民" variant="primary" size="sm" icon={<Plus size={15} />} />
+          </Link>
+        </div>
+
+        {items.length === 0 ? (
+          <div className="py-10">
+            <EmptyState
+              icon={<Users size={40} strokeWidth={1.5} />}
+              title="还没有联系人"
+              description="创建几个不同性格的 AI 居民，让他们住进你的世界"
+              actions={
+                <Link href="/characters/new">
+                  <Button label="创建第一个 AI" variant="primary" />
+                </Link>
+              }
+            />
+          </div>
+        ) : (
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {items.map((c) => (
+              <CharacterCard key={c.id} character={c} />
+            ))}
+          </div>
+        )}
+
+        {items.length > 0 && (
+          <>
+            <Divider className="my-6" />
+            <RelationshipEditor
+              characters={items.map((c) => ({
+                id: c.id,
+                name: c.name,
+                avatarEmoji: c.avatarEmoji,
+                avatarColor: c.avatarColor,
+                avatarUrl: c.avatarUrl,
+              }))}
+              relationships={relationships.map((r) => ({
+                id: r.id,
+                fromCharacterId: r.fromCharacterId,
+                toCharacterId: r.toCharacterId,
+                kind: r.kind,
+                note: r.note,
+              }))}
+            />
+          </>
+        )}
       </div>
-
-      {items.length === 0 ? (
-        <div className="py-10">
-          <EmptyState
-            icon={<Users size={40} strokeWidth={1.5} />}
-            title="社区还没有居民"
-            description="创建几个不同性格的 AI，让他们住进你的世界"
-            actions={
-              <Link href="/characters/new">
-                <Button label="创建第一个 AI" variant="primary" />
-              </Link>
-            }
-          />
-        </div>
-      ) : (
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {items.map((c) => (
-            <CharacterCard key={c.id} character={c} />
-          ))}
-        </div>
-      )}
-
-      {items.length > 0 && (
-        <>
-          <Divider className="my-6" />
-          <RelationshipEditor
-            characters={items.map((c) => ({
-              id: c.id,
-              name: c.name,
-              avatarEmoji: c.avatarEmoji,
-              avatarColor: c.avatarColor,
-              avatarUrl: c.avatarUrl,
-            }))}
-            relationships={relationships.map((r) => ({
-              id: r.id,
-              fromCharacterId: r.fromCharacterId,
-              toCharacterId: r.toCharacterId,
-              kind: r.kind,
-              note: r.note,
-            }))}
-          />
-        </>
-      )}
     </div>
   );
 }

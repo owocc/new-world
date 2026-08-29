@@ -5,27 +5,31 @@ import { usePathname } from 'next/navigation';
 export interface SplitLayoutProps {
   /** Root pathname for the master list (e.g. '/messages', '/settings', '/groups') */
   rootPath: string;
-  /** Width class for the master sidebar (e.g. 'md:w-[320px]', 'md:w-[240px]'). Defaults to 'md:w-[320px]' */
+  /** Width class for the master sidebar (e.g. 'sm:w-[300px]', 'sm:w-[240px]'). Defaults to 'sm:w-[300px]' */
   sidebarWidth?: string;
   /** Secondary sidebar content (e.g. ConversationList, SettingsSidebar) */
   sidebar: React.ReactNode;
   /** Main detail content (children) */
   children: React.ReactNode;
-  /** Whether the detail pane should have internal scroll + standard padding by default */
+  /** Whether the detail pane should have standard padding and scroll wrapper */
   scrollableDetail?: boolean;
 }
 
 /**
- * Unified Next.js nested layout shell for 2-column master-detail views
- * (Chats, Settings, Contacts, etc.).
+ * Universal Next.js nested layout shell for 2-column master-detail views (Chats, Settings).
+ *
+ * Layout Structure:
+ * - Left column (Sidebar): fixed width (280px~300px), always visible on tablet/desktop.
+ * - Right column (Detail Panel): floating embedded card with all 4 corners rounded (rounded-2xl),
+ *   clean breathing margin on all sides, border, and surface background.
  *
  * Responsiveness:
- * - Desktop (md+): Left sidebar (fixed width) + Right detail pane side-by-side.
- * - Mobile (< md): If at rootPath, show sidebar full-screen; if in subroute, show detail full-screen.
+ * - Desktop/Tablet (sm+, >=640px): Sidebar + Embedded Right Panel always side-by-side.
+ * - Mobile Phone (<640px): If at rootPath, show sidebar full-screen; if in subroute, show detail full-screen.
  */
 export function SplitLayout({
   rootPath,
-  sidebarWidth = 'md:w-[320px]',
+  sidebarWidth = 'sm:w-[300px]',
   sidebar,
   children,
   scrollableDetail = false,
@@ -35,27 +39,31 @@ export function SplitLayout({
   const inDetail = pathname !== rootPath;
 
   return (
-    <div className="flex h-full min-h-0 w-full overflow-hidden">
-      {/* Master sidebar: fixed column on desktop; full screen on mobile unless in detail */}
+    <div className="flex h-full min-h-0 w-full overflow-hidden bg-body">
+      {/* Secondary Sidebar (Column 2): always visible on sm+ (>=640px) */}
       <aside
-        className={`w-full shrink-0 overflow-hidden border-border md:h-full ${sidebarWidth} md:border-r ${
-          inDetail ? 'hidden md:block' : 'block'
-        }`}
+        className={`${
+          inDetail ? 'hidden sm:flex' : 'flex'
+        } h-full w-full shrink-0 flex-col overflow-hidden border-border bg-surface ${sidebarWidth} sm:border-r`}
       >
         {sidebar}
       </aside>
 
-      {/* Detail pane */}
+      {/* Right Detail Pane (Column 3): embedded rounded-2xl card with surrounding margins */}
       <section
-        className={`min-h-0 min-w-0 flex-1 flex-col ${
-          scrollableDetail ? 'overflow-y-auto p-4 sm:p-6 lg:p-8' : ''
-        } ${inDetail ? 'flex' : 'hidden md:flex'}`}
+        className={`${
+          inDetail ? 'flex' : 'hidden sm:flex'
+        } min-h-0 min-w-0 flex-1 flex-col sm:p-2.5`}
       >
-        {scrollableDetail ? (
-          <div className="mx-auto w-full max-w-[720px] pb-12">{children}</div>
-        ) : (
-          children
-        )}
+        <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden sm:rounded-2xl sm:border sm:border-border sm:bg-surface sm:shadow-xs">
+          {scrollableDetail ? (
+            <div className="h-full min-h-0 w-full flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+              <div className="mx-auto w-full max-w-[720px] pb-12">{children}</div>
+            </div>
+          ) : (
+            children
+          )}
+        </div>
       </section>
     </div>
   );

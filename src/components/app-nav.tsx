@@ -144,6 +144,7 @@ export function AppNav({
 
   return (
     <AppShell
+      variant="wash"
       height="fill"
       contentPadding={0}
       sideNav={sideNav}
