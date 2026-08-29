@@ -8,6 +8,7 @@ import {
   user,
   aiCharacters,
 } from '@/db/schema';
+import { getFeedCover, setFeedCover } from '@/server/settings';
 
 export const ALLOWED_IMAGE_MIMES = [
   'image/jpeg',
@@ -706,6 +707,62 @@ export async function uploadCharacterAvatar(args: {
   }
 
   return { ok: true, avatarUrl: uploadRes.url, assetId: asset.id };
+}
+
+/**
+ * High-level helper: upload Moments / Feed cover background image.
+ */
+export async function uploadFeedCover(args: {
+  userId: string;
+  buffer: Buffer;
+  originalFilename: string;
+  mimeType: string;
+}): Promise<{ ok: true; coverUrl: string; assetId: string } | { ok: false; error: string }> {
+  const validation = validateMediaFile({
+    buffer: args.buffer,
+    mimeType: args.mimeType,
+    originalFilename: args.originalFilename,
+    purpose: 'general',
+  });
+
+  if (!validation.valid) {
+    return { ok: false, error: validation.error };
+  }
+
+  const ext = validation.verifiedMime.split('/')[1] || 'jpg';
+  const cleanName = sanitizeFilename(args.originalFilename);
+  const pathname = `users/${args.userId}/covers/cover-${Date.now()}-${cleanName}.${ext}`;
+
+  const oldCover = await getFeedCover(args.userId);
+
+  const uploadRes = await uploadToBlobStorage({
+    pathname,
+    buffer: args.buffer,
+    contentType: validation.verifiedMime,
+  });
+
+  const asset = await createMediaAssetRecord({
+    userId: args.userId,
+    mediaType: 'image',
+    blobUrl: uploadRes.url,
+    pathname: uploadRes.pathname,
+    downloadUrl: uploadRes.downloadUrl,
+    mimeType: validation.verifiedMime,
+    fileSize: args.buffer.length,
+    originalFilename: args.originalFilename,
+    width: validation.width,
+    height: validation.height,
+    purpose: 'general',
+    status: 'ready',
+  });
+
+  await setFeedCover(args.userId, uploadRes.url);
+
+  if (oldCover && oldCover !== uploadRes.url) {
+    await deleteFromBlobStorage(oldCover);
+  }
+
+  return { ok: true, coverUrl: uploadRes.url, assetId: asset.id };
 }
 
 /**

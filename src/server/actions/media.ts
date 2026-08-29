@@ -6,6 +6,7 @@ import {
   cleanupOrphanMedia,
   deleteMediaAsset,
   uploadCharacterAvatar,
+  uploadFeedCover,
   uploadUserAvatar,
 } from '@/server/media';
 import { db } from '@/db';
@@ -115,4 +116,32 @@ export async function updateCharacterAvatarUrlAction(characterId: string, avatar
   revalidatePath('/characters');
   revalidatePath(`/characters/${characterId}`);
   return { ok: true };
+}
+
+/**
+ * Server Action: Upload and save Moments / Feed background cover image.
+ */
+export async function uploadFeedCoverAction(
+  formData: FormData,
+): Promise<{ ok: true; coverUrl: string; assetId: string } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  const file = formData.get('file') as File | null;
+
+  if (!file) {
+    return { ok: false, error: '请选择要上传的背景图片' };
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const res = await uploadFeedCover({
+    userId,
+    buffer,
+    originalFilename: file.name || 'cover.jpg',
+    mimeType: file.type || 'image/jpeg',
+  });
+
+  if (res.ok) {
+    revalidatePath('/feed');
+  }
+
+  return res;
 }

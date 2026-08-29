@@ -1,6 +1,6 @@
 'use server';
 
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { z } from 'zod';
@@ -8,7 +8,9 @@ import { db } from '@/db';
 import { aiCharacters, comments, communityEvents, notifications, posts, reactions } from '@/db/schema';
 import { requireUserId } from '@/lib/session';
 import { enqueueEvent } from '@/server/ai/community/events';
-import { processEvent } from '@/server/ai/community/engine';
+import { maybePulse, processDueEvents, processEvent } from '@/server/ai/community/engine';
+import { uploadFeedCover } from '@/server/media';
+import { setFeedCover } from '@/server/settings';
 
 const createPostSchema = z.object({
   content: z.string().trim().min(1, '写点什么吧').max(2000, '最多 2000 字'),
@@ -199,5 +201,118 @@ export async function markSingleNotificationRead(notificationId: string) {
     .set({ read: true })
     .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
   revalidatePath('/notifications');
+  return { ok: true };
+}
+
+export async function getFeedNotifications(limit = 20): Promise<NotificationItem[]> {
+  const userId = await requireUserId();
+  const rows = await db
+    .select({
+      id: notifications.id,
+      type: notifications.type,
+      content: notifications.content,
+      read: notifications.read,
+      createdAt: notifications.createdAt,
+      conversationId: notifications.conversationId,
+      postId: notifications.postId,
+      characterName: aiCharacters.name,
+      characterEmoji: aiCharacters.avatarEmoji,
+      characterColor: aiCharacters.avatarColor,
+      characterAvatarUrl: aiCharacters.avatarUrl,
+    })
+    .from(notifications)
+    .leftJoin(aiCharacters, eq(notifications.characterId, aiCharacters.id))
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        or(
+          inArray(notifications.type, ['comment', 'like']),
+          isNotNull(notifications.postId),
+        ),
+      ),
+    )
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit);
+
+  return rows;
+}
+
+export async function getUnreadFeedNotificationCount(): Promise<number> {
+  const userId = await requireUserId();
+  const [{ count }] = await db
+    .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        eq(notifications.read, false),
+        or(
+          inArray(notifications.type, ['comment', 'like']),
+          isNotNull(notifications.postId),
+        ),
+      ),
+    );
+  return count;
+}
+
+export async function markFeedNotificationsRead() {
+  const userId = await requireUserId();
+  await db
+    .update(notifications)
+    .set({ read: true })
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        eq(notifications.read, false),
+        or(
+          inArray(notifications.type, ['comment', 'like']),
+          isNotNull(notifications.postId),
+        ),
+      ),
+    );
+  revalidatePath('/feed');
+  return { ok: true };
+}
+
+export async function triggerFeedPulseAction() {
+  const userId = await requireUserId();
+  try {
+    await maybePulse(userId);
+    await processDueEvents(userId, 3);
+  } catch (err) {
+    console.error('[feed] manual pulse failed', err);
+  }
+  revalidatePath('/feed');
+  return { ok: true };
+}
+
+export async function uploadFeedCoverAction(
+  formData: FormData,
+): Promise<{ ok: true; coverUrl: string; assetId: string } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  const file = formData.get('file') as File | null;
+
+  if (!file) {
+    return { ok: false, error: '请选择要上传的背景图片' };
+  }
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const res = await uploadFeedCover({
+    userId,
+    buffer,
+    originalFilename: file.name || 'cover.jpg',
+    mimeType: file.type || 'image/jpeg',
+  });
+
+  if (res.ok) {
+    revalidatePath('/feed');
+  }
+
+  return res;
+}
+
+export async function updateFeedCoverUrlAction(coverUrl: string | null) {
+  const userId = await requireUserId();
+  await setFeedCover(userId, coverUrl);
+  revalidatePath('/feed');
   return { ok: true };
 }

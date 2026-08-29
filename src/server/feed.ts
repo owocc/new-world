@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { aiCharacters, comments, posts, reactions, user } from '@/db/schema';
+import { getFeedCover } from '@/server/settings';
 
 export type FeedPost = {
   id: string;
@@ -41,10 +42,18 @@ function basePostQuery(viewerUserId: string) {
     })
     .from(posts);
 }
-
-export async function getFeedPosts(userId: string, limit = 30, offset = 0): Promise<FeedPost[]> {
+export async function getFeedPosts(
+  userId: string,
+  limit = 30,
+  offset = 0,
+  filter?: 'all' | 'mine',
+): Promise<FeedPost[]> {
+  const conditions = [eq(posts.userId, userId)];
+  if (filter === 'mine') {
+    conditions.push(eq(posts.authorType, 'user'));
+  }
   const rows = await basePostQuery(userId)
-    .where(eq(posts.userId, userId))
+    .where(and(...conditions))
     .orderBy(desc(posts.createdAt))
     .limit(limit)
     .offset(offset);
@@ -114,3 +123,5 @@ export async function getUserProfile(userId: string) {
   const [u] = await db.select().from(user).where(eq(user.id, userId)).limit(1);
   return u ?? null;
 }
+
+export { getFeedCover };

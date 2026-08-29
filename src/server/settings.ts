@@ -67,3 +67,9 @@ export const getDefaultAIConfig = (userId: string) =>
 
 export const getCommunityConfig = (userId: string) =>
   getSetting<CommunityConfig>(userId, 'community', DEFAULT_COMMUNITY_CONFIG);
+
+export const getFeedCover = (userId: string) =>
+  getSetting<string | null>(userId, 'feed_cover_url', null);
+
+export const setFeedCover = (userId: string, coverUrl: string | null) =>
+  setSetting(userId, 'feed_cover_url', coverUrl);

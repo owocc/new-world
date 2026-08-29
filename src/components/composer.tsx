@@ -1,30 +1,53 @@
 'use client';
 
-import {useRouter} from 'next/navigation';
-import {useState} from 'react';
-import {Dialog} from '@astryxdesign/core/Dialog';
-import {Layout} from '@astryxdesign/core/Layout';
-import {LayoutHeader} from '@astryxdesign/core/Layout';
-import {LayoutContent} from '@astryxdesign/core/Layout';
-import {LayoutFooter} from '@astryxdesign/core/Layout';
-import {TextArea} from '@astryxdesign/core/TextArea';
-import {Button} from '@astryxdesign/core/Button';
-import {useAppToast} from '@/lib/toast';
-import {UserAvatar} from '@/components/user-avatar';
-import {createPost} from '@/server/actions/feed';
+import { useRouter } from 'next/navigation';
+import { useState, useCallback } from 'react';
+import { Dialog } from '@astryxdesign/core/Dialog';
+import { Layout } from '@astryxdesign/core/Layout';
+import { LayoutHeader } from '@astryxdesign/core/Layout';
+import { LayoutContent } from '@astryxdesign/core/Layout';
+import { LayoutFooter } from '@astryxdesign/core/Layout';
+import { TextArea } from '@astryxdesign/core/TextArea';
+import { Button } from '@astryxdesign/core/Button';
+import { useAppToast } from '@/lib/toast';
+import { UserAvatar } from '@/components/user-avatar';
+import { createPost } from '@/server/actions/feed';
+
+export interface ComposerProps {
+  userName: string;
+  userImage?: string | null;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger?: React.ReactNode;
+  hideDefaultTrigger?: boolean;
+}
 
 export function Composer({
   userName,
-  userImage,
-}: {
-  userName: string;
-  userImage: string | null;
-}) {
+  userImage = null,
+  isOpen: controlledOpen,
+  onOpenChange: setControlledOpen,
+  trigger,
+  hideDefaultTrigger = false,
+}: ComposerProps) {
   const router = useRouter();
   const toast = useAppToast();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = useCallback(
+    (nextOpen: boolean) => {
+      if (isControlled) {
+        setControlledOpen?.(nextOpen);
+      } else {
+        setInternalOpen(nextOpen);
+      }
+    },
+    [isControlled, setControlledOpen],
+  );
 
   const submit = async () => {
     if (!content.trim() || loading) return;
@@ -45,21 +68,27 @@ export function Composer({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-3 rounded-container px-2 py-3 text-left transition-colors hover:bg-muted"
-      >
-        <UserAvatar name={userName} url={userImage} size={40} />
-        <span className="text-[15px] text-placeholder">现在在想什么，{userName}？</span>
-      </button>
+      {trigger ? (
+        <span onClick={() => setOpen(true)} className="inline-flex cursor-pointer">
+          {trigger}
+        </span>
+      ) : !hideDefaultTrigger ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex w-full items-center gap-3 rounded-container px-2 py-3 text-left transition-colors hover:bg-muted"
+        >
+          <UserAvatar name={userName} url={userImage} size={40} />
+          <span className="text-[15px] text-placeholder">现在在想什么，{userName}？</span>
+        </button>
+      ) : null}
 
       <Dialog isOpen={open} onOpenChange={setOpen} purpose="form" width={520}>
         <Layout
           height="auto"
           header={
             <LayoutHeader hasDivider>
-              <h2 className="text-lg font-semibold">发布动态</h2>
+              <h2 className="text-lg font-semibold text-primary">发布朋友圈</h2>
             </LayoutHeader>
           }
           content={
@@ -71,7 +100,7 @@ export function Composer({
                 onChange={setContent}
                 rows={5}
                 maxLength={2000}
-                placeholder={`现在在想什么，${userName}？`}
+                placeholder={`这一刻的想法，${userName}…`}
                 htmlName="content"
                 hasAutoFocus
               />
@@ -81,7 +110,7 @@ export function Composer({
             <LayoutFooter hasDivider>
               <Button label="取消" variant="ghost" onClick={() => setOpen(false)} />
               <Button
-                label={loading ? '发布中…' : '发布'}
+                label={loading ? '发布中…' : '发表'}
                 variant="primary"
                 isDisabled={!content.trim() || loading}
                 isLoading={loading}
