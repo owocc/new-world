@@ -15,7 +15,6 @@ import {
   getUsageSummary,
   type UsageRange,
 } from '@/server/usage';
-import { PageContainer } from '@/components/page-container';
 
 export const metadata = { title: '用量统计' };
 export const dynamic = 'force-dynamic';
@@ -64,9 +63,9 @@ export default async function UsagePage({
   }));
 
   return (
-    <PageContainer className="space-y-4 pt-4">
+    <div className="mx-auto w-full max-w-[960px] space-y-4 px-4 pb-10 pt-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">用量统计</h1>
+        <h1 className="text-xl font-semibold tracking-tight">用量统计</h1>
         <Suspense fallback={null}>
           <UsageFilters range={filters.range} characters={options.characters} models={options.models} />
         </Suspense>
@@ -82,6 +81,6 @@ export default async function UsagePage({
         <BreakdownTable title="各 Provider 消耗" rows={providerRows} />
         <BreakdownTable title="各功能消耗" rows={callTypeRows} />
       </div>
-    </PageContainer>
+    </div>
   );
 }

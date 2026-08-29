@@ -1,11 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { authClient } from '@/lib/auth-client';
+import {useRouter} from 'next/navigation';
+import {useState} from 'react';
+import {Banner} from '@astryxdesign/core/Banner';
+import {Button} from '@astryxdesign/core/Button';
+import {TextInput} from '@astryxdesign/core/TextInput';
+import {VStack} from '@astryxdesign/core/Stack';
+import {authClient} from '@/lib/auth-client';
+import {nativeAttrs} from '@/lib/native-attrs';
 
-export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
+export function AuthForm({mode}: {mode: 'login' | 'register'}) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -21,8 +26,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     setLoading(true);
     try {
       const result = isRegister
-        ? await authClient.signUp.email({ name: name.trim(), email: email.trim(), password })
-        : await authClient.signIn.email({ email: email.trim(), password });
+        ? await authClient.signUp.email({name: name.trim(), email: email.trim(), password})
+        : await authClient.signIn.email({email: email.trim(), password});
 
       if (result.error) {
         setError(
@@ -42,85 +47,84 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   };
 
   return (
-    <div className="w-full max-w-sm animate-slide-up rounded-3xl border border-line surface p-6 shadow-xl shadow-black/5">
-      <h2 className="mb-1 text-xl font-bold">{isRegister ? '创建你的世界' : '欢迎回来'}</h2>
-      <p className="mb-6 text-sm text-muted">
-        {isRegister ? '注册后，6 位 AI 居民已经在社区里等你了' : '登录进入你的 AI 社区'}
-      </p>
+    <VStack gap={5} className="w-full max-w-sm rounded-container border border-border bg-card p-6 shadow-low">
+      <VStack gap={1}>
+        <h1 className="text-xl font-semibold tracking-tight">{isRegister ? '创建你的世界' : '欢迎回来'}</h1>
+        <p className="text-sm text-secondary">
+          {isRegister ? '注册后，6 位 AI 居民已经在社区里等你了' : '登录进入你的 AI 社区'}
+        </p>
+      </VStack>
 
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        {isRegister && (
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">昵称</label>
-            <input
+      <form onSubmit={submit}>
+        <VStack gap={4}>
+          {isRegister && (
+            <TextInput
+              label="昵称"
+              isRequired
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              maxLength={30}
+              onChange={setName}
+              {...nativeAttrs({maxLength: 30})}
               placeholder="你的名字"
-              className="w-full rounded-xl border border-line surface-2 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-accent-400)] focus:ring-2 focus:ring-[var(--color-accent-100)] dark:focus:ring-[color-mix(in_srgb,var(--color-accent-500)_25%,transparent)]"
+              htmlName="name"
             />
-          </div>
-        )}
-        <div>
-          <label className="mb-1.5 block text-sm font-medium">邮箱</label>
-          <input
+          )}
+          <TextInput
+            label="邮箱"
             type="email"
+            isRequired
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
+            onChange={setEmail}
             placeholder="you@example.com"
-            autoComplete="email"
-            className="w-full rounded-xl border border-line surface-2 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-accent-400)] focus:ring-2 focus:ring-[var(--color-accent-100)] dark:focus:ring-[color-mix(in_srgb,var(--color-accent-500)_25%,transparent)]"
+            {...nativeAttrs({autoComplete: 'email'})}
+            htmlName="email"
           />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium">密码</label>
-          <input
+          <TextInput
+            label="密码"
             type="password"
+            isRequired
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-            placeholder="至少 8 位"
-            autoComplete={isRegister ? 'new-password' : 'current-password'}
-            className="w-full rounded-xl border border-line surface-2 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-accent-400)] focus:ring-2 focus:ring-[var(--color-accent-100)] dark:focus:ring-[color-mix(in_srgb,var(--color-accent-500)_25%,transparent)]"
+            onChange={setPassword}
+            description="至少 8 位"
+            {...nativeAttrs({
+              minLength: 8,
+              autoComplete: isRegister ? 'new-password' : 'current-password',
+            })}
+            htmlName="password"
           />
-        </div>
 
-        {error && (
-          <p className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-600 dark:text-rose-400">
-            {error}
-          </p>
-        )}
+          {error && (
+            <Banner status="error" title={error} container="card" collapsible={false} />
+          )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="mt-1 w-full rounded-xl bg-[var(--color-accent-600)] py-2.5 text-sm font-semibold text-white transition-all hover:bg-[var(--color-accent-700)] disabled:opacity-60"
-        >
-          {loading ? '请稍候…' : isRegister ? '入住' : '登录'}
-        </button>
+          <Button
+            label={loading ? '请稍候…' : isRegister ? '入住' : '登录'}
+            type="submit"
+            variant="primary"
+            isDisabled={loading}
+            isLoading={loading}
+            width="100%"
+          />
+        </VStack>
       </form>
 
-      <p className="mt-5 text-center text-sm text-secondary">
+      <p className="text-center text-sm text-secondary">
         {isRegister ? (
           <>
             已经有账号了？{' '}
-            <Link href="/login" className="font-medium text-[var(--color-accent-600)] hover:underline dark:text-[var(--color-accent-300)]">
+            <Link href="/login" className="font-medium text-accent hover:underline">
               登录
             </Link>
           </>
         ) : (
           <>
             还没有入住？{' '}
-            <Link href="/register" className="font-medium text-[var(--color-accent-600)] hover:underline dark:text-[var(--color-accent-300)]">
+            <Link href="/register" className="font-medium text-accent hover:underline">
               创建账号
             </Link>
           </>
         )}
       </p>
-    </div>
+    </VStack>
   );
 }
 

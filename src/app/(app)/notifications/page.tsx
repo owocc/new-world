@@ -1,14 +1,16 @@
 import Link from 'next/link';
-import { desc, eq } from 'drizzle-orm';
-import { db } from '@/db';
-import { aiCharacters, notifications } from '@/db/schema';
-import { Avatar } from '@/components/avatar';
-import { EmptyState, TimeAgo } from '@/components/ui';
-import { requireUserId } from '@/lib/session';
-import { markNotificationsRead } from '@/server/actions/feed';
-import { PageContainer } from '@/components/page-container';
+import {desc, eq} from 'drizzle-orm';
+import {Bell} from 'lucide-react';
+import {db} from '@/db';
+import {aiCharacters, notifications} from '@/db/schema';
+import {EmptyState} from '@astryxdesign/core/EmptyState';
+import {Text} from '@astryxdesign/core/Text';
+import {requireUserId} from '@/lib/session';
+import {markNotificationsRead} from '@/server/actions/feed';
+import {UserAvatar} from '@/components/user-avatar';
+import {TimeAgo} from '@/components/time-ago';
 
-export const metadata = { title: '通知' };
+export const metadata = {title: '通知'};
 export const dynamic = 'force-dynamic';
 
 export default async function NotificationsPage() {
@@ -36,25 +38,21 @@ export default async function NotificationsPage() {
   if (rows.length > 0) await markNotificationsRead();
 
   return (
-    <PageContainer className="pt-4">
-      <h1 className="mb-4 px-0 text-xl font-bold">通知</h1>
+    <div className="mx-auto w-full max-w-[640px] px-4 pb-10 pt-4">
+      <h1 className="mb-4 text-xl font-semibold tracking-tight">通知</h1>
       {rows.length === 0 ? (
-        <div className="rounded-3xl border border-line surface">
-          <EmptyState icon="🔔" title="还没有通知" description="AI 居民们的动静会出现在这里" />
-        </div>
+        <EmptyState
+          icon={<Bell size={40} strokeWidth={1.5} />}
+          title="还没有通知"
+          description="AI 居民们的动静会出现在这里"
+        />
       ) : (
-        <div className="overflow-hidden rounded-3xl border border-line surface shadow-sm">
-          {rows.map((n, i) => {
+        <div className="divide-y divide-border">
+          {rows.map((n) => {
             const href = n.conversationId ? `/messages/${n.conversationId}` : n.postId ? `/post/${n.postId}` : '/feed';
             return (
-              <Link
-                key={n.id}
-                href={href}
-                className={`flex items-center gap-3 px-4 py-3.5 transition-colors hover:surface-2 ${
-                  i > 0 ? 'border-t border-line' : ''
-                }`}
-              >
-                <Avatar
+              <Link key={n.id} href={href} className="flex items-center gap-3 py-3.5 transition-colors hover:bg-muted">
+                <UserAvatar
                   name={n.characterName ?? '系统'}
                   emoji={n.characterEmoji ?? '✨'}
                   color={n.characterColor ?? 'violet'}
@@ -62,20 +60,22 @@ export default async function NotificationsPage() {
                   size={38}
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm">
+                  <Text as="div" size="sm">
                     <span className="font-semibold">{n.characterName ?? '系统'}</span>
                     <span className="text-secondary">
                       {n.type === 'dm' ? ' 给你发来一条私信' : n.type === 'comment' ? ' 评论了你的动态' : ' 与你互动'}
                     </span>
-                  </div>
-                  <p className="mt-0.5 truncate text-xs text-muted">{n.content}</p>
+                  </Text>
+                  <Text type="supporting" size="sm" as="p" className="mt-0.5 truncate">
+                    {n.content}
+                  </Text>
                 </div>
-                <TimeAgo date={n.createdAt} className="shrink-0 text-xs text-muted" />
+                <TimeAgo date={n.createdAt} className="shrink-0 text-xs text-secondary" />
               </Link>
             );
           })}
         </div>
       )}
-    </PageContainer>
+    </div>
   );
 }

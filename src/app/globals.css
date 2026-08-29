@@ -1,172 +1,27 @@
-@import 'tailwindcss';
+@layer reset, theme, base, astryx-base, astryx-theme, components, utilities;
 
-@custom-variant dark (&:where(.dark, .dark *));
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/preflight.css' layer(base);
+@import '@astryxdesign/core/reset.css';
+@import '@astryxdesign/core/astryx.css';
+@import '../theme/my-world.css';
+@import '@astryxdesign/core/tailwind-theme.css';
+@import 'tailwindcss/utilities.css' layer(utilities);
 
-@theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB',
-    'Microsoft YaHei', 'Noto Sans SC', sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-
-  --color-accent-50: #f3f0ff;
-  --color-accent-100: #e9e2ff;
-  --color-accent-200: #d6c9ff;
-  --color-accent-300: #b9a3ff;
-  --color-accent-400: #9a75ff;
-  --color-accent-500: #8250f5;
-  --color-accent-600: #7038e8;
-  --color-accent-700: #5f28cc;
-  --color-accent-800: #4e22a6;
-  --color-accent-900: #411e85;
-
-  --animate-fade-in: fade-in 0.25s ease-out both;
-  --animate-slide-up: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
-
-  @keyframes fade-in {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-  @keyframes slide-up {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  @keyframes pulse-soft {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.45;
-    }
-  }
-}
-
-:root {
-  --bg: #fafafa;
-  --surface: #ffffff;
-  --surface-2: #f4f4f5;
-  --border: #e4e4e7;
-  --text: #18181b;
-  --text-2: #52525b;
-  --text-3: #a1a1aa;
-}
-
-.dark {
-  --bg: #0c0c0e;
-  --surface: #17171a;
-  --surface-2: #202024;
-  --border: #2a2a30;
-  --text: #f4f4f5;
-  --text-2: #a1a1aa;
-  --text-3: #71717a;
-}
-
+/* App-level chrome only. All colors/spacings come from Astryx tokens. */
 @layer base {
   html {
-    background: var(--bg);
     -webkit-tap-highlight-color: transparent;
   }
   body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-sans);
-    letter-spacing: 0.01em;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
-  ::selection {
-    background: var(--color-accent-200);
-    color: var(--color-accent-900);
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
   }
-}
-
-@utility surface {
-  background: var(--surface);
-  border-color: var(--border);
-}
-
-@utility surface-2 {
-  background: var(--surface-2);
-}
-
-@utility text-secondary {
-  color: var(--text-2);
-}
-
-@utility text-muted {
-  color: var(--text-3);
-}
-
-@utility border-line {
-  border-color: var(--border);
-}
-
-/* thin scrollbars */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-}
-
-/* chat markdown */
-.chat-md p {
-  margin: 0.15rem 0;
-}
-.chat-md p:first-child {
-  margin-top: 0;
-}
-.chat-md p:last-child {
-  margin-bottom: 0;
-}
-.chat-md code {
-  font-family: var(--font-mono);
-  font-size: 0.85em;
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-  padding: 0.1em 0.35em;
-  border-radius: 0.35em;
-}
-.chat-md pre {
-  background: color-mix(in srgb, var(--text) 6%, transparent);
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  padding: 0.75rem 1rem;
-  overflow-x: auto;
-  margin: 0.5rem 0;
-  font-size: 0.85rem;
-  line-height: 1.5;
-}
-.chat-md pre code {
-  background: none;
-  padding: 0;
-}
-.chat-md ul,
-.chat-md ol {
-  padding-left: 1.2rem;
-  margin: 0.25rem 0;
-}
-.chat-md ul {
-  list-style: disc;
-}
-.chat-md ol {
-  list-style: decimal;
-}
-.chat-md a {
-  color: var(--color-accent-500);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.chat-md blockquote {
-  border-left: 3px solid var(--border);
-  padding-left: 0.75rem;
-  color: var(--text-2);
-  margin: 0.4rem 0;
+  ::selection {
+    background: var(--color-accent-muted);
+  }
 }

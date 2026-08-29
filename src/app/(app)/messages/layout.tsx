@@ -1,14 +1,15 @@
-import { and, eq, notInArray } from 'drizzle-orm';
-import { db } from '@/db';
-import { aiCharacters } from '@/db/schema';
-import { ConversationList } from '@/components/conversation-list';
-import { requireUserId } from '@/lib/session';
-import { getConversations } from '@/server/chat';
+import {and, eq, notInArray} from 'drizzle-orm';
+import {db} from '@/db';
+import {aiCharacters} from '@/db/schema';
+import {ConversationList} from '@/components/conversation-list';
+import {MessagesShell} from '@/components/messages-shell';
+import {requireUserId} from '@/lib/session';
+import {getConversations} from '@/server/chat';
 
-export const metadata = { title: '私信' };
+export const metadata = {title: '私信'};
 export const dynamic = 'force-dynamic';
 
-export default async function MessagesLayout({ children }: { children: React.ReactNode }) {
+export default async function MessagesLayout({children}: {children: React.ReactNode}) {
   const userId = await requireUserId();
   const conversations = await getConversations(userId);
 
@@ -25,13 +26,8 @@ export default async function MessagesLayout({ children }: { children: React.Rea
     );
 
   return (
-    <div className="lg:grid lg:h-dvh lg:grid-cols-[320px_1fr]">
-      <aside className="border-b border-line lg:h-dvh lg:border-b-0 lg:border-r">
-        <ConversationList conversations={conversations} contacts={contacts} />
-      </aside>
-      <section className="min-h-[calc(100dvh-3.5rem)] lg:h-dvh lg:min-h-0 lg:overflow-hidden">
-        {children}
-      </section>
-    </div>
+    <MessagesShell conversations={conversations} contacts={contacts}>
+      {children}
+    </MessagesShell>
   );
 }

@@ -1,13 +1,18 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
-import { SendHorizonal } from 'lucide-react';
-import { toast } from 'sonner';
-import { Avatar } from '@/components/avatar';
-import { TimeAgo } from '@/components/ui';
-import { addComment } from '@/server/actions/feed';
-import type { CommentView } from '@/server/feed';
+import {useState, useTransition} from 'react';
+import {useRouter} from 'next/navigation';
+import {SendHorizonal} from 'lucide-react';
+import {IconButton} from '@astryxdesign/core/IconButton';
+import {Section} from '@astryxdesign/core/Section';
+import {Text} from '@astryxdesign/core/Text';
+import {TextArea} from '@astryxdesign/core/TextArea';
+import {VStack} from '@astryxdesign/core/Stack';
+import {useAppToast} from '@/lib/toast';
+import {UserAvatar} from '@/components/user-avatar';
+import {TimeAgo} from '@/components/time-ago';
+import {addComment} from '@/server/actions/feed';
+import type {CommentView} from '@/server/feed';
 
 function CommentItem({
   comment,
@@ -19,8 +24,8 @@ function CommentItem({
   canReply?: boolean;
 }) {
   return (
-    <div className="flex gap-2.5 py-2.5">
-      <Avatar
+    <div className="flex gap-2.5 py-3">
+      <UserAvatar
         name={comment.authorName}
         emoji={comment.authorAvatarEmoji}
         color={comment.authorAvatarColor}
@@ -30,15 +35,15 @@ function CommentItem({
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <span className="text-[13px] font-semibold">{comment.authorName}</span>
-          <TimeAgo date={comment.createdAt} className="text-[11px] text-muted" />
+          <TimeAgo date={comment.createdAt} className="text-xs text-secondary" />
         </div>
-        <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-relaxed">
+        <Text as="p" size="sm" textWrap="wrap" className="mt-0.5 whitespace-pre-wrap break-words leading-relaxed">
           {comment.content}
-        </p>
+        </Text>
         {canReply && (
           <button
             onClick={onReply}
-            className="mt-1 text-xs text-muted transition-colors hover:text-[var(--color-accent-500)]"
+            className="mt-1 text-xs text-secondary transition-colors hover:text-accent"
           >
             回复
           </button>
@@ -58,6 +63,7 @@ export function CommentSection({
   replies: CommentView[];
 }) {
   const router = useRouter();
+  const toast = useAppToast();
   const [content, setContent] = useState('');
   const [replyTo, setReplyTo] = useState<CommentView | null>(null);
   const [pending, startTransition] = useTransition();
@@ -82,22 +88,24 @@ export function CommentSection({
   };
 
   return (
-    <div className="mt-4 rounded-3xl border border-line surface p-4 shadow-sm sm:p-5">
-      <h3 className="mb-1 text-sm font-semibold text-secondary">
+    <Section variant="transparent" padding={0}>
+      <Text weight="medium" as="h3" className="mb-1">
         评论 {topLevel.length + replies.length > 0 && `· ${topLevel.length + replies.length}`}
-      </h3>
+      </Text>
 
       {topLevel.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted">还没有评论，来说点什么吧</p>
+        <Text type="supporting" as="p" className="py-6 text-center">
+          还没有评论，来说点什么吧
+        </Text>
       ) : (
-        <div className="divide-y divide-[var(--border)]">
+        <div className="divide-y divide-border">
           {topLevel.map((comment) => (
             <div key={comment.id}>
               <CommentItem comment={comment} canReply onReply={() => setReplyTo(comment)} />
               {replies
                 .filter((r) => r.parentCommentId === comment.id)
                 .map((r) => (
-                  <div key={r.id} className="ml-8 border-l border-line pl-3">
+                  <div key={r.id} className="ml-8 border-l border-border pl-3">
                     <CommentItem comment={r} />
                   </div>
                 ))}
@@ -106,36 +114,34 @@ export function CommentSection({
         </div>
       )}
 
-      {/* reply hint */}
       {replyTo && (
-        <div className="mt-2 flex items-center justify-between rounded-xl surface-2 px-3 py-2 text-xs text-secondary">
+        <div className="mt-2 flex items-center justify-between rounded-xl bg-muted px-3 py-2 text-xs text-secondary">
           <span>回复 {replyTo.authorName}</span>
-          <button onClick={() => setReplyTo(null)} className="text-muted hover:text-rose-500">
+          <button onClick={() => setReplyTo(null)} className="transition-colors hover:text-error">
             取消
           </button>
         </div>
       )}
 
       <div className="mt-3 flex items-end gap-2">
-        <textarea
+        <TextArea
+          label="评论"
+          isLabelHidden
+          width="100%"
           value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit();
-          }}
-          rows={1}
+          onChange={setContent}
+          rows={2}
           placeholder="写评论…"
-          className="max-h-28 min-h-10 w-full resize-none rounded-xl border border-line surface-2 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-accent-400)]"
+          htmlName="comment"
         />
-        <button
+        <IconButton
+          label="发送评论"
+          variant="primary"
+          icon={<SendHorizonal size={17} />}
+          isDisabled={!content.trim() || pending}
           onClick={submit}
-          disabled={!content.trim() || pending}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-accent-600)] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-          aria-label="发送评论"
-        >
-          <SendHorizonal size={17} />
-        </button>
+        />
       </div>
-    </div>
+    </Section>
   );
 }

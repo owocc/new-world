@@ -1,17 +1,21 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { LogOut } from 'lucide-react';
-import { toast } from 'sonner';
-import { authClient } from '@/lib/auth-client';
-import { changePassword } from '@/server/actions/settings';
+import {useState} from 'react';
+import {useRouter} from 'next/navigation';
+import {LogOut} from 'lucide-react';
+import {Button} from '@astryxdesign/core/Button';
+import {Section} from '@astryxdesign/core/Section';
+import {TextInput} from '@astryxdesign/core/TextInput';
+import {VStack} from '@astryxdesign/core/Stack';
+import {Text} from '@astryxdesign/core/Text';
+import {useAppToast} from '@/lib/toast';
+import {authClient} from '@/lib/auth-client';
+import {nativeAttrs} from '@/lib/native-attrs';
+import {changePassword} from '@/server/actions/settings';
 
-const inputCls =
-  'w-full rounded-xl border border-line surface-2 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-accent-400)]';
-
-export function AccountSettings({ email, createdAt }: { email: string; createdAt: string }) {
+export function AccountSettings({email, createdAt}: {email: string; createdAt: string}) {
   const router = useRouter();
+  const toast = useAppToast();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [saving, setSaving] = useState(false);
@@ -22,7 +26,7 @@ export function AccountSettings({ email, createdAt }: { email: string; createdAt
       return;
     }
     setSaving(true);
-    const res = await changePassword({ currentPassword, newPassword });
+    const res = await changePassword({currentPassword, newPassword});
     setSaving(false);
     if (res?.error) {
       toast.error(res.error);
@@ -40,57 +44,72 @@ export function AccountSettings({ email, createdAt }: { email: string; createdAt
   };
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-3xl border border-line surface p-4 shadow-sm sm:p-5">
-        <h2 className="mb-4 text-base font-bold">账号信息</h2>
-        <dl className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-secondary">邮箱</dt>
-            <dd className="font-medium">{email}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-secondary">注册时间</dt>
-            <dd className="font-medium">{createdAt}</dd>
-          </div>
-        </dl>
-      </section>
+    <VStack gap={8}>
+      <Section variant="transparent" padding={0}>
+        <VStack gap={4}>
+          <h2 className="text-base font-semibold">账号信息</h2>
+          <VStack gap={2}>
+            <HRow label="邮箱" value={email} />
+            <HRow label="注册时间" value={createdAt} />
+          </VStack>
+        </VStack>
+      </Section>
 
-      <section className="rounded-3xl border border-line surface p-4 shadow-sm sm:p-5">
-        <h2 className="mb-4 text-base font-bold">修改密码</h2>
-        <div className="grid gap-3 sm:max-w-md">
-          <input
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            placeholder="当前密码"
-            autoComplete="current-password"
-            className={inputCls}
-          />
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="新密码（至少 8 位）"
-            autoComplete="new-password"
-            className={inputCls}
-          />
-          <button onClick={change} disabled={saving} className="rounded-xl bg-[var(--color-accent-600)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
-            {saving ? '保存中…' : '修改密码'}
-          </button>
-        </div>
-      </section>
+      <Section variant="transparent" padding={0}>
+        <VStack gap={4}>
+          <h2 className="text-base font-semibold">修改密码</h2>
+          <div className="grid gap-3 sm:max-w-md sm:gap-4">
+            <TextInput
+              label="当前密码"
+              type="password"
+              value={currentPassword}
+              onChange={setCurrentPassword}
+              {...nativeAttrs({autoComplete: 'current-password'})}
+              htmlName="current-password"
+            />
+            <TextInput
+              label="新密码"
+              type="password"
+              value={newPassword}
+              onChange={setNewPassword}
+              description="至少 8 位"
+              {...nativeAttrs({autoComplete: 'new-password'})}
+              htmlName="new-password"
+            />
+            <div>
+              <Button label="修改密码" variant="primary" onClick={change} isDisabled={saving} isLoading={saving} />
+            </div>
+          </div>
+        </VStack>
+      </Section>
 
-      <section className="rounded-3xl border border-line surface p-4 shadow-sm sm:p-5">
-        <h2 className="mb-1 text-base font-bold text-rose-500">退出登录</h2>
-        <p className="mb-4 text-xs text-muted">退出后需要重新登录才能回到你的社区。</p>
-        <button
-          onClick={signOut}
-          className="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-500 transition-colors hover:bg-rose-500/20"
-        >
-          <LogOut size={15} />
-          退出登录
-        </button>
-      </section>
+      <Section variant="transparent" padding={0}>
+        <VStack gap={3}>
+          <h2 className="text-base font-semibold text-error">退出登录</h2>
+          <Text type="supporting" size="sm" as="p">
+            退出后需要重新登录才能回到你的社区。
+          </Text>
+          <div>
+            <Button
+              label="退出登录"
+              variant="destructive"
+              icon={<LogOut size={15} />}
+              onClick={signOut}
+            />
+          </div>
+        </VStack>
+      </Section>
+    </VStack>
+  );
+}
+
+function HRow({label, value}: {label: string; value: string}) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 text-sm">
+      <Text type="supporting" as="span">
+        {label}
+      </Text>
+      <span className="truncate font-medium">{value}</span>
     </div>
   );
 }

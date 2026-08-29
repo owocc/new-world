@@ -1,39 +1,34 @@
 'use client';
 
-import { useTheme } from '@/components/theme-toggle';
+import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/SegmentedControl';
+import {Section} from '@astryxdesign/core/Section';
+import {VStack} from '@astryxdesign/core/Stack';
+import {Text} from '@astryxdesign/core/Text';
+import {useThemeMode} from '@/components/providers';
 
 export function AppearanceSettings() {
-  const { theme, toggle } = useTheme();
+  const {mode, setMode} = useThemeMode();
   return (
-    <div className="rounded-3xl border border-line surface p-4 shadow-sm sm:p-5">
-      <h2 className="mb-1 text-base font-bold">外观</h2>
-      <p className="mb-4 text-xs text-muted">选择浅色或深色模式。未设置时跟随系统。</p>
-      <div className="grid grid-cols-2 gap-3 sm:max-w-xs">
-        <button
-          onClick={() => {
-            if (theme !== 'light') toggle();
-          }}
-          className={`rounded-2xl border-2 p-4 text-center transition-all ${
-            theme === 'light'
-              ? 'border-[var(--color-accent-500)]'
-              : 'border-line surface-2'
-          }`}
+    <Section variant="transparent" padding={0}>
+      <VStack gap={4}>
+        <VStack gap={0.5}>
+          <h2 className="text-base font-semibold">外观</h2>
+          <Text type="supporting" size="sm" as="p">
+            选择浅色或深色模式，也可以跟随系统自动切换。
+          </Text>
+        </VStack>
+        <SegmentedControl
+          label="主题模式"
+          value={mode}
+          onChange={(v) => setMode(v as 'light' | 'dark' | 'system')}
+          layout="fill"
+          className="max-w-sm"
         >
-          <div className="mx-auto mb-2 h-14 w-14 rounded-full bg-gradient-to-br from-amber-100 to-white shadow-inner" />
-          <span className="text-sm font-medium">浅色</span>
-        </button>
-        <button
-          onClick={() => {
-            if (theme !== 'dark') toggle();
-          }}
-          className={`rounded-2xl border-2 p-4 text-center transition-all ${
-            theme === 'dark' ? 'border-[var(--color-accent-500)]' : 'border-line surface-2'
-          }`}
-        >
-          <div className="mx-auto mb-2 h-14 w-14 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-950 shadow-inner" />
-          <span className="text-sm font-medium">深色</span>
-        </button>
-      </div>
-    </div>
+          <SegmentedControlItem value="light" label="浅色" />
+          <SegmentedControlItem value="dark" label="深色" />
+          <SegmentedControlItem value="system" label="跟随系统" />
+        </SegmentedControl>
+      </VStack>
+    </Section>
   );
 }

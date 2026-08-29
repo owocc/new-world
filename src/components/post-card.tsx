@@ -1,21 +1,26 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
-import { Heart, MessageCircle, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { Avatar } from '@/components/avatar';
-import { TimeAgo } from '@/components/ui';
-import { deletePost, toggleLike } from '@/server/actions/feed';
-import type { FeedPost } from '@/server/feed';
+import {useRouter} from 'next/navigation';
+import {useState, useTransition} from 'react';
+import {Heart, MessageCircle, Trash2} from 'lucide-react';
+import {Text} from '@astryxdesign/core/Text';
+import {IconButton} from '@astryxdesign/core/IconButton';
+import {MoreMenu} from '@astryxdesign/core/MoreMenu';
+import {useAppToast} from '@/lib/toast';
+import {UserAvatar} from '@/components/user-avatar';
+import {TimeAgo} from '@/components/time-ago';
+import {deletePost, toggleLike} from '@/server/actions/feed';
+import type {FeedPost} from '@/server/feed';
 
-export function PostCard({ post, isOwnerFeed = true }: { post: FeedPost; isOwnerFeed?: boolean }) {
+export function PostCard({post, isOwnerFeed = true}: {post: FeedPost; isOwnerFeed?: boolean}) {
   const router = useRouter();
+  const toast = useAppToast();
   const [liked, setLiked] = useState(post.viewerLiked);
   const [likeCount, setLikeCount] = useState(post.likeCount);
   const [pending, startTransition] = useTransition();
-  const [deleting, setDeleting] = useState(false);
+
+  const authorHref = post.authorType === 'ai' ? '/characters' : '/settings/account';
 
   const onLike = () => {
     const next = !liked;
@@ -34,7 +39,6 @@ export function PostCard({ post, isOwnerFeed = true }: { post: FeedPost; isOwner
 
   const onDelete = () => {
     if (!confirm('确定删除这条动态吗？')) return;
-    setDeleting(true);
     startTransition(async () => {
       await deletePost(post.id);
       router.refresh();
@@ -42,68 +46,72 @@ export function PostCard({ post, isOwnerFeed = true }: { post: FeedPost; isOwner
   };
 
   return (
-    <article
-      className={`rounded-3xl border border-line surface p-4 shadow-sm transition-all sm:p-5 ${
-        deleting ? 'opacity-50' : 'hover:shadow-md'
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        <Link href={post.authorType === 'ai' ? '/characters' : '/settings/account'} className="shrink-0">
-          <Avatar
-            name={post.authorName}
-            emoji={post.authorAvatarEmoji}
-            color={post.authorAvatarColor}
-            url={post.authorAvatarUrl}
-            size={42}
-          />
-        </Link>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-x-2 text-sm">
-            <span className="truncate font-semibold">{post.authorName}</span>
-            {post.authorType === 'ai' && (
-              <span className="hidden shrink-0 rounded-full bg-[var(--color-accent-50)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-accent-600)] dark:bg-[color-mix(in_srgb,var(--color-accent-500)_15%,transparent)] dark:text-[var(--color-accent-300)] sm:inline">
-                居民
-              </span>
-            )}
-            <span className="text-xs text-muted">@{post.authorUsername}</span>
-            <span className="text-xs text-muted">·</span>
-            <TimeAgo date={post.createdAt} className="shrink-0 text-xs text-muted" />
-          </div>
-          <Link href={`/post/${post.id}`} className="mt-1.5 block">
-            <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
-              {post.content}
-            </p>
+    <article className="flex gap-3 py-4">
+      <UserAvatar
+        name={post.authorName}
+        emoji={post.authorAvatarEmoji}
+        color={post.authorAvatarColor}
+        url={post.authorAvatarUrl}
+        size={42}
+        href={authorHref}
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <Link href={authorHref} className="truncate text-[15px] font-semibold hover:underline">
+            {post.authorName}
           </Link>
-          <div className="mt-3 flex items-center gap-1 text-muted">
-            <button
-              onClick={onLike}
-              disabled={pending}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors hover:surface-2 ${
-                liked ? 'text-rose-500' : ''
-              }`}
-            >
-              <Heart size={17} fill={liked ? 'currentColor' : 'none'} />
-              {likeCount > 0 && <span>{likeCount}</span>}
-            </button>
-            <Link
-              href={`/post/${post.id}`}
-              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors hover:surface-2"
-            >
-              <MessageCircle size={17} />
-              {post.commentCount > 0 && <span>{post.commentCount}</span>}
-            </Link>
-            <div className="flex-1" />
-            {post.authorType === 'user' && isOwnerFeed && (
-              <button
-                onClick={onDelete}
-                disabled={pending}
-                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors hover:bg-rose-500/10 hover:text-rose-500"
-                aria-label="删除动态"
-              >
-                <Trash2 size={16} />
-              </button>
-            )}
-          </div>
+          <Text type="supporting" size="sm" as="span">
+            @{post.authorUsername}
+          </Text>
+          <TimeAgo date={post.createdAt} live className="text-xs text-secondary" />
+        </div>
+        <Link href={`/post/${post.id}`} className="mt-1 block">
+          <Text as="p" textWrap="wrap" className="whitespace-pre-wrap break-words leading-relaxed">
+            {post.content}
+          </Text>
+        </Link>
+        <div className="mt-2 flex items-center gap-1">
+          <IconButton
+            label={liked ? '取消点赞' : '点赞'}
+            variant="ghost"
+            size="sm"
+            icon={
+              <Heart
+                size={17}
+                fill={liked ? 'currentColor' : 'none'}
+                className={liked ? 'text-error' : undefined}
+              />
+            }
+            onClick={onLike}
+          />
+          {likeCount > 0 && (
+            <Text type="supporting" size="sm" as="span" className="-ml-1">
+              {likeCount}
+            </Text>
+          )}
+          <Link href={`/post/${post.id}`} aria-label="查看评论" className="inline-flex">
+            <IconButton label="评论" variant="ghost" size="sm" icon={<MessageCircle size={17} />} />
+          </Link>
+          {post.commentCount > 0 && (
+            <Text type="supporting" size="sm" as="span" className="-ml-1">
+              {post.commentCount}
+            </Text>
+          )}
+          <div className="flex-1" />
+          {post.authorType === 'user' && isOwnerFeed && (
+            <MoreMenu
+              label="动态操作"
+              size="sm"
+              items={[
+                {
+                  label: '删除动态',
+                  icon: <Trash2 size={15} />,
+                  variant: 'destructive',
+                  onClick: onDelete,
+                },
+              ]}
+            />
+          )}
         </div>
       </div>
     </article>
@@ -112,14 +120,12 @@ export function PostCard({ post, isOwnerFeed = true }: { post: FeedPost; isOwner
 
 export function PostCardSkeleton() {
   return (
-    <div className="rounded-3xl border border-line surface p-5 shadow-sm">
-      <div className="flex gap-3">
-        <div className="h-11 w-11 animate-pulse-soft rounded-full bg-[var(--surface-2)]" />
-        <div className="flex-1 space-y-2.5">
-          <div className="h-4 w-28 animate-pulse-soft rounded bg-[var(--surface-2)]" />
-          <div className="h-3.5 w-full animate-pulse-soft rounded bg-[var(--surface-2)]" />
-          <div className="h-3.5 w-3/4 animate-pulse-soft rounded bg-[var(--surface-2)]" />
-        </div>
+    <div className="flex animate-pulse gap-3 py-4" aria-hidden>
+      <div className="h-[42px] w-[42px] shrink-0 rounded-full bg-muted" />
+      <div className="flex-1 space-y-2.5 py-1">
+        <div className="h-4 w-32 rounded bg-muted" />
+        <div className="h-3.5 w-full rounded bg-muted" />
+        <div className="h-3.5 w-3/4 rounded bg-muted" />
       </div>
     </div>
   );

@@ -1,13 +1,13 @@
-import { after } from 'next/server';
-import { Composer } from '@/components/composer';
-import { PostCard } from '@/components/post-card';
-import { EmptyState } from '@/components/ui';
-import { requireUserId } from '@/lib/session';
-import { getFeedPosts, getUserProfile } from '@/server/feed';
-import { maybePulse, processDueEvents } from '@/server/ai/community/engine';
-import { PageContainer } from '@/components/page-container';
+import {after} from 'next/server';
+import {Composer} from '@/components/composer';
+import {PostCard, PostCardSkeleton} from '@/components/post-card';
+import {EmptyState} from '@astryxdesign/core/EmptyState';
+import {Divider} from '@astryxdesign/core/Divider';
+import {requireUserId} from '@/lib/session';
+import {getFeedPosts, getUserProfile} from '@/server/feed';
+import {maybePulse, processDueEvents} from '@/server/ai/community/engine';
 
-export const metadata = { title: '朋友圈' };
+export const metadata = {title: '世界'};
 export const dynamic = 'force-dynamic';
 
 export default async function FeedPage() {
@@ -27,24 +27,26 @@ export default async function FeedPage() {
     }
   });
 
+  const userName = profile?.name ?? '你';
+
   return (
-    <PageContainer className="space-y-4 pt-4">
-      <Composer userName={profile?.name ?? '你'} />
+    <div className="mx-auto w-full max-w-[640px] px-4 pb-10">
+      <h1 className="sr-only">世界</h1>
+      <div className="pt-3">
+        <Composer userName={userName} userImage={profile?.image ?? null} />
+      </div>
       {posts.length === 0 ? (
-        <div className="rounded-3xl border border-line surface">
-          <EmptyState
-            icon="🌌"
-            title="你的世界还静悄悄的"
-            description="发布第一条动态，或者去私信页和 AI 居民们打个招呼吧"
-          />
-        </div>
+        <EmptyState
+          title="你的世界还静悄悄的"
+          description="发布第一条动态，或者去私信页和 AI 居民们打个招呼吧"
+        />
       ) : (
-        <div className="space-y-4">
+        <div className="mt-2 divide-y divide-border">
           {posts.map((post) => (
             <PostCard key={post.id} post={post} />
           ))}
         </div>
       )}
-    </PageContainer>
+    </div>
   );
 }

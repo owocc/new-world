@@ -1,19 +1,32 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
-import { Image as ImageIcon, Sparkles } from 'lucide-react';
-import { createPost } from '@/server/actions/feed';
+import {useRouter} from 'next/navigation';
+import {useState} from 'react';
+import {Dialog} from '@astryxdesign/core/Dialog';
+import {Layout} from '@astryxdesign/core/Layout';
+import {LayoutHeader} from '@astryxdesign/core/Layout';
+import {LayoutContent} from '@astryxdesign/core/Layout';
+import {LayoutFooter} from '@astryxdesign/core/Layout';
+import {TextArea} from '@astryxdesign/core/TextArea';
+import {Button} from '@astryxdesign/core/Button';
+import {useAppToast} from '@/lib/toast';
+import {UserAvatar} from '@/components/user-avatar';
+import {createPost} from '@/server/actions/feed';
 
-export function Composer({ userName }: { userName: string }) {
+export function Composer({
+  userName,
+  userImage,
+}: {
+  userName: string;
+  userImage: string | null;
+}) {
   const router = useRouter();
-  const formRef = useRef<HTMLFormElement>(null);
+  const toast = useAppToast();
+  const [open, setOpen] = useState(false);
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async () => {
     if (!content.trim() || loading) return;
     setLoading(true);
     const fd = new FormData();
@@ -24,52 +37,60 @@ export function Composer({ userName }: { userName: string }) {
       toast.error(res.error);
       return;
     }
+    setOpen(false);
     setContent('');
     toast.success('已发布，社区居民会看到的');
     router.refresh();
   };
 
   return (
-    <form
-      ref={formRef}
-      onSubmit={submit}
-      className="rounded-3xl border border-line surface p-4 shadow-sm"
-    >
-      <div className="flex gap-3">
-        <span className="flex h-10 w-10 shrink-0 select-none items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-accent-400)] to-[var(--color-accent-600)] text-white">
-          🧑
-        </span>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={`有什么新鲜事，${userName}？`}
-          rows={content.length > 60 ? 4 : 2}
-          maxLength={2000}
-          className="w-full resize-none bg-transparent py-1.5 text-[15px] outline-none placeholder:text-[var(--text-3)]"
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center gap-3 rounded-container px-2 py-3 text-left transition-colors hover:bg-muted"
+      >
+        <UserAvatar name={userName} url={userImage} size={40} />
+        <span className="text-[15px] text-placeholder">现在在想什么，{userName}？</span>
+      </button>
+
+      <Dialog isOpen={open} onOpenChange={setOpen} purpose="form" width={520}>
+        <Layout
+          height="auto"
+          header={
+            <LayoutHeader hasDivider>
+              <h2 className="text-lg font-semibold">发布动态</h2>
+            </LayoutHeader>
+          }
+          content={
+            <LayoutContent>
+              <TextArea
+                label="内容"
+                isLabelHidden
+                value={content}
+                onChange={setContent}
+                rows={5}
+                maxLength={2000}
+                placeholder={`现在在想什么，${userName}？`}
+                htmlName="content"
+                hasAutoFocus
+              />
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <Button label="取消" variant="ghost" onClick={() => setOpen(false)} />
+              <Button
+                label={loading ? '发布中…' : '发布'}
+                variant="primary"
+                isDisabled={!content.trim() || loading}
+                isLoading={loading}
+                onClick={submit}
+              />
+            </LayoutFooter>
+          }
         />
-      </div>
-      <div className="mt-2 flex items-center justify-between border-t border-line pt-3">
-        <div className="flex items-center gap-1 text-muted">
-          <span
-            className="flex h-8 w-8 items-center justify-center rounded-full cursor-not-allowed"
-            title="图片功能即将推出"
-          >
-            <ImageIcon size={18} />
-          </span>
-          <span className="hidden text-xs sm:inline">图片功能即将推出</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted">{content.length}/2000</span>
-          <button
-            type="submit"
-            disabled={!content.trim() || loading}
-            className="flex items-center gap-1.5 rounded-full bg-[var(--color-accent-600)] px-4 py-1.5 text-sm font-semibold text-white transition-all hover:bg-[var(--color-accent-700)] disabled:opacity-40"
-          >
-            <Sparkles size={14} />
-            {loading ? '发布中…' : '发布'}
-          </button>
-        </div>
-      </div>
-    </form>
+      </Dialog>
+    </>
   );
 }
