@@ -1,11 +1,11 @@
 'use server';
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/db';
-import { comments, communityEvents, notifications, posts, reactions } from '@/db/schema';
+import { aiCharacters, comments, communityEvents, notifications, posts, reactions } from '@/db/schema';
 import { requireUserId } from '@/lib/session';
 import { enqueueEvent } from '@/server/ai/community/events';
 import { processEvent } from '@/server/ai/community/engine';
@@ -150,4 +150,54 @@ export async function getUnreadEventCount() {
     .from(communityEvents)
     .where(and(eq(communityEvents.userId, userId), eq(communityEvents.status, 'pending')));
   return count;
+}
+
+
+export type NotificationItem = {
+  id: string;
+  type: string;
+  content: string;
+  read: boolean;
+  createdAt: Date;
+  conversationId: string | null;
+  postId: string | null;
+  characterName: string | null;
+  characterEmoji: string | null;
+  characterColor: string | null;
+  characterAvatarUrl: string | null;
+};
+
+export async function getRecentNotifications(limit = 10): Promise<NotificationItem[]> {
+  const userId = await requireUserId();
+  const rows = await db
+    .select({
+      id: notifications.id,
+      type: notifications.type,
+      content: notifications.content,
+      read: notifications.read,
+      createdAt: notifications.createdAt,
+      conversationId: notifications.conversationId,
+      postId: notifications.postId,
+      characterName: aiCharacters.name,
+      characterEmoji: aiCharacters.avatarEmoji,
+      characterColor: aiCharacters.avatarColor,
+      characterAvatarUrl: aiCharacters.avatarUrl,
+    })
+    .from(notifications)
+    .leftJoin(aiCharacters, eq(notifications.characterId, aiCharacters.id))
+    .where(eq(notifications.userId, userId))
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit);
+
+  return rows;
+}
+
+export async function markSingleNotificationRead(notificationId: string) {
+  const userId = await requireUserId();
+  await db
+    .update(notifications)
+    .set({ read: true })
+    .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
+  revalidatePath('/notifications');
+  return { ok: true };
 }

@@ -5,16 +5,18 @@ import {AppNav} from '@/components/app-nav';
 import {requireUserId} from '@/lib/session';
 import {getUserProfile} from '@/server/feed';
 import {totalUnreadMessages} from '@/server/chat';
+import {getRecentNotifications} from '@/server/actions/feed';
 
 export default async function AppLayout({children}: {children: React.ReactNode}) {
   const userId = await requireUserId();
-  const [profile, unreadMsgs, unreadNotifs] = await Promise.all([
+  const [profile, unreadMsgs, unreadNotifs, initialNotifs] = await Promise.all([
     getUserProfile(userId),
     totalUnreadMessages(userId),
     db
       .select({count: sql<number>`CAST(count(*) AS INTEGER)`})
       .from(notifications)
       .where(and(eq(notifications.userId, userId), eq(notifications.read, false))),
+    getRecentNotifications(10),
   ]);
 
   return (
@@ -26,6 +28,7 @@ export default async function AppLayout({children}: {children: React.ReactNode})
       }}
       unreadMessages={unreadMsgs}
       unreadNotifications={unreadNotifs[0]?.count ?? 0}
+      initialNotifications={initialNotifs}
     >
       {children}
     </AppNav>

@@ -3,11 +3,14 @@
 import {usePathname} from 'next/navigation';
 import {AppShell} from '@astryxdesign/core/AppShell';
 import {TopNav, TopNavHeading} from '@astryxdesign/core/TopNav';
-import {SideNav, SideNavItem, SideNavSection} from '@astryxdesign/core/SideNav';
+import {
+  SideNav,
+  SideNavItem,
+  SideNavSection,
+} from '@astryxdesign/core/SideNav';
 import {Badge} from '@astryxdesign/core/Badge';
 import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
 import {Avatar} from '@astryxdesign/core/Avatar';
-import {Text} from '@astryxdesign/core/Text';
 import {
   Bell,
   Globe,
@@ -22,6 +25,8 @@ import {
   Check,
 } from 'lucide-react';
 import {useThemeMode} from '@/components/providers';
+import {NotificationPopover} from '@/components/notification-popover';
+import type {NotificationItem} from '@/server/actions/feed';
 
 export type ShellUser = {
   name: string;
@@ -121,17 +126,20 @@ export function AppNav({
   user,
   unreadMessages,
   unreadNotifications,
+  initialNotifications = [],
   children,
 }: {
   user: ShellUser;
   unreadMessages: number;
   unreadNotifications: number;
+  initialNotifications?: NotificationItem[];
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-
   const sideNav = (
-    <SideNav footerIcons={<ThemeMenu />}>
+    <SideNav
+      collapsible={true}
+      footerIcons={<ThemeMenu />}
+    >
       <SideNavSection title="社区">
         <CommunityNavItems
           unreadMessages={unreadMessages}
@@ -164,7 +172,11 @@ export function AppNav({
             />
           }
           endContent={
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
+              <NotificationPopover
+                initialNotifications={initialNotifications}
+                initialUnreadCount={unreadNotifications}
+              />
               <ThemeMenu />
               <Avatar
                 name={user.name}
