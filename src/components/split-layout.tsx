@@ -34,7 +34,7 @@ const styles = stylex.create({
     padding: 'var(--spacing-6)',
     '@media (min-width: 1024px)': {padding: 'var(--spacing-8)'},
   },
-  detailInner: {width: '100%', maxWidth: '760px', paddingBottom: 'var(--spacing-12)'},
+  detailInner: {width: '100%', paddingBottom: 'var(--spacing-12)'},
 });
 
 function parseSidebarWidth(value: number | string): number {

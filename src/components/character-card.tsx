@@ -100,9 +100,11 @@ export type CharacterListItem = typeof aiCharacters.$inferSelect & {
 export function CharacterCard({
   character,
   onEdit,
+  hideChat,
 }: {
   character: CharacterListItem;
   onEdit?: (character: CharacterListItem) => void;
+  hideChat?: boolean;
 }) {
   const router = useRouter();
   const toast = useAppToast();
@@ -197,7 +199,9 @@ export function CharacterCard({
       )}
 
       <HStack gap={1} xstyle={styles.actions}>
-        <Button label="私信" variant="ghost" size="sm" icon={<MessageCircle size={15} />} onClick={chat} />
+        {!hideChat && (
+          <Button label="私信" variant="ghost" size="sm" icon={<MessageCircle size={15} />} onClick={chat} />
+        )}
         <div {...stylex.props(styles.grow)} />
         <Button
           label={active ? '暂停' : '启用'}

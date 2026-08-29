@@ -9,7 +9,7 @@ import { TextInput } from '@astryxdesign/core/TextInput';
 import { TextArea } from '@astryxdesign/core/TextArea';
 import {Selector} from '@astryxdesign/core/Selector';
 import {Slider} from '@astryxdesign/core/Slider';
-import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/SegmentedControl';
+import {Switch} from '@astryxdesign/core/Switch';
 import {TabList, Tab} from '@astryxdesign/core/TabList';
 import {Collapsible} from '@astryxdesign/core/Collapsible';
 import {HStack, VStack} from '@astryxdesign/core/Stack';
@@ -213,6 +213,13 @@ export function CharacterEditor({
         onUrlChange={(url) => set('avatarUrl', url || '')}
         onEmojiChange={(emoji) => set('avatarEmoji', emoji)}
         onColorChange={(color) => set('avatarColor', color)}
+        endAction={
+          <Switch
+            label="启用"
+            value={values.status === 'active'}
+            onChange={(checked) => set('status', checked ? 'active' : 'paused')}
+          />
+        }
       />
       <TabList value={tab} onChange={setTab} hasDivider>
         <Tab value="profile" label="基本资料" />
@@ -241,15 +248,6 @@ export function CharacterEditor({
             placeholder="朋友 / 同事 / 室友…"
             htmlName="relationshipToUser"
           />
-          <SegmentedControl
-            label="状态"
-            value={values.status}
-            onChange={(v) => set('status', v as 'active' | 'paused')}
-            layout="fill"
-          >
-            <SegmentedControlItem value="active" label="启用" />
-            <SegmentedControlItem value="paused" label="禁用" />
-          </SegmentedControl>
         </VStack>
       )}
 
@@ -357,3 +355,29 @@ export function CharacterEditor({
     </VStack>
   );
 }
+
+export const emptyCharacter: CharacterFormValues = {
+  name: '',
+  username: '',
+  bio: '',
+  avatarUrl: '',
+  avatarEmoji: '🙂',
+  avatarColor: 'violet',
+  persona: '',
+  personality: '',
+  interests: '',
+  expressionStyle: '',
+  relationshipToUser: '朋友',
+  systemPrompt: '',
+  status: 'active',
+  chattiness: 0.5,
+  likeRate: 0.5,
+  commentRate: 0.4,
+  postRate: 0.15,
+  dmRate: 0.05,
+  providerId: '',
+  modelId: '',
+  temperature: '',
+  topP: '',
+  maxTokens: '',
+};

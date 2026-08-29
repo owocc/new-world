@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
-import { Camera, Check, Loader2, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { Camera, Check, Loader2, RefreshCw, Upload } from 'lucide-react';
 import { Button } from '@astryxdesign/core/Button';
 import { UserAvatar, AVATAR_COLORS } from '@/components/user-avatar';
 import { AvatarCropModal } from '@/components/avatar-crop-modal';
@@ -39,11 +39,18 @@ const styles = stylex.create({
   previewCard: {
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: '16px',
     padding: '16px',
     borderRadius: 'var(--radius-container, 12px)',
     backgroundColor: 'var(--color-background-surface)',
     border: '1px solid var(--color-border)',
+  },
+  previewLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    minWidth: 0,
   },
   avatarContainer: {
     position: 'relative',
@@ -82,15 +89,14 @@ const styles = stylex.create({
     display: 'none',
   },
   previewMeta: {
-    minWidth: 0,
-    flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    gap: '6px',
+    gap: '4px',
+    minWidth: 0,
   },
   previewModeTitle: {
     fontSize: 'var(--font-size-sm)',
-    fontWeight: 'var(--font-weight-medium)',
+    fontWeight: 'var(--font-weight-semibold)',
     color: 'var(--color-text-primary)',
   },
   previewModeSubtitle: {
@@ -99,27 +105,26 @@ const styles = stylex.create({
   },
   actionRow: {
     display: 'flex',
-    flexWrap: 'wrap',
     alignItems: 'center',
     gap: '8px',
-    marginTop: '2px',
+    marginTop: '6px',
+    flexWrap: 'wrap',
   },
   tabsHeader: {
     display: 'flex',
-    borderBottom: '1px solid var(--color-border)',
-    gap: '4px',
-    paddingBottom: '2px',
+    alignItems: 'center',
+    gap: '8px',
   },
   tabBtn: {
     paddingInline: '12px',
     paddingBlock: '6px',
+    cursor: 'pointer',
     border: 0,
     backgroundColor: 'transparent',
     borderRadius: 'var(--radius-element, 8px)',
     fontSize: 'var(--font-size-xs)',
     fontWeight: 'var(--font-weight-medium)',
     color: 'var(--color-text-secondary)',
-    cursor: 'pointer',
     transition: 'all 150ms ease',
     ':hover': {
       backgroundColor: 'var(--color-background-muted)',
@@ -134,27 +139,25 @@ const styles = stylex.create({
   section: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
+    gap: '16px',
   },
   sectionLabel: {
     fontSize: 'var(--font-size-xs)',
     fontWeight: 'var(--font-weight-medium)',
     color: 'var(--color-text-secondary)',
+    display: 'block',
+    marginBottom: '8px',
   },
   emojiGrid: {
-    display: 'flex',
-    flexWrap: 'wrap',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(36px, 1fr))',
     gap: '6px',
-    maxHeight: '136px',
-    overflowY: 'auto',
-    padding: '2px',
   },
   emojiButton: {
     display: 'flex',
-    width: '38px',
-    height: '38px',
     alignItems: 'center',
     justifyContent: 'center',
+    height: '36px',
     borderRadius: 'var(--radius-element, 8px)',
     border: '1px solid var(--color-border)',
     backgroundColor: 'var(--color-background-surface)',
@@ -174,22 +177,23 @@ const styles = stylex.create({
   },
   colorGrid: {
     display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
     flexWrap: 'wrap',
-    gap: '8px',
-    padding: '2px',
   },
   colorButton: {
+    width: '32px',
+    height: '32px',
+    borderRadius: 'var(--radius-full)',
+    border: '2px solid transparent',
     display: 'flex',
-    width: '34px',
-    height: '34px',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 'var(--radius-element, 8px)',
-    border: '2px solid transparent',
     cursor: 'pointer',
+    padding: 0,
     transition: 'all 150ms ease',
     ':hover': {
-      transform: 'scale(1.08)',
+      transform: 'scale(1.1)',
     },
   },
   colorSelected: {
@@ -204,16 +208,17 @@ const styles = stylex.create({
 });
 
 export interface AvatarPickerProps {
-  name: string;
+  name?: string;
   avatarUrl?: string | null;
-  avatarEmoji?: string | null;
-  avatarColor?: string | null;
+  avatarEmoji?: string;
+  avatarColor?: string;
   onUrlChange?: (url: string | null) => void;
   onEmojiChange?: (emoji: string) => void;
   onColorChange?: (color: string) => void;
   /** Custom upload handler, defaults to posting to /api/media/upload */
   onUpload?: (blob: Blob) => Promise<string>;
   showEmojiColorTab?: boolean;
+  endAction?: React.ReactNode;
 }
 
 export function AvatarPicker({
@@ -226,6 +231,7 @@ export function AvatarPicker({
   onColorChange,
   onUpload,
   showEmojiColorTab = true,
+  endAction,
 }: AvatarPickerProps) {
   const toast = useAppToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -304,71 +310,75 @@ export function AvatarPicker({
 
       {/* Live Preview Card */}
       <div {...stylex.props(styles.previewCard)}>
-        <div {...stylex.props(styles.avatarContainer)}>
-          <UserAvatar
-            name={name || '头像'}
-            url={avatarUrl}
-            emoji={avatarEmoji}
-            color={avatarColor}
-            size={64}
-            tooltip={false}
-          />
-          <button
-            type="button"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-            {...stylex.props(styles.avatarOverlay, uploading && styles.avatarOverlayVisible)}
-            title="点击更换图片头像"
-          >
-            {uploading ? (
-              <Loader2 size={20} {...stylex.props(styles.spinIcon)} />
-            ) : (
-              <Camera size={20} />
-            )}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
-            {...stylex.props(styles.hidden)}
-            onChange={handleFileSelect}
-          />
-        </div>
-
-        <div {...stylex.props(styles.previewMeta)}>
-          <div {...stylex.props(styles.previewModeTitle)}>
-            {avatarUrl ? '当前使用：自定义图片头像' : `当前使用：Emoji 渐变头像 (${avatarEmoji || '🙂'})`}
-          </div>
-          <div {...stylex.props(styles.previewModeSubtitle)}>
-            {avatarUrl ? '可直接上传新图片替换，或切换为 Emoji 图标' : '支持选取喜欢的 Emoji 与渐变色彩背景'}
-          </div>
-
-          <div {...stylex.props(styles.actionRow)}>
-            <Button
-              label={uploading ? '上传中…' : avatarUrl ? '更换图片' : '上传图片头像'}
-              size="sm"
-              variant="secondary"
-              icon={uploading ? <Loader2 size={14} {...stylex.props(styles.spinIcon)} /> : <Upload size={14} />}
-              isDisabled={uploading}
-              onClick={() => fileInputRef.current?.click()}
+        <div {...stylex.props(styles.previewLeft)}>
+          <div {...stylex.props(styles.avatarContainer)}>
+            <UserAvatar
+              name={name || '头像'}
+              url={avatarUrl}
+              emoji={avatarEmoji}
+              color={avatarColor}
+              size={64}
+              tooltip={false}
             />
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+              {...stylex.props(styles.avatarOverlay, uploading && styles.avatarOverlayVisible)}
+              title="点击更换图片头像"
+            >
+              {uploading ? (
+                <Loader2 size={20} {...stylex.props(styles.spinIcon)} />
+              ) : (
+                <Camera size={20} />
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+              {...stylex.props(styles.hidden)}
+              onChange={handleFileSelect}
+            />
+          </div>
 
-            {avatarUrl ? (
+          <div {...stylex.props(styles.previewMeta)}>
+            <div {...stylex.props(styles.previewModeTitle)}>
+              {avatarUrl ? '当前使用：自定义图片头像' : `当前使用：Emoji 渐变头像 (${avatarEmoji || '🙂'})`}
+            </div>
+            <div {...stylex.props(styles.previewModeSubtitle)}>
+              {avatarUrl ? '可直接上传新图片替换，或切换为 Emoji 图标' : '支持选取喜欢的 Emoji 与渐变色彩背景'}
+            </div>
+
+            <div {...stylex.props(styles.actionRow)}>
               <Button
-                label="恢复 Emoji 头像"
+                label={uploading ? '上传中…' : avatarUrl ? '更换图片' : '上传图片头像'}
                 size="sm"
-                variant="ghost"
-                icon={<RefreshCw size={14} />}
-                onClick={handleRemoveImage}
+                variant="secondary"
+                icon={uploading ? <Loader2 size={14} {...stylex.props(styles.spinIcon)} /> : <Upload size={14} />}
+                isDisabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
               />
-            ) : null}
+
+              {avatarUrl ? (
+                <Button
+                  label="恢复 Emoji 头像"
+                  size="sm"
+                  variant="ghost"
+                  icon={<RefreshCw size={14} />}
+                  onClick={handleRemoveImage}
+                />
+              ) : null}
+            </div>
           </div>
         </div>
+
+        {endAction && <div>{endAction}</div>}
       </div>
 
       {/* Mode Configuration Tabs */}
-      {showEmojiColorTab && (
-        <>
+      {showEmojiColorTab ? (
+        <div {...stylex.props(styles.root)}>
           <div {...stylex.props(styles.tabsHeader)}>
             <button
               type="button"
@@ -434,8 +444,8 @@ export function AvatarPicker({
               </div>
             </div>
           )}
-        </>
-      )}
+        </div>
+      ) : null}
     </div>
   );
 }
