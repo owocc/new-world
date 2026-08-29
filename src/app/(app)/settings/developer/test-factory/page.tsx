@@ -1,18 +1,16 @@
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { modelConfigs, providerConfigs } from '@/db/schema';
-import { VisionSettings } from '@/components/settings/vision-settings';
-import { VisionProfileSettings } from '@/components/settings/vision-profile-settings';
+import { VisionTestFactory } from '@/components/settings/vision-test-factory';
 import { requireUserId } from '@/lib/session';
 import { getVisionConfig, DEFAULT_VISION_CONFIG } from '@/server/settings';
-import { getVisionProfilesAction } from '@/server/actions/settings';
 
-export const metadata = { title: '图片理解配置' };
+export const metadata = { title: '测试场' };
 export const dynamic = 'force-dynamic';
 
-export default async function AiVisionPage() {
+export default async function AiTestFactoryPage() {
   const userId = await requireUserId();
-  const [vision, providers, models, profilesRes] = await Promise.all([
+  const [vision, providers, models] = await Promise.all([
     getVisionConfig(userId),
     db
       .select({
@@ -23,7 +21,6 @@ export default async function AiVisionPage() {
       .from(providerConfigs)
       .where(eq(providerConfigs.userId, userId)),
     db.select().from(modelConfigs).where(eq(modelConfigs.userId, userId)),
-    getVisionProfilesAction(),
   ]);
 
   const modelsByProvider: Record<string, string[]> = {};
@@ -32,13 +29,10 @@ export default async function AiVisionPage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <VisionSettings
-        vision={vision ?? DEFAULT_VISION_CONFIG}
-        providers={providers}
-        modelsByProvider={modelsByProvider}
-      />
-      {profilesRes.ok && <VisionProfileSettings profiles={profilesRes.profiles} />}
-    </div>
+    <VisionTestFactory
+      providers={providers}
+      modelsByProvider={modelsByProvider}
+      vision={vision ?? DEFAULT_VISION_CONFIG}
+    />
   );
 }

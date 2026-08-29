@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Layers, Save, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { Layers, Save, RotateCcw, CheckCircle2, Lock, Unlock } from 'lucide-react';
 import { Card } from '@astryxdesign/core/Card';
 import { Text } from '@astryxdesign/core/Text';
 import { Button } from '@astryxdesign/core/Button';
@@ -26,6 +26,10 @@ export function VisionProfileSettings({
   const router = useRouter();
   const toast = useAppToast();
   const [activeKey, setActiveKey] = useState<VisionProfileKey>(profiles[0]?.key ?? 'general');
+  // Per-profile unlock state — defaults to locked for each profile
+  const [unlockMap, setUnlockMap] = useState<Record<string, boolean>>({});
+  const unlocked = unlockMap[activeKey] ?? false;
+  const setUnlocked = (v: boolean) => setUnlockMap((m) => ({ ...m, [activeKey]: v }));
 
   const active = profiles.find((p) => p.key === activeKey) ?? profiles[0];
 
@@ -122,12 +126,28 @@ export function VisionProfileSettings({
             )}
           </HStack>
 
+          <VStack gap={1}>
+            <HStack hAlign="between" vAlign="center" width="100%">
+              <Text type="supporting" size="sm" as="span">
+                提示词默认锁定，防止误改系统级视觉感知行为；解锁后方可编辑。
+              </Text>
+              <Button
+                label={unlocked ? '锁定' : '解锁编辑'}
+                variant="ghost"
+                size="sm"
+                icon={unlocked ? <Lock size={13} /> : <Unlock size={13} />}
+                onClick={() => setUnlocked(!unlocked)}
+              />
+            </HStack>
+          </VStack>
+
           <TextArea
             label="System Prompt（系统提示词）"
             description="决定该 Profile 如何理解此类图片。留空则回退到系统内置。"
             value={draft.systemPrompt}
             onChange={(v) => updateDraft({ systemPrompt: v })}
             rows={8}
+            isReadOnly={!unlocked}
           />
 
           <TextArea
@@ -136,6 +156,7 @@ export function VisionProfileSettings({
             value={draft.userPrompt}
             onChange={(v) => updateDraft({ userPrompt: v })}
             rows={2}
+            isReadOnly={!unlocked}
           />
 
           <HStack gap={2} vAlign="center">
@@ -146,6 +167,7 @@ export function VisionProfileSettings({
               icon={<Save size={13} />}
               onClick={save}
               isLoading={saving}
+              isDisabled={!unlocked}
             />
             <Button
               label={resetting ? '恢复中…' : '恢复内置提示词'}
@@ -153,7 +175,7 @@ export function VisionProfileSettings({
               size="sm"
               icon={<RotateCcw size={13} />}
               onClick={reset}
-              isDisabled={!active.isOverridden}
+              isDisabled={!active.isOverridden || !unlocked}
               isLoading={resetting}
             />
             {active.isOverridden && (

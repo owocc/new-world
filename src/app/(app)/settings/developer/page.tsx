@@ -5,7 +5,7 @@ import { getDeveloperConfig, DEFAULT_DEVELOPER_CONFIG } from '@/server/settings'
 export const metadata = { title: '开发者设置' };
 export const dynamic = 'force-dynamic';
 
-export default async function SettingsDeveloperPage() {
+export default async function AiDeveloperPage() {
   const userId = await requireUserId();
   const developer = await getDeveloperConfig(userId);
 

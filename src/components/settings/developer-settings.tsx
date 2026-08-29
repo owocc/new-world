@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Code2, Terminal, Cpu, FileText, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Code2, CheckCircle2 } from 'lucide-react';
 import { Card } from '@astryxdesign/core/Card';
 import { Text } from '@astryxdesign/core/Text';
 import { Button } from '@astryxdesign/core/Button';

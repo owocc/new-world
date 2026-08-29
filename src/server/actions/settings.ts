@@ -6,10 +6,10 @@ import { z } from 'zod';
 import { db } from '@/db';
 import { modelConfigs, providerConfigs } from '@/db/schema';
 import { requireUserId } from '@/lib/session';
-import { PROVIDER_TYPES, supportsVision, type ProviderType } from '@/lib/providers-shared';
-import { setSetting, type CommunityConfig, type VisionConfig, type DeveloperConfig } from '@/server/settings';
+import { PROVIDER_TYPES, supportsVision } from '@/lib/providers-shared';
+import { setSetting, type CommunityConfig } from '@/server/settings';
 import { generateObject } from 'ai';
-import { createModelFor, getProviderConfig, getModelPrice } from '@/server/ai/providers';
+import { createModelFor, getProviderConfig, getModelPrice, fetchProviderModels } from '@/server/ai/providers';
 import {
   resolveVisionModel,
   getDefaultVisionModelForProvider,
@@ -151,14 +151,14 @@ export async function saveModel(input: z.input<typeof modelSchema>) {
         outputPricePerMTok: parsed.data.outputPricePerMTok,
       },
     });
-  revalidatePath('/settings/models');
+  revalidatePath('/settings/providers');
   return { ok: true };
 }
 
 export async function deleteModel(id: string) {
   const userId = await requireUserId();
   await db.delete(modelConfigs).where(and(eq(modelConfigs.id, id), eq(modelConfigs.userId, userId)));
-  revalidatePath('/settings/models');
+  revalidatePath('/settings/providers');
   return { ok: true };
 }
 
@@ -175,7 +175,7 @@ export async function saveDefaultAIConfig(input: z.input<typeof defaultAISchema>
   const parsed = defaultAISchema.safeParse(input);
   if (!parsed.success) return { error: '保存失败' };
   await setSetting(userId, 'ai_default', parsed.data);
-  revalidatePath('/settings/ai');
+  revalidatePath('/settings/defaults');
   return { ok: true };
 }
 
@@ -193,7 +193,7 @@ export async function saveVisionConfig(input: z.input<typeof visionConfigSchema>
   const parsed = visionConfigSchema.safeParse(input);
   if (!parsed.success) return { error: '保存失败' };
   await setSetting(userId, 'ai_vision', parsed.data);
-  revalidatePath('/settings/models');
+  revalidatePath('/settings/vision');
   revalidatePath('/settings/general');
   return { ok: true };
 }
@@ -452,7 +452,7 @@ export async function saveCommunityConfig(input: CommunityConfig) {
     .safeParse(input);
   if (!parsed.success) return { error: '保存失败' };
   await setSetting(userId, 'community', parsed.data);
-  revalidatePath('/settings/ai');
+  revalidatePath('/settings/defaults');
   return { ok: true };
 }
 
@@ -493,4 +493,46 @@ export async function changePassword(input: { currentPassword: string; newPasswo
   });
   if (!res) return { error: '修改失败，请检查当前密码' };
   return { ok: true };
+}
+
+/**
+ * Server Action: Fetch models from a provider's REST API and upsert them into
+ * modelConfigs. Only updates displayName on conflict (preserves user-set prices).
+ */
+export async function syncProviderModels(providerId: string) {
+  const userId = await requireUserId();
+  const provider = await getProviderConfig(userId, providerId);
+  if (!provider) return { error: 'Provider 不存在' };
+
+  let remoteModels;
+  try {
+    remoteModels = await fetchProviderModels(provider);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { error: msg };
+  }
+
+  for (const m of remoteModels) {
+    await db
+      .insert(modelConfigs)
+      .values({
+        id: crypto.randomUUID(),
+        userId,
+        providerId,
+        modelId: m.id,
+        displayName: m.name || null,
+        inputPricePerMTok: 0,
+        outputPricePerMTok: 0,
+      })
+      .onConflictDoUpdate({
+        target: [modelConfigs.providerId, modelConfigs.modelId],
+        set: {
+          displayName: m.name || null,
+        },
+      });
+  }
+
+  revalidatePath('/settings/providers');
+  revalidatePath('/settings/providers');
+  return { ok: true as const, count: remoteModels.length };
 }

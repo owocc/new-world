@@ -9,9 +9,10 @@ import {
   BarChart3,
   Bell,
   Cpu,
-  Sparkles,
   Eye,
   Code2,
+  FlaskConical,
+  Settings2,
 } from 'lucide-react';
 import * as stylex from '@stylexjs/stylex';
 
@@ -70,7 +71,13 @@ const SECTIONS = [
         href: '/settings/developer',
         label: '开发者设置',
         icon: Code2,
-        isMatch: (p: string) => p.startsWith('/settings/developer'),
+        isMatch: (p: string) => p === '/settings/developer',
+      },
+      {
+        href: '/settings/developer/test-factory',
+        label: '测试场',
+        icon: FlaskConical,
+        isMatch: (p: string) => p.startsWith('/settings/developer/test-factory'),
       },
     ],
   },
@@ -78,16 +85,16 @@ const SECTIONS = [
     title: 'AI 配置',
     items: [
       {
+        href: '/settings/defaults',
+        label: '默认配置',
+        icon: Settings2,
+        isMatch: (p: string) => p.startsWith('/settings/defaults'),
+      },
+      {
         href: '/settings/providers',
         label: 'AI 服务商',
         icon: Cpu,
         isMatch: (p: string) => p.startsWith('/settings/providers'),
-      },
-      {
-        href: '/settings/models',
-        label: '模型与价格',
-        icon: Sparkles,
-        isMatch: (p: string) => p.startsWith('/settings/models'),
       },
       {
         href: '/settings/vision',

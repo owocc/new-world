@@ -1,24 +1,19 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft,
   Eye,
-  Sparkles,
   CheckCircle2,
   AlertCircle,
-  Upload,
-  Play,
-  Check,
-  Copy,
-  Image as ImageIcon,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import { Card } from '@astryxdesign/core/Card';
 import { Text } from '@astryxdesign/core/Text';
 import { Button } from '@astryxdesign/core/Button';
-import { Badge } from '@astryxdesign/core/Badge';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { NumberInput } from '@astryxdesign/core/NumberInput';
 import { Selector } from '@astryxdesign/core/Selector';
@@ -26,7 +21,7 @@ import { Switch } from '@astryxdesign/core/Switch';
 import { HStack, VStack } from '@astryxdesign/core/Stack';
 import { useAppToast } from '@/lib/toast';
 import { nativeAttrs } from '@/lib/native-attrs';
-import { saveVisionConfig, testVisionModelAction, type TestVisionModelResult } from '@/server/actions/settings';
+import { saveVisionConfig } from '@/server/actions/settings';
 import type { VisionConfig } from '@/server/settings';
 import { supportsVision } from '@/lib/providers-shared';
 import * as stylex from '@stylexjs/stylex';
@@ -110,67 +105,6 @@ const styles = stylex.create({
     backgroundColor: 'var(--color-background-muted)',
     color: 'var(--color-text-secondary)',
   },
-  uploadZone: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '24px',
-    border: '2px dashed var(--color-border)',
-    borderRadius: 'var(--radius-container)',
-    backgroundColor: 'var(--color-surface)',
-    cursor: 'pointer',
-    transition: 'border-color 150ms ease, background-color 150ms ease',
-    ':hover': {
-      borderColor: 'var(--color-primary, #6366f1)',
-      backgroundColor: 'var(--color-background-muted)',
-    },
-  },
-  hiddenInput: {
-    display: 'none',
-  },
-  previewRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    padding: '12px',
-    borderRadius: 'var(--radius-element)',
-    border: '1px solid var(--color-border)',
-    backgroundColor: 'var(--color-surface)',
-  },
-  previewThumb: {
-    width: '64px',
-    height: '64px',
-    borderRadius: 'var(--radius-element)',
-    objectFit: 'cover',
-    border: '1px solid var(--color-border)',
-  },
-  resultCard: {
-    backgroundColor: 'var(--color-background-muted)',
-    color: 'var(--color-text-primary)',
-    borderRadius: 'var(--radius-element)',
-    padding: '16px',
-    fontSize: '13px',
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-    lineHeight: 1.6,
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
-    border: '1px solid var(--color-border)',
-  },
-  detailsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '8px',
-  },
-  errorCard: {
-    padding: '12px',
-    borderRadius: 'var(--radius-element)',
-    border: '1px solid rgba(239, 68, 68, 0.3)',
-    backgroundColor: 'rgba(239, 68, 68, 0.05)',
-  },
-  errorText: {
-    color: 'rgb(220, 38, 38)',
-  },
 });
 
 export function VisionSettings({
@@ -184,8 +118,8 @@ export function VisionSettings({
 }) {
   const router = useRouter();
   const toast = useAppToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
+  const [promptUnlocked, setPromptUnlocked] = useState(false);
   const [visionCfg, setVisionCfg] = useState({
     enabled: vision.enabled ?? true,
     providerId: vision.providerId ?? '',
@@ -194,11 +128,6 @@ export function VisionSettings({
     temperature: vision.temperature ?? 0.2,
     maxTokens: vision.maxTokens ?? 800,
   });
-  const [testFile, setTestFile] = useState<File | null>(null);
-  const [testPreviewUrl, setTestPreviewUrl] = useState<string | null>(null);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<TestVisionModelResult | null>(null);
-  const [copiedPrompt, setCopiedPrompt] = useState(false);
 
   const selectedProvider = providers.find((p) => p.id === visionCfg.providerId) ?? providers[0];
   const effectiveModelId = visionCfg.modelId || 'gpt-4o-mini';
@@ -224,52 +153,6 @@ export function VisionSettings({
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (testPreviewUrl) URL.revokeObjectURL(testPreviewUrl);
-    setTestFile(file);
-    setTestPreviewUrl(URL.createObjectURL(file));
-    setTestResult(null);
-  };
-
-  const runTest = async () => {
-    if (!testFile) {
-      toast.error('请先选择一张测试图片');
-      return;
-    }
-    setTesting(true);
-    setTestResult(null);
-    try {
-      const formData = new FormData();
-      formData.append('file', testFile);
-      if (visionCfg.providerId) formData.append('providerId', visionCfg.providerId);
-      if (visionCfg.modelId) formData.append('modelId', visionCfg.modelId);
-      if (visionCfg.prompt) formData.append('prompt', visionCfg.prompt);
-      if (visionCfg.temperature !== null) formData.append('temperature', String(visionCfg.temperature));
-      if (visionCfg.maxTokens !== null) formData.append('maxTokens', String(visionCfg.maxTokens));
-      const result = await testVisionModelAction(formData);
-      setTestResult(result);
-      if (result.ok) {
-        toast.success('视觉模型识别测试完成');
-      } else {
-        toast.error(result.error || '测试失败');
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      toast.error(msg);
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  const copyPromptBlock = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedPrompt(true);
-    toast.success('已复制提示词');
-    setTimeout(() => setCopiedPrompt(false), 2000);
-  };
-
   const currentModels = visionCfg.providerId ? modelsByProvider[visionCfg.providerId] ?? [] : [];
 
   return (
@@ -292,7 +175,7 @@ export function VisionSettings({
         <HStack gap={1.5} vAlign="center">
           <Eye size={18} color="var(--color-primary, #6366f1)" />
           <Text size="sm" as="span">
-            “Vision AI 负责看见，角色 AI 负责感受”
+            {'\u201CVision AI 负责看见，角色 AI 负责感受\u201D'}
           </Text>
         </HStack>
         <Text type="supporting" size="sm" as="p">
@@ -396,16 +279,29 @@ export function VisionSettings({
               </div>
 
 
-              {/* Vision Prompt Input */}
-              <div>
+              {/* Vision Prompt Input — locked by default */}
+              <VStack gap={1}>
+                <HStack hAlign="between" vAlign="center" width="100%">
+                  <Text type="supporting" size="sm" as="span">
+                    提示词默认锁定，防止误改系统级视觉感知行为；解锁后方可编辑。
+                  </Text>
+                  <Button
+                    label={promptUnlocked ? '锁定' : '解锁编辑'}
+                    variant="ghost"
+                    size="sm"
+                    icon={promptUnlocked ? <Lock size={13} /> : <Unlock size={13} />}
+                    onClick={() => setPromptUnlocked((v) => !v)}
+                  />
+                </HStack>
                 <TextInput
                   label="图片理解提示词"
                   value={visionCfg.prompt}
                   onChange={(v) => setVisionCfg((s) => ({ ...s, prompt: v }))}
                   placeholder="帮我解析这个图片"
+                  isReadOnly={!promptUnlocked}
                   htmlName="vision-prompt"
                 />
-              </div>
+              </VStack>
               {/* Hyperparameters */}
               <div {...stylex.props(styles.doubleGrid)}>
                 <NumberInput
@@ -437,210 +333,6 @@ export function VisionSettings({
               isLoading={saving}
             />
           </div>
-        </VStack>
-      </Card>
-
-      {/* Live Vision Model Testing Section */}
-      <Card variant="default">
-        <VStack gap={4}>
-          <VStack gap={0.5}>
-            <HStack gap={1.5} vAlign="center">
-              <Sparkles size={18} color="var(--color-primary, #6366f1)" />
-              <Text size="base" as="span">
-                视觉模型在线测试 (Live Vision Test)
-              </Text>
-            </HStack>
-            <Text type="supporting" size="sm" as="p">
-              上传一张图片，实时测试当前视觉模型输出的客观感知内容、结构化数据与装配提示词。
-            </Text>
-          </VStack>
-
-          {/* Upload Area */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            {...stylex.props(styles.hiddenInput)}
-            onChange={handleFileChange}
-          />
-
-          {!testPreviewUrl ? (
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => fileInputRef.current?.click()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
-              }}
-              {...stylex.props(styles.uploadZone)}
-            >
-              <VStack gap={2} hAlign="center">
-                <Upload size={28} color="var(--color-text-secondary)" />
-                <Text size="sm" as="span">
-                  点击或拖拽上传测试图片
-                </Text>
-                <Text type="supporting" size="sm" as="span">
-                  支持 JPG、PNG、WebP、GIF、AVIF 格式，最大 15MB
-                </Text>
-              </VStack>
-            </div>
-          ) : (
-            <div {...stylex.props(styles.previewRow)}>
-              <img
-                src={testPreviewUrl}
-                alt="测试预览"
-                {...stylex.props(styles.previewThumb)}
-              />
-              <VStack gap={0.5}>
-                <Text size="sm" as="span">
-                  {testFile?.name || '测试图片'}
-                </Text>
-                <Text type="supporting" size="sm" as="span">
-                  文件大小：{testFile ? (testFile.size / 1024).toFixed(1) : 0} KB
-                </Text>
-              </VStack>
-              <Button
-                label="更换图片"
-                variant="secondary"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                isDisabled={testing}
-              />
-            </div>
-          )}
-
-          <div>
-            <Button
-              label={testing ? '正在识别感知中…' : '开始测试图片理解'}
-              variant="primary"
-              size="sm"
-              icon={<Play size={14} className={testing ? 'animate-spin' : ''} />}
-              onClick={runTest}
-              isDisabled={!testFile || testing}
-              isLoading={testing}
-            />
-          </div>
-
-          {/* Test Results View */}
-          {testResult && (
-            <VStack gap={3}>
-              {testResult.ok && testResult.perception ? (
-                <>
-                  {/* Metrics Banner */}
-                  <HStack hAlign="between" vAlign="center" width="100%">
-                    <HStack gap={1.5} vAlign="center">
-                      <Badge label="测试成功" variant="green" />
-                      <Badge
-                        label={`模型: ${testResult.usage?.model || effectiveModelId}`}
-                        variant="neutral"
-                      />
-                    </HStack>
-                    <Text type="supporting" size="sm">
-                      耗时: {(testResult.usage?.durationMs ? testResult.usage.durationMs / 1000 : 0).toFixed(2)}s · Token: {testResult.usage?.totalTokens ?? 0}
-                    </Text>
-                  </HStack>
-
-                  {/* 1. Natural Language Summary */}
-                  <VStack gap={1}>
-                    <Text size="sm" as="span">
-                      1. 客观自然语言摘要 (Summary)
-                    </Text>
-                    <div {...stylex.props(styles.infoCard)}>
-                      <Text size="sm" as="p">
-                        {testResult.perception.summary}
-                      </Text>
-                    </div>
-                  </VStack>
-
-                  {/* 2. Structured Perception Details */}
-                  <VStack gap={1}>
-                    <Text size="sm" as="span">
-                      2. 结构化感知明细 (Structured Details)
-                    </Text>
-                    <div {...stylex.props(styles.detailsGrid)}>
-                      <div {...stylex.props(styles.infoCard)}>
-                        <Text type="supporting" size="sm" as="div">核心主体 (mainContent)</Text>
-                        <Text size="sm" as="div">{testResult.perception.mainContent}</Text>
-                      </div>
-                      {testResult.perception.scene && (
-                        <div {...stylex.props(styles.infoCard)}>
-                          <Text type="supporting" size="sm" as="div">场景环境 (scene)</Text>
-                          <Text size="sm" as="div">{testResult.perception.scene}</Text>
-                        </div>
-                      )}
-                      {testResult.perception.imageType && (
-                        <div {...stylex.props(styles.infoCard)}>
-                          <Text type="supporting" size="sm" as="div">图片类型 (imageType)</Text>
-                          <Text size="sm" as="div">{testResult.perception.imageType}</Text>
-                        </div>
-                      )}
-                      {testResult.perception.mood && (
-                        <div {...stylex.props(styles.infoCard)}>
-                          <Text type="supporting" size="sm" as="div">画面氛围 (mood)</Text>
-                          <Text size="sm" as="div">{testResult.perception.mood}</Text>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Objects Badges */}
-                    {testResult.perception.objects && testResult.perception.objects.length > 0 && (
-                      <VStack gap={1}>
-                        <Text type="supporting" size="sm" as="span">识别物体与要素：</Text>
-                        <HStack gap={1} wrap="wrap">
-                          {testResult.perception.objects.map((obj, i) => (
-                            <Badge key={i} label={obj} variant="blue" />
-                          ))}
-                        </HStack>
-                      </VStack>
-                    )}
-
-                    {/* OCR Text if present */}
-                    {testResult.perception.ocrText && (
-                      <div {...stylex.props(styles.infoCard)}>
-                        <Text type="supporting" size="sm" as="div">可见文字 (OCR)</Text>
-                        <Text size="sm" as="div">
-                          {testResult.perception.ocrText}
-                        </Text>
-                      </div>
-                    )}
-                  </VStack>
-
-                  {/* 3. Formatted Prompt Block */}
-                  {testResult.formattedPromptBlock && (
-                    <VStack gap={1.5}>
-                      <HStack hAlign="between" vAlign="center" width="100%">
-                        <Text size="sm" as="span">
-                          3. 装配到下游角色大模型的最终提示词块
-                        </Text>
-                        <Button
-                          label={copiedPrompt ? '已复制' : '复制提示词块'}
-                          variant="secondary"
-                          size="sm"
-                          icon={copiedPrompt ? <Check size={13} /> : <Copy size={13} />}
-                          onClick={() => copyPromptBlock(testResult.formattedPromptBlock!)}
-                        />
-                      </HStack>
-                      <div {...stylex.props(styles.resultCard)}>
-                        {testResult.formattedPromptBlock}
-                      </div>
-                    </VStack>
-                  )}
-                </>
-              ) : (
-                <div {...stylex.props(styles.errorCard)}>
-                  <HStack gap={1.5} vAlign="center">
-                    <AlertCircle size={16} color="rgb(220, 38, 38)" />
-                    <Text size="sm" as="span" xstyle={styles.errorText}>
-                      测试失败
-                    </Text>
-                  </HStack>
-                  <Text size="sm" as="p" xstyle={styles.errorText}>
-                    {testResult.error || '未知错误'}
-                  </Text>
-                </div>
-              )}
-            </VStack>
-          )}
         </VStack>
       </Card>
     </VStack>
