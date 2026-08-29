@@ -8,7 +8,6 @@ import { DropdownMenu } from '@astryxdesign/core/DropdownMenu';
 import { UserAvatar } from '@/components/user-avatar';
 import {
   Compass,
-  Heart,
   MessageCircle,
   Moon,
   Settings,
@@ -43,27 +42,10 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    rowGap: 16,
-  },
-  logo: {
-    display: 'flex',
-    height: 40,
-    width: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radiusVars['--radius-container'],
-    backgroundColor: colorVars['--color-accent'],
-    color: colorVars['--color-on-accent'],
-    boxShadow: shadowVars['--shadow-low'],
-    transitionProperty: 'transform',
-    transitionDuration: '175ms',
-    ':hover': {
-      transform: 'scale(1.05)',
-    },
+    rowGap: 8,
   },
   navGroup: {
     display: 'flex',
-    marginTop: 8,
     flexDirection: 'column',
     alignItems: 'center',
     rowGap: 8,
@@ -71,25 +53,30 @@ const styles = stylex.create({
   navItem: {
     position: 'relative',
     display: 'flex',
-    height: 44,
-    width: 44,
+    height: 40,
+    width: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radiusVars['--radius-page'],
-    transitionProperty: 'background-color, color, box-shadow',
-    transitionDuration: '175ms',
-  },
-  navSelected: {
-    backgroundColor: colorVars['--color-background-surface'],
-    color: colorVars['--color-text-accent'],
-    boxShadow: shadowVars['--shadow-low'],
-  },
-  navIdle: {
+    borderRadius: radiusVars['--radius-element'],
     color: colorVars['--color-text-secondary'],
+    transitionProperty: 'background-color, color',
+    transitionDuration: '175ms',
     ':hover': {
       backgroundColor: colorVars['--color-background-muted'],
       color: colorVars['--color-text-primary'],
     },
+    ':focus-visible': {
+      outline: '2px solid',
+      outlineColor: colorVars['--color-accent'],
+      outlineOffset: 3,
+    },
+  },
+  navSelected: {
+    backgroundColor: colorVars['--color-background-muted'],
+    color: colorVars['--color-text-primary'],
+  },
+  navIdle: {
+    color: colorVars['--color-text-secondary'],
   },
   bottom: {
     display: 'flex',
@@ -103,21 +90,26 @@ const styles = stylex.create({
     width: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radiusVars['--radius-page'],
-    transitionProperty: 'background-color, color, box-shadow',
-    transitionDuration: '175ms',
-  },
-  settingsActive: {
-    backgroundColor: colorVars['--color-background-surface'],
-    color: colorVars['--color-text-accent'],
-    boxShadow: shadowVars['--shadow-low'],
-  },
-  settingsIdle: {
+    borderRadius: radiusVars['--radius-element'],
     color: colorVars['--color-text-secondary'],
+    transitionProperty: 'background-color, color',
+    transitionDuration: '175ms',
     ':hover': {
       backgroundColor: colorVars['--color-background-muted'],
       color: colorVars['--color-text-primary'],
     },
+    ':focus-visible': {
+      outline: '2px solid',
+      outlineColor: colorVars['--color-accent'],
+      outlineOffset: 3,
+    },
+  },
+  settingsActive: {
+    backgroundColor: colorVars['--color-background-muted'],
+    color: colorVars['--color-text-primary'],
+  },
+  settingsIdle: {
+    color: colorVars['--color-text-secondary'],
   },
   unreadBadge: {
     position: 'absolute',
@@ -155,7 +147,6 @@ const styles = stylex.create({
     borderColor: colorVars['--color-border'],
     borderRadius: radiusVars['--radius-page'],
     backgroundColor: colorVars['--color-background-surface'],
-    boxShadow: shadowVars['--shadow-low'],
   },
 });
 
@@ -221,14 +212,6 @@ export function AppNav({
     <div {...stylex.props(styles.shell)}>
       <nav {...stylex.props(styles.rail)} aria-label="主导航">
         <div {...stylex.props(styles.top)}>
-          <Link
-            href="/feed"
-            {...stylex.props(styles.logo)}
-            title="我的世界"
-          >
-            <Heart size={20} fill="currentColor" strokeWidth={0} />
-          </Link>
-
           {/* Navigation Items */}
           <div {...stylex.props(styles.navGroup)}>
             {NAV_ITEMS.map((item) => {
@@ -240,7 +223,7 @@ export function AppNav({
                   title={item.label}
                   {...stylex.props(styles.navItem, item.selected ? styles.navSelected : styles.navIdle)}
                 >
-                  <Icon size={22} strokeWidth={item.selected ? 2.2 : 1.8} />
+                  <Icon size={20} />
                   {item.badge ? <UnreadBadge count={item.badge} /> : null}
                 </Link>
               );

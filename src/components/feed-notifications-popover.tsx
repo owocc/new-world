@@ -176,7 +176,6 @@ const styles = stylex.create({
   },
   notificationButtonUnscrolled: {
     color: 'rgba(255, 255, 255, 0.9)',
-    filter: 'drop-shadow(0 1.5px 3px rgba(0, 0, 0, 0.7))',
     ':hover': {
       color: colorVars['--color-on-dark'],
       backgroundColor: 'rgba(255, 255, 255, 0.2)',

@@ -54,7 +54,6 @@ const styles = stylex.create({
     borderBottomColor: 'var(--color-border)',
     backgroundColor: 'color-mix(in srgb, var(--color-background-surface) 95%, transparent)',
     backdropFilter: 'blur(12px)',
-    boxShadow: '0 1px 2px var(--color-shadow)',
     color: 'var(--color-text-primary)',
   },
   headerTop: {
@@ -90,7 +89,6 @@ const styles = stylex.create({
   },
   backLinkTop: {
     color: 'rgb(255 255 255 / 90%)',
-    filter: 'drop-shadow(0 1.5px 3px rgb(0 0 0 / 70%))',
     '@media (hover: hover)': {
       ':hover': {
         color: 'var(--color-on-dark)',
@@ -132,7 +130,6 @@ const styles = stylex.create({
   },
   toolbarButtonTop: {
     color: 'rgb(255 255 255 / 90%)',
-    filter: 'drop-shadow(0 1.5px 3px rgb(0 0 0 / 70%))',
     '@media (hover: hover)': {
       ':hover': {
         color: 'var(--color-on-dark)',
@@ -197,11 +194,14 @@ const styles = stylex.create({
   },
   gradient: {
     position: 'absolute',
-    inset: 0,
-    zIndex: 1,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2,
     pointerEvents: 'none',
-    background:
-      'linear-gradient(to bottom, rgb(0 0 0 / 65%) 0%, rgb(0 0 0 / 0%) 35%, rgb(0 0 0 / 0%) 60%, rgb(0 0 0 / 82%) 100%)',
+    backgroundImage:
+      'linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 25%, rgba(0, 0, 0, 0) 75%, rgba(0, 0, 0, 0.5) 100%)',
   },
   coverHint: {
     position: 'absolute',
@@ -522,7 +522,20 @@ export function FeedView({
             fallbackSrc={DEFAULT_FEED_COVER}
             {...stylex.props(styles.coverImage)}
           />
-          <div {...stylex.props(styles.gradient)} />
+          <div
+            {...stylex.props(styles.gradient)}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 2,
+              pointerEvents: 'none',
+              backgroundImage:
+                'linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 25%, rgba(0, 0, 0, 0) 75%, rgba(0, 0, 0, 0.5) 100%)',
+            }}
+          />
           <div {...stylex.props(styles.coverHint, isCoverHovered && styles.coverHintVisible)}>
             <Camera size={13} />
             <span>更换背景</span>
