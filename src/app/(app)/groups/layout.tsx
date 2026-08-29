@@ -1,6 +1,7 @@
 import { requireUserId } from '@/lib/session';
 import { getGroups } from '@/server/groups';
-import { GroupsShell } from '@/components/groups/groups-shell';
+import { GroupList } from '@/components/groups/group-list';
+import { SplitLayout } from '@/components/split-layout';
 
 export const metadata = { title: '群聊' };
 export const dynamic = 'force-dynamic';
@@ -9,5 +10,13 @@ export default async function GroupsLayout({ children }: { children: React.React
   const userId = await requireUserId();
   const groups = await getGroups(userId);
 
-  return <GroupsShell groups={groups}>{children}</GroupsShell>;
+  return (
+    <SplitLayout
+      rootPath="/groups"
+      sidebarWidth="md:w-[320px]"
+      sidebar={<GroupList groups={groups} />}
+    >
+      {children}
+    </SplitLayout>
+  );
 }
