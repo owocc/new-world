@@ -1,7 +1,9 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import {Avatar} from '@astryxdesign/core/Avatar';
-import type {AvatarSize} from '@astryxdesign/core/Avatar';
-import {resolveMediaUrl} from '@/lib/utils';
+import { resolveMediaUrl } from '@/lib/utils';
+import clsx from 'clsx';
 
 /**
  * App avatar: Astryx Avatar for image avatars, with a gradient + emoji
@@ -21,14 +23,6 @@ const GRADIENTS: Record<string, string> = {
 
 export const AVATAR_COLORS = Object.keys(GRADIENTS);
 
-// Astryx Avatar only accepts a fixed numeric size scale; snap to the closest.
-const ASTRYX_SIZES = [16, 20, 24, 32, 36, 40, 48, 60, 64, 72, 96, 128, 144, 180];
-function snapSize(size: number): number {
-  return ASTRYX_SIZES.reduce((best, s) =>
-    Math.abs(s - size) < Math.abs(best - size) ? s : best,
-  );
-}
-
 export function UserAvatar({
   name,
   emoji,
@@ -37,6 +31,7 @@ export function UserAvatar({
   size = 40,
   href,
   tooltip = true,
+  className,
 }: {
   name: string;
   emoji?: string | null;
@@ -45,29 +40,46 @@ export function UserAvatar({
   size?: number;
   href?: string;
   tooltip?: boolean | string;
+  className?: string;
 }) {
+  const [imgError, setImgError] = useState(false);
   const finalUrl = resolveMediaUrl(url);
-  if (finalUrl) {
-    return (
-      <Avatar name={name} src={finalUrl} size={snapSize(size) as AvatarSize} href={href} tooltip={tooltip} />
-    );
-  }
+
+  useEffect(() => {
+    setImgError(false);
+  }, [url]);
 
   const gradient = GRADIENTS[color ?? 'violet'] ?? GRADIENTS.violet;
+  const showImage = Boolean(finalUrl && !imgError);
+
   const inner = (
     <span
-      className="inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full"
+      className={clsx(
+        'inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full',
+        className,
+      )}
       style={{
         width: size,
         height: size,
-        background: gradient,
-        fontSize: Math.round(size * 0.5),
+        background: showImage ? 'transparent' : gradient,
+        fontSize: Math.round(size * 0.48),
       }}
       role={href ? undefined : 'img'}
       aria-label={name}
       title={tooltip === false ? undefined : tooltip === true ? name : tooltip}
     >
-      <span className="leading-none">{emoji || name.slice(0, 1)}</span>
+      {showImage ? (
+        <img
+          src={finalUrl!}
+          alt={name}
+          onError={() => setImgError(true)}
+          className="h-full w-full object-cover object-center"
+        />
+      ) : (
+        <span className="leading-none text-white font-medium">
+          {emoji || name.slice(0, 1) || '✨'}
+        </span>
+      )}
     </span>
   );
 

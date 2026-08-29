@@ -41,7 +41,7 @@ export async function GET(req: Request): Promise<Response> {
       headers: {
         'Content-Type': mime,
         'Content-Length': String(buffer.length),
-        'Cache-Control': 'private, max-age=3600',
+        'Cache-Control': 'public, max-age=31536000, immutable',
       },
     });
   }
@@ -49,15 +49,20 @@ export async function GET(req: Request): Promise<Response> {
   // 2. Fetch from Vercel Blob with token
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   try {
-    const res = await fetch(targetUrl, {
+    let res = await fetch(targetUrl, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
+
+    if (!res.ok && token) {
+      // Retry without token in case it's a public blob store
+      res = await fetch(targetUrl);
+    }
 
     if (res.ok && res.body) {
       return new Response(res.body as BodyInit, {
         headers: {
           'Content-Type': res.headers.get('content-type') || mimeType,
-          'Cache-Control': 'private, max-age=3600',
+          'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
         },
       });
     }

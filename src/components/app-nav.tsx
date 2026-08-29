@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { DropdownMenu } from '@astryxdesign/core/DropdownMenu';
-import { Avatar } from '@astryxdesign/core/Avatar';
+import { UserAvatar } from '@/components/user-avatar';
 import {
   Compass,
   Heart,
@@ -179,9 +179,9 @@ export function AppNav({
             ]}
           />
 
-          <Avatar
+          <UserAvatar
             name={user.name}
-            src={user.image ?? undefined}
+            url={user.image}
             size={32}
             tooltip={user.name}
             href="/settings/account"
