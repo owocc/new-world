@@ -202,6 +202,7 @@ export const CALL_TYPE_LABELS: Record<string, string> = {
   memory: '记忆提取',
   summary: '对话摘要',
   system: '系统',
+  image_understanding: '图片理解',
   group_message: '群聊发言',
   group_attention: '群聊感知',
   group_decision: '群聊决策',

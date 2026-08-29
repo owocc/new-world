@@ -43,3 +43,7 @@ next-env.d.ts
 # local dev database
 local.db*
 !.env.example
+
+# harness
+.agents/
+skills-lock.json

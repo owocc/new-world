@@ -14,8 +14,8 @@ import {Switch} from '@astryxdesign/core/Switch';
 import {VStack} from '@astryxdesign/core/Stack';
 import {useAppToast} from '@/lib/toast';
 import {nativeAttrs} from '@/lib/native-attrs';
-import {saveCommunityConfig, saveDefaultAIConfig, updateProfile} from '@/server/actions/settings';
-import type {DefaultAIConfig, CommunityConfig} from '@/server/settings';
+import { saveCommunityConfig, saveDefaultAIConfig, updateProfile } from '@/server/actions/settings';
+import type { DefaultAIConfig, CommunityConfig } from '@/server/settings';
 import * as stylex from '@stylexjs/stylex';
 
 const styles = stylex.create({

@@ -10,6 +10,8 @@ import {
   Bell,
   Cpu,
   Sparkles,
+  Eye,
+  Code2,
 } from 'lucide-react';
 import * as stylex from '@stylexjs/stylex';
 
@@ -64,6 +66,12 @@ const SECTIONS = [
         icon: Bell,
         isMatch: (p: string) => p.startsWith('/settings/notifications'),
       },
+      {
+        href: '/settings/developer',
+        label: '开发者设置',
+        icon: Code2,
+        isMatch: (p: string) => p.startsWith('/settings/developer'),
+      },
     ],
   },
   {
@@ -80,6 +88,12 @@ const SECTIONS = [
         label: '模型与价格',
         icon: Sparkles,
         isMatch: (p: string) => p.startsWith('/settings/models'),
+      },
+      {
+        href: '/settings/vision',
+        label: '图片理解',
+        icon: Eye,
+        isMatch: (p: string) => p.startsWith('/settings/vision'),
       },
     ],
   },

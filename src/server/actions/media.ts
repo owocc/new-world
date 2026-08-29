@@ -12,7 +12,7 @@ import {
 import { db } from '@/db';
 import { aiCharacters, user } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
-
+import { processMediaAssetPerception } from '@/server/ai/vision';
 /**
  * Server Action: Upload and save avatar for the current logged-in user.
  */
@@ -144,4 +144,13 @@ export async function uploadFeedCoverAction(
   }
 
   return res;
+}
+
+/**
+ * Server Action: Re-analyze image perception on-demand for a media asset.
+ */
+export async function reanalyzeMediaPerceptionAction(mediaAssetId: string) {
+  const userId = await requireUserId();
+  const perception = await processMediaAssetPerception(userId, mediaAssetId, { force: true });
+  return { ok: true, perception };
 }

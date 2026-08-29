@@ -25,12 +25,19 @@ export function formatGroupChatContextBlock(ctx: PerceptionContext, options?: { 
 
   parts.push(`【群聊信息】\n群名称：「${ctx.group.name}」\n群成员：${ctx.group.membersSummary}`);
 
-  const formatMsgContent = (content: string, atts?: { id: string }[]) => {
+  const formatMsgContent = (content: string, atts?: Array<{ id: string; perception?: { status: string; summary?: string | null } | null }>) => {
     const text = content.trim();
     if (!atts || atts.length === 0) return text;
-    const attNote = supportsVision
-      ? `[发送了 ${atts.length} 张图片]`
-      : `[发送了 ${atts.length} 张图片 (当前模型无法直接查看图片内容)]`;
+    const summaries = atts
+      .map((a) => a.perception?.summary)
+      .filter((s): s is string => Boolean(s && s.trim()));
+    let attNote = '';
+    if (summaries.length > 0) {
+      attNote = summaries.map((s, idx) => (summaries.length > 1 ? `[图${idx + 1}内容: ${s}]` : `[图片内容: ${s}]`)).join(' ');
+    } else {
+      const isProcessing = atts.some((a) => a.perception?.status === 'processing' || a.perception?.status === 'pending');
+      attNote = isProcessing ? `[发送了 ${atts.length} 张图片 (解析中...)]` : `[发送了 ${atts.length} 张图片]`;
+    }
     return text ? `${text} ${attNote}` : attNote;
   };
 

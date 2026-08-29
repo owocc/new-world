@@ -5,7 +5,8 @@ import * as stylex from '@stylexjs/stylex';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import Link from 'next/link';
-import { ArrowLeft, Image as ImageIcon, Loader2, RefreshCw, X } from 'lucide-react';
+import { ArrowLeft, Code2, Image as ImageIcon, Loader2, RefreshCw, X } from 'lucide-react';
+import { ChatContextInspector } from '@/components/chat-context-inspector';
 import {
   ChatMessageList,
   ChatMessage,
@@ -209,12 +210,15 @@ export function ChatWindow({
   conversationId,
   character,
   initialMessages,
+  isDevMode = false,
 }: {
   conversationId: string;
   character: CharacterRow;
   initialMessages: InitialMessage[];
+  isDevMode?: boolean;
 }) {
   const toast = useAppToast();
+  const [showDevInspector, setShowDevInspector] = useState(false);
   const [composerValue, setComposerValue] = useState('');
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [activeLightboxMedia, setActiveLightboxMedia] = useState<{
@@ -222,6 +226,7 @@ export function ChatWindow({
     originalFilename?: string | null;
     width?: number | null;
     height?: number | null;
+    perception?: { summary?: string | null; ocrText?: string | null; status?: string } | null;
   } | null>(null);
 
   // Map to store attachments for messages (both initial and optimistically sent)
@@ -234,11 +239,10 @@ export function ChatWindow({
     }
     return initialMap;
   });
-
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingImagesRef = useRef<PendingImage[]>([]);
   pendingImagesRef.current = pendingImages;
-
+  const pendingSendAttachmentsRef = useRef<MediaAssetView[]>([]);
   const { messages, sendMessage, status, error, regenerate, stop } = useChat({
     transport: new DefaultChatTransport({
       api: '/api/chat',
@@ -261,6 +265,20 @@ export function ChatWindow({
     markRead(conversationId);
   }, [conversationId]);
 
+  // Keep optimistic attachments linked to the latest user message
+  useEffect(() => {
+    if (pendingSendAttachmentsRef.current.length > 0 && messages.length > 0) {
+      const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+      if (lastUser && !messageAttachmentsMap[lastUser.id]) {
+        const atts = pendingSendAttachmentsRef.current;
+        pendingSendAttachmentsRef.current = [];
+        setMessageAttachmentsMap((prev) => ({
+          ...prev,
+          [lastUser.id]: atts,
+        }));
+      }
+    }
+  }, [messages, messageAttachmentsMap]);
   // auto-scroll while streaming; respect manual scroll-up
   useEffect(() => {
     const el = scrollRef.current;
@@ -422,7 +440,7 @@ export function ChatWindow({
 
     // If attachments were sent, attach them to the pending message view
     if (readyAttachments.length > 0) {
-      // Clear pending images
+      pendingSendAttachmentsRef.current = readyAttachments;
       setPendingImages([]);
     }
   };
@@ -435,7 +453,13 @@ export function ChatWindow({
         onClose={() => setActiveLightboxMedia(null)}
       />
 
-      {/* header — friend first */}
+      {/* Developer Context Inspector Modal */}
+      <ChatContextInspector
+        isOpen={showDevInspector}
+        onClose={() => setShowDevInspector(false)}
+        mode="dm"
+        conversationId={conversationId}
+      />
       <header {...stylex.props(styles.header)}>
         <Link
           href="/messages"
@@ -459,9 +483,34 @@ export function ChatWindow({
             </Text>
           )}
         </div>
-        <Link href={`/characters/${character.id}`} {...stylex.props(styles.shrink)}>
-          <Button label="查看资料" variant="ghost" size="sm" />
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isDevMode && (
+            <button
+              type="button"
+              onClick={() => setShowDevInspector(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '5px 10px',
+                borderRadius: 6,
+                border: '1px solid var(--color-border)',
+                backgroundColor: 'var(--color-background-muted)',
+                color: 'var(--color-primary, #6366f1)',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+              title="打开开发者工具 · 查看实时 AI 上下文"
+            >
+              <Code2 size={14} />
+              <span>开发者工具</span>
+            </button>
+          )}
+          <Link href={`/characters/${character.id}`} {...stylex.props(styles.shrink)}>
+            <Button label="查看资料" variant="ghost" size="sm" />
+          </Link>
+        </div>
       </header>
 
       {/* messages */}
@@ -493,7 +542,8 @@ export function ChatWindow({
                   .map((p) => p.text)
                   .join('');
 
-                const attachments = messageAttachmentsMap[m.id] || [];
+                const isLastUser = isUser && messages.findLast((msg) => msg.role === 'user')?.id === m.id;
+                const attachments = messageAttachmentsMap[m.id] || (isLastUser && pendingSendAttachmentsRef.current.length > 0 ? pendingSendAttachmentsRef.current : []);
 
                 return (
                   <ChatMessage
@@ -516,6 +566,7 @@ export function ChatWindow({
                                   originalFilename: att.originalFilename,
                                   width: att.width,
                                   height: att.height,
+                                  perception: att.perception,
                                 })
                               }
                             >

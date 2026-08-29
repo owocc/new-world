@@ -3,11 +3,13 @@ import { and, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   groupMessageAttachments,
+  imagePerceptions,
   mediaAssets,
   messageAttachments,
   user,
   aiCharacters,
 } from '@/db/schema';
+import { scheduleMediaPerceptions } from '@/server/ai/vision';
 import { getFeedCover, setFeedCover } from '@/server/settings';
 
 export const ALLOWED_IMAGE_MIMES = [
@@ -42,6 +44,11 @@ export type MediaAssetView = {
   duration: number | null;
   status: MediaStatus;
   purpose: MediaPurpose;
+  perception?: {
+    status: string;
+    summary: string | null;
+    ocrText: string | null;
+  } | null;
   createdAt: Date;
 };
 
@@ -391,6 +398,8 @@ export async function linkMediaToMessage(
       .update(mediaAssets)
       .set({ status: 'ready', updatedAt: new Date() })
       .where(inArray(mediaAssets.id, validIds));
+
+    scheduleMediaPerceptions(userId, validIds);
   }
 }
 
@@ -429,6 +438,8 @@ export async function linkMediaToGroupMessage(
       .update(mediaAssets)
       .set({ status: 'ready', updatedAt: new Date() })
       .where(inArray(mediaAssets.id, validIds));
+
+    scheduleMediaPerceptions(userId, validIds);
   }
 }
 
@@ -446,9 +457,11 @@ export async function getMediaForMessages(
       messageId: messageAttachments.messageId,
       order: messageAttachments.order,
       asset: mediaAssets,
+      perception: imagePerceptions,
     })
     .from(messageAttachments)
     .innerJoin(mediaAssets, eq(messageAttachments.mediaAssetId, mediaAssets.id))
+    .leftJoin(imagePerceptions, eq(imagePerceptions.mediaAssetId, mediaAssets.id))
     .where(inArray(messageAttachments.messageId, messageIds))
     .orderBy(messageAttachments.order);
 
@@ -469,6 +482,13 @@ export async function getMediaForMessages(
       duration: r.asset.duration,
       status: r.asset.status as MediaStatus,
       purpose: r.asset.purpose as MediaPurpose,
+      perception: r.perception
+        ? {
+            status: r.perception.status,
+            summary: r.perception.summary,
+            ocrText: r.perception.ocrText,
+          }
+        : null,
       createdAt: new Date(r.asset.createdAt),
     });
     result.set(r.messageId, list);
@@ -491,9 +511,11 @@ export async function getMediaForGroupMessages(
       groupMessageId: groupMessageAttachments.groupMessageId,
       order: groupMessageAttachments.order,
       asset: mediaAssets,
+      perception: imagePerceptions,
     })
     .from(groupMessageAttachments)
     .innerJoin(mediaAssets, eq(groupMessageAttachments.mediaAssetId, mediaAssets.id))
+    .leftJoin(imagePerceptions, eq(imagePerceptions.mediaAssetId, mediaAssets.id))
     .where(inArray(groupMessageAttachments.groupMessageId, groupMessageIds))
     .orderBy(groupMessageAttachments.order);
 
@@ -514,6 +536,13 @@ export async function getMediaForGroupMessages(
       duration: r.asset.duration,
       status: r.asset.status as MediaStatus,
       purpose: r.asset.purpose as MediaPurpose,
+      perception: r.perception
+        ? {
+            status: r.perception.status,
+            summary: r.perception.summary,
+            ocrText: r.perception.ocrText,
+          }
+        : null,
       createdAt: new Date(r.asset.createdAt),
     });
     result.set(r.groupMessageId, list);
@@ -529,14 +558,19 @@ export async function getMediaAsset(
   userId: string,
   mediaAssetId: string,
 ): Promise<MediaAssetView | null> {
-  const [asset] = await db
-    .select()
+  const [row] = await db
+    .select({
+      asset: mediaAssets,
+      perception: imagePerceptions,
+    })
     .from(mediaAssets)
+    .leftJoin(imagePerceptions, eq(imagePerceptions.mediaAssetId, mediaAssets.id))
     .where(and(eq(mediaAssets.id, mediaAssetId), eq(mediaAssets.userId, userId)))
     .limit(1);
 
-  if (!asset) return null;
+  if (!row) return null;
 
+  const asset = row.asset;
   return {
     id: asset.id,
     userId: asset.userId,
@@ -552,6 +586,13 @@ export async function getMediaAsset(
     duration: asset.duration,
     status: asset.status as MediaStatus,
     purpose: asset.purpose as MediaPurpose,
+    perception: row.perception
+      ? {
+          status: row.perception.status,
+          summary: row.perception.summary,
+          ocrText: row.perception.ocrText,
+        }
+      : null,
     createdAt: new Date(asset.createdAt),
   };
 }

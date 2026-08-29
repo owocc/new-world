@@ -10,6 +10,38 @@ export type DefaultAIConfig = {
   maxTokens: number | null;
 };
 
+export type VisionConfig = {
+  /** Master switch for dedicated vision interpreter */
+  enabled: boolean;
+  providerId: string | null;
+  modelId: string | null;
+  temperature: number | null;
+  maxTokens: number | null;
+};
+
+export const DEFAULT_VISION_CONFIG: VisionConfig = {
+  enabled: true,
+  providerId: null,
+  modelId: null,
+  temperature: 0.2,
+  maxTokens: 800,
+};
+
+export type DeveloperConfig = {
+  /** Master switch for developer tools & context inspector */
+  enabled: boolean;
+  /** Show raw system prompts */
+  showRawPrompts?: boolean;
+  /** Show token stats in inspector */
+  showTokenStats?: boolean;
+};
+
+export const DEFAULT_DEVELOPER_CONFIG: DeveloperConfig = {
+  enabled: false,
+  showRawPrompts: true,
+  showTokenStats: true,
+};
+
 export type CommunityConfig = {
   /** master switch for autonomous AI behavior */
   enabled: boolean;
@@ -73,3 +105,15 @@ export const getFeedCover = (userId: string) =>
 
 export const setFeedCover = (userId: string, coverUrl: string | null) =>
   setSetting(userId, 'feed_cover_url', coverUrl);
+
+export const getVisionConfig = (userId: string) =>
+  getSetting<VisionConfig>(userId, 'ai_vision', DEFAULT_VISION_CONFIG);
+
+export const setVisionConfig = (userId: string, config: VisionConfig) =>
+  setSetting(userId, 'ai_vision', config);
+
+export const getDeveloperConfig = (userId: string) =>
+  getSetting<DeveloperConfig>(userId, 'developer_config', DEFAULT_DEVELOPER_CONFIG);
+
+export const setDeveloperConfig = (userId: string, config: DeveloperConfig) =>
+  setSetting(userId, 'developer_config', config);

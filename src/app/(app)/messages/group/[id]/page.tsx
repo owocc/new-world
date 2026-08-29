@@ -4,8 +4,8 @@ import { db } from '@/db';
 import { aiCharacters } from '@/db/schema';
 import { requireUserId } from '@/lib/session';
 import { getGroupDetails, getGroupMessages } from '@/server/groups';
+import { getDeveloperConfig } from '@/server/settings';
 import { GroupChatWindow } from '@/components/groups/group-chat-window';
-
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -21,15 +21,15 @@ export default async function MessageGroupRoomPage({ params }: { params: Promise
   const { id } = await params;
   const userId = await requireUserId();
 
-  const [details, initialMessages, allCharacters] = await Promise.all([
+  const [details, initialMessages, allCharacters, devConfig] = await Promise.all([
     getGroupDetails(userId, id),
     getGroupMessages(userId, id, 100),
     db
       .select()
       .from(aiCharacters)
       .where(and(eq(aiCharacters.userId, userId), eq(aiCharacters.status, 'active'))),
+    getDeveloperConfig(userId),
   ]);
-
   if (!details) {
     notFound();
   }
@@ -40,6 +40,7 @@ export default async function MessageGroupRoomPage({ params }: { params: Promise
       members={details.members}
       allCharacters={allCharacters}
       initialMessages={initialMessages}
+      isDevMode={devConfig?.enabled ?? false}
     />
   );
 }

@@ -7,6 +7,7 @@ import { characterSystemPrompt, chatMemoryBlock } from '@/server/ai/prompts';
 import { buildChatContext, maybeSummarizeConversation, extractMemories } from '@/server/ai/memory';
 import { getConversation, markConversationRead } from '@/server/chat';
 import { linkMediaToMessage, getMediaForMessages } from '@/server/media';
+import { waitForMediaPerceptions } from '@/server/ai/vision';
 import type { ModelMessage, UIMessage } from 'ai';
 
 export const maxDuration = 60;
@@ -62,13 +63,13 @@ export async function POST(req: Request) {
       content: text.trim(),
     });
 
-    // Link uploaded media assets
+    // Link uploaded media assets and wait briefly for vision interpreter perception
     if (mediaAssetIds.length > 0) {
       await linkMediaToMessage(userId, userMsgId, mediaAssetIds);
+      await waitForMediaPerceptions(userId, mediaAssetIds, 3500);
     }
 
     await markConversationRead(userId, convId);
-
     // Assemble memory-aware context
     const { recent, memories } = await buildChatContext({
       userId,
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
     const system =
       characterSystemPrompt(conv.character, session.user.name) + (memoryBlock ? `\n\n${memoryBlock}` : '');
 
-    // Convert recent messages to ModelMessage format with vision support
+    // Convert recent messages to ModelMessage format with vision perception reuse
     const contextMessages: ModelMessage[] = recent.map((m) => {
       if (m.role === 'assistant') {
         return {
@@ -99,26 +100,30 @@ export async function POST(req: Request) {
         };
       }
 
-      if (resolved.supportsVision) {
-        // Model supports vision -> pass multimodal parts
-        const parts: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> = [];
-        if (m.content.trim()) {
-          parts.push({ type: 'text', text: m.content.trim() });
-        }
-        for (const att of m.attachments) {
-          parts.push({ type: 'image', image: att.blobUrl });
-        }
-        return {
-          role: 'user',
-          content: parts,
-        };
+      const summaries = m.attachments
+        .map((a) => a.perception?.summary)
+        .filter((s): s is string => Boolean(s && s.trim()));
+
+      let imageNote = '';
+      if (summaries.length > 0) {
+        imageNote = summaries
+          .map((s, idx) => (summaries.length > 1 ? `[图片${idx + 1}内容: ${s}]` : `[图片内容: ${s}]`))
+          .join('\n');
+      } else {
+        const isProcessing = m.attachments.some(
+          (a) => a.perception?.status === 'processing' || a.perception?.status === 'pending',
+        );
+        imageNote = isProcessing
+          ? `[发送了 ${m.attachments.length} 张图片 (正在识别中...)]`
+          : `[发送了 ${m.attachments.length} 张图片]`;
       }
 
-      // Model does not support vision -> annotate text gracefully without exposing raw URL
-      const notice = `\n[User sent ${m.attachments.length} image(s) that your current model cannot inspect.]`;
+      const userText = m.content.trim();
+      const fullText = userText && imageNote ? `${userText}\n${imageNote}` : userText || imageNote;
+
       return {
         role: 'user',
-        content: (m.content.trim() ? m.content.trim() + ' ' : '') + notice,
+        content: fullText || ' ',
       };
     });
 

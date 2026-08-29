@@ -5,8 +5,10 @@ import {TabList, Tab} from '@astryxdesign/core/TabList';
 
 const ITEMS = [
   {href: '/settings', label: '通用'},
-  {href: '/settings/providers', label: 'AI Providers'},
+  {href: '/settings/providers', label: 'AI 服务商'},
   {href: '/settings/models', label: '模型与价格'},
+  {href: '/settings/vision', label: '图片理解'},
+  {href: '/settings/developer', label: '开发者'},
   {href: '/settings/appearance', label: '外观'},
   {href: '/settings/account', label: '账号'},
 ];

@@ -2,17 +2,20 @@ import { notFound } from 'next/navigation';
 import { ChatWindow } from '@/components/chat-window';
 import { requireUserId } from '@/lib/session';
 import { getConversation, getConversationMessages } from '@/server/chat';
+import { getDeveloperConfig } from '@/server/settings';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const userId = await requireUserId();
-  const conv = await getConversation(userId, id);
+  const [conv, devConfig] = await Promise.all([
+    getConversation(userId, id),
+    getDeveloperConfig(userId),
+  ]);
   if (!conv) notFound();
 
   const msgs = await getConversationMessages(id, 100);
-
   return (
     <ChatWindow
       conversationId={id}
@@ -24,6 +27,7 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
         attachments: m.attachments,
         createdAt: m.createdAt,
       }))}
+      isDevMode={devConfig?.enabled ?? false}
     />
   );
 }

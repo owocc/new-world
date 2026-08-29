@@ -570,3 +570,39 @@ export const groupMessageAttachments = sqliteTable('group_message_attachments', 
   index('group_message_attachments_msg_idx').on(t.groupMessageId),
   index('group_message_attachments_asset_idx').on(t.mediaAssetId),
 ]);
+
+export const imagePerceptions = sqliteTable('image_perceptions', {
+  id: text('id').primaryKey(),
+  mediaAssetId: text('media_asset_id')
+    .notNull()
+    .references(() => mediaAssets.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  /** pending | processing | ready | failed */
+  status: text('status').notNull().default('pending'),
+  providerType: text('provider_type'),
+  model: text('model'),
+  /** Natural language summary suitable for direct LLM context injection */
+  summary: text('summary'),
+  /** Full structured perception JSON string */
+  perception: text('perception'),
+  /** Extracted OCR text if present */
+  ocrText: text('ocr_text'),
+  /** Error message if perception failed */
+  errorMessage: text('error_message'),
+  /** Usage tracking info */
+  usageId: text('usage_id'),
+  inputTokens: integer('input_tokens').notNull().default(0),
+  outputTokens: integer('output_tokens').notNull().default(0),
+  totalTokens: integer('total_tokens').notNull().default(0),
+  costUsd: real('cost_usd'),
+  durationMs: integer('duration_ms').notNull().default(0),
+  analyzedAt: ts('analyzed_at'),
+  createdAt: ts('created_at').notNull().default(now()),
+  updatedAt: ts('updated_at').notNull().default(now()),
+}, (t) => [
+  uniqueIndex('image_perceptions_asset_idx').on(t.mediaAssetId),
+  index('image_perceptions_user_idx').on(t.userId),
+  index('image_perceptions_status_created_idx').on(t.status, t.createdAt),
+]);

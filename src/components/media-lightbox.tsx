@@ -98,13 +98,52 @@ const styles = stylex.create({
     transform: 'scale(1.25)',
     cursor: 'zoom-out',
   },
+  captionBar: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    left: 0,
+    zIndex: 10,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: 16,
+    backgroundImage: 'linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent)',
+    pointerEvents: 'none',
+  },
+  captionCard: {
+    maxWidth: 640,
+    padding: '8px 14px',
+    borderRadius: radiusVars['--radius-container'],
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
+    color: 'rgba(255, 255, 255, 0.92)',
+    fontSize: 13,
+    lineHeight: 1.5,
+    textAlign: 'center',
+    backdropFilter: 'blur(8px)',
+    pointerEvents: 'auto',
+  },
+  captionTag: {
+    display: 'inline-block',
+    fontSize: 11,
+    fontWeight: 600,
+    color: '#93c5fd',
+    marginRight: 6,
+  },
 });
 
 export function MediaLightbox({
   media,
   onClose,
 }: {
-  media: { url: string; originalFilename?: string | null; width?: number | null; height?: number | null } | null;
+  media: {
+    url: string;
+    originalFilename?: string | null;
+    width?: number | null;
+    height?: number | null;
+    perception?: { summary?: string | null; ocrText?: string | null; status?: string } | null;
+  } | null;
   onClose: () => void;
 }) {
   const [mounted, setMounted] = useState(false);
@@ -190,6 +229,16 @@ export function MediaLightbox({
           {...stylex.props(styles.image, zoomed && styles.imageZoomed)}
         />
       </div>
+
+      {/* Bottom Perception Bar if Available */}
+      {media.perception?.summary ? (
+        <div {...stylex.props(styles.captionBar)}>
+          <div {...stylex.props(styles.captionCard)}>
+            <span {...stylex.props(styles.captionTag)}>AI 视觉感知</span>
+            {media.perception.summary}
+          </div>
+        </div>
+      ) : null}
     </div>,
     document.body,
   );

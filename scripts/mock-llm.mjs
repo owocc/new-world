@@ -10,6 +10,20 @@ function pickText(messages, kind) {
   const chars = [...sys.matchAll(/名字：(.+?)（/g)].map((m) => m[1]);
   const name = chars[0] ?? 'AI';
 
+  // vision interpreter
+  if (sys.includes('Vision Interpreter') || sys.includes('图片感知') || user.includes('分析此图片')) {
+    return JSON.stringify({
+      summary: '这是一张室内照片。画面中有一只橘猫趴在白色窗台上，窗外正在下雨。桌面上放着一杯咖啡和一本打开的书。',
+      mainContent: '趴在窗台上的橘猫与桌上的咖啡和书',
+      scene: '室内窗边，雨天，光线温馨',
+      objects: ['橘猫', '白色窗台', '咖啡杯', '书'],
+      details: ['橘猫闭眼休息', '窗玻璃上有雨滴'],
+      ocrText: null,
+      imageType: '真实照片',
+      mood: '温馨宁静',
+    });
+  }
+
   // group decision
   if (user.includes('行为决策') || sys.includes('群聊') || user.includes('【群聊信息】')) {
     return JSON.stringify({
@@ -21,7 +35,6 @@ function pickText(messages, kind) {
       memoryImportance: 0.7,
     });
   }
-
   // decision calls ask for JSON with act/comment
   if (user.includes('决定是否评论') || user.includes('回复这条评论')) {
     const act = Math.random() < 0.85;

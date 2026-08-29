@@ -25,7 +25,9 @@ import { Button } from '@astryxdesign/core/Button';
 import { Text } from '@astryxdesign/core/Text';
 import { UserAvatar } from '@/components/user-avatar';
 import { MediaLightbox } from '@/components/media-lightbox';
+import { ChatContextInspector } from '@/components/chat-context-inspector';
 import { GroupInfoDrawer } from './group-info-drawer';
+import { Code2 } from 'lucide-react';
 import { useAppToast } from '@/lib/toast';
 import { resolveMediaUrl } from '@/lib/utils';
 import {
@@ -110,13 +112,16 @@ export function GroupChatWindow({
   members,
   allCharacters,
   initialMessages,
+  isDevMode = false,
 }: {
   group: GroupRow;
   members: GroupMemberView[];
   allCharacters: CharacterRow[];
   initialMessages: GroupMessageView[];
+  isDevMode?: boolean;
 }) {
   const toast = useAppToast();
+  const [showDevInspector, setShowDevInspector] = useState(false);
   const [messages, setMessages] = useState<GroupMessageView[]>(initialMessages);
   const [inputValue, setInputValue] = useState('');
   const [replyingTo, setReplyingTo] = useState<GroupMessageView | null>(null);
@@ -128,6 +133,7 @@ export function GroupChatWindow({
     originalFilename?: string | null;
     width?: number | null;
     height?: number | null;
+    perception?: { summary?: string | null; ocrText?: string | null; status?: string } | null;
   } | null>(null);
 
   const [isPending, startTransition] = useTransition();
@@ -398,6 +404,13 @@ export function GroupChatWindow({
         onClose={() => setActiveLightboxMedia(null)}
       />
 
+      {/* Developer Context Inspector Modal */}
+      <ChatContextInspector
+        isOpen={showDevInspector}
+        onClose={() => setShowDevInspector(false)}
+        mode="group"
+        groupId={group.id}
+      />
       {/* Header */}
       <header {...stylex.props(styles.header)}>
         <Link
@@ -425,13 +438,38 @@ export function GroupChatWindow({
             {group.description || `${members.map((m) => m.name).join('、')}`}
           </Text>
         </div>
-        <Button
-          label="群资料"
-          variant="ghost"
-          size="sm"
-          icon={<Info size={15} />}
-          onClick={() => setShowInfoDrawer(true)}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isDevMode && (
+            <button
+              type="button"
+              onClick={() => setShowDevInspector(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '5px 10px',
+                borderRadius: 6,
+                border: '1px solid var(--color-border)',
+                backgroundColor: 'var(--color-background-muted)',
+                color: 'var(--color-primary, #6366f1)',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+              title="打开开发者工具 · 查看实时 AI 上下文"
+            >
+              <Code2 size={14} />
+              <span>开发者工具</span>
+            </button>
+          )}
+          <Button
+            label="群资料"
+            variant="ghost"
+            size="sm"
+            icon={<Info size={15} />}
+            onClick={() => setShowInfoDrawer(true)}
+          />
+        </div>
       </header>
 
       {/* Messages list */}
@@ -482,6 +520,7 @@ export function GroupChatWindow({
                                   originalFilename: att.originalFilename,
                                   width: att.width,
                                   height: att.height,
+                                  perception: att.perception,
                                 })
                               }
                               {...stylex.props(styles.attachment)}
@@ -559,6 +598,7 @@ export function GroupChatWindow({
                                 originalFilename: att.originalFilename,
                                 width: att.width,
                                 height: att.height,
+                                perception: att.perception,
                               })
                             }
                             {...stylex.props(styles.attachment)}

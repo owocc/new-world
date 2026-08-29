@@ -11,7 +11,7 @@ import {
   type ProviderConfigRow,
 } from './providers';
 import { supportsVision } from '@/lib/providers-shared';
-import { getDefaultAIConfig } from '@/server/settings';
+import { getDefaultAIConfig, getVisionConfig } from '@/server/settings';
 export type CallType =
   | 'chat'
   | 'post_generation'
@@ -21,13 +21,13 @@ export type CallType =
   | 'memory'
   | 'summary'
   | 'system'
+  | 'image_understanding'
   | 'group_message'
   | 'group_attention'
   | 'group_decision'
   | 'group_digest'
   | 'group_reply'
   | 'group_reaction';
-
 export type ResolvedModel = {
   provider: ProviderConfigRow;
   modelId: string;
@@ -95,6 +95,68 @@ export async function resolveModel(
   };
 }
 
+/**
+ * Pick default recommended vision model for a provider type
+ */
+export function getDefaultVisionModelForProvider(providerType: string): string {
+  switch (providerType) {
+    case 'openai':
+      return 'gpt-4o-mini';
+    case 'anthropic':
+      return 'claude-3-5-haiku-20241022';
+    case 'google':
+      return 'gemini-1.5-flash';
+    case 'deepseek':
+      return 'deepseek-chat';
+    case 'openai-compatible':
+    default:
+      return 'gpt-4o-mini';
+  }
+}
+
+/**
+ * Resolve dedicated vision model configuration:
+ * vision config -> user default provider -> error.
+ */
+export async function resolveVisionModel(userId: string): Promise<ResolvedModel & { enabled: boolean }> {
+  const visionCfg = await getVisionConfig(userId);
+  if (!visionCfg.enabled) {
+    return {
+      enabled: false,
+      provider: null as unknown as ProviderConfigRow,
+      modelId: '',
+      supportsVision: false,
+      temperature: null,
+      topP: null,
+      maxTokens: null,
+    };
+  }
+
+  let provider: ProviderConfigRow | null = null;
+  if (visionCfg.providerId) {
+    provider = await getProviderConfig(userId, visionCfg.providerId);
+  }
+  if (!provider) {
+    provider = await getDefaultProvider(userId);
+  }
+  if (!provider) {
+    throw new NoProviderError();
+  }
+
+  const modelId = visionCfg.modelId || getDefaultVisionModelForProvider(provider.providerType);
+  const isVision = supportsVision(provider.providerType, modelId);
+
+  return {
+    enabled: true,
+    provider,
+    modelId,
+    supportsVision: isVision,
+    temperature: visionCfg.temperature ?? 0.2,
+    topP: null,
+    maxTokens: visionCfg.maxTokens ?? 800,
+  };
+}
+
 export class NoProviderError extends Error {
   constructor() {
     super('尚未配置 AI Provider。请先在「设置 → AI Providers」中添加并启用一个 Provider。');
@@ -102,7 +164,15 @@ export class NoProviderError extends Error {
   }
 }
 
-export function extractUsage(usage: LanguageModelUsage | undefined) {
+export type UsageMetrics = {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  cachedInputTokens: number;
+  reasoningTokens: number;
+};
+
+export function extractUsage(usage: LanguageModelUsage | undefined): UsageMetrics {
   const u = usage as Record<string, unknown> | undefined;
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
   return {
@@ -114,13 +184,13 @@ export function extractUsage(usage: LanguageModelUsage | undefined) {
   };
 }
 
-type UsageRecord = ReturnType<typeof extractUsage> & {
+export type UsageRecord = UsageMetrics & {
   success: boolean;
   errorMessage?: string;
   durationMs: number;
 };
 
-async function recordUsage(args: {
+export async function recordUsage(args: {
   userId: string;
   characterId: string | null;
   callType: CallType;
@@ -243,6 +313,70 @@ export async function runObject<T extends z.ZodType>(opts: {
         errorMessage: err instanceof Error ? err.message : String(err),
         durationMs: Date.now() - start,
       },
+    });
+    throw err;
+  }
+}
+
+/** Structured vision analysis with usage tracking */
+export async function runVisionObject<T extends z.ZodType>(opts: {
+  userId: string;
+  system: string;
+  prompt: string;
+  imageUrl: string;
+  schema: T;
+  temperature?: number;
+  maxOutputTokens?: number;
+}): Promise<{ object: z.infer<T>; usageId: string; usage: UsageRecord; resolved: ResolvedModel }> {
+  const resolved = await resolveVisionModel(opts.userId);
+  if (!resolved.enabled) {
+    throw new Error('图片理解功能已停用');
+  }
+  const start = Date.now();
+  try {
+    const result = await generateObject({
+      model: createModelFor(resolved.provider, resolved.modelId),
+      system: opts.system,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: opts.prompt },
+            { type: 'image', image: opts.imageUrl },
+          ],
+        },
+      ],
+      schema: opts.schema,
+      temperature: opts.temperature ?? resolved.temperature ?? undefined,
+      maxOutputTokens: opts.maxOutputTokens ?? resolved.maxTokens ?? undefined,
+    });
+    const usageData = { ...extractUsage(result.usage), success: true, durationMs: Date.now() - start };
+    const usageId = await recordUsage({
+      userId: opts.userId,
+      characterId: null,
+      callType: 'image_understanding',
+      resolved,
+      usage: usageData,
+    });
+    return {
+      object: result.object as z.infer<T>,
+      usageId,
+      usage: usageData,
+      resolved,
+    };
+  } catch (err) {
+    const usageData = {
+      ...extractUsage(undefined),
+      success: false,
+      errorMessage: err instanceof Error ? err.message : String(err),
+      durationMs: Date.now() - start,
+    };
+    const usageId = await recordUsage({
+      userId: opts.userId,
+      characterId: null,
+      callType: 'image_understanding',
+      resolved,
+      usage: usageData,
     });
     throw err;
   }

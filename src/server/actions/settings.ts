@@ -7,7 +7,7 @@ import { db } from '@/db';
 import { modelConfigs, providerConfigs } from '@/db/schema';
 import { requireUserId } from '@/lib/session';
 import { PROVIDER_TYPES, type ProviderType } from '@/lib/providers-shared';
-import { setSetting, type CommunityConfig } from '@/server/settings';
+import { setSetting, type CommunityConfig, type VisionConfig, type DeveloperConfig } from '@/server/settings';
 
 const providerSchema = z.object({
   name: z.string().trim().min(1, '名称必填').max(50),
@@ -151,6 +151,40 @@ export async function saveDefaultAIConfig(input: z.input<typeof defaultAISchema>
   if (!parsed.success) return { error: '保存失败' };
   await setSetting(userId, 'ai_default', parsed.data);
   revalidatePath('/settings/ai');
+  return { ok: true };
+}
+
+const visionConfigSchema = z.object({
+  enabled: z.boolean(),
+  providerId: z.string().nullable(),
+  modelId: z.string().nullable(),
+  temperature: z.number().min(0).max(2).nullable().optional(),
+  maxTokens: z.number().int().min(50).max(16000).nullable().optional(),
+});
+
+export async function saveVisionConfig(input: z.input<typeof visionConfigSchema>) {
+  const userId = await requireUserId();
+  const parsed = visionConfigSchema.safeParse(input);
+  if (!parsed.success) return { error: '保存失败' };
+  await setSetting(userId, 'ai_vision', parsed.data);
+  revalidatePath('/settings/models');
+  revalidatePath('/settings/general');
+  return { ok: true };
+}
+
+const developerConfigSchema = z.object({
+  enabled: z.boolean(),
+  showRawPrompts: z.boolean().optional(),
+  showTokenStats: z.boolean().optional(),
+});
+
+export async function saveDeveloperConfig(input: z.input<typeof developerConfigSchema>) {
+  const userId = await requireUserId();
+  const parsed = developerConfigSchema.safeParse(input);
+  if (!parsed.success) return { error: '保存失败' };
+  await setSetting(userId, 'developer_config', parsed.data);
+  revalidatePath('/settings/developer');
+  revalidatePath('/messages');
   return { ok: true };
 }
 

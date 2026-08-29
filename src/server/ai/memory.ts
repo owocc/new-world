@@ -95,7 +95,26 @@ export async function maybeSummarizeConversation(args: {
 
   if (rows.length === 0) return;
 
-  const transcript = rows.map((m) => `${m.role === 'user' ? '用户' : '我'}：${m.content}`).join('\n');
+  const msgIds = rows.map((r) => r.id);
+  const mediaMap = await getMediaForMessages(msgIds);
+  const transcript = rows
+    .map((m) => {
+      let text = m.content.trim();
+      const atts = mediaMap.get(m.id);
+      if (atts && atts.length > 0) {
+        const summaries = atts
+          .map((a) => a.perception?.summary)
+          .filter((s): s is string => Boolean(s && s.trim()));
+        if (summaries.length > 0) {
+          const note = summaries.map((s, idx) => (summaries.length > 1 ? `[图${idx + 1}: ${s}]` : `[图片: ${s}]`)).join(' ');
+          text = text ? `${text} ${note}` : note;
+        } else {
+          text = text ? `${text} [发送了图片]` : '[发送了图片]';
+        }
+      }
+      return `${m.role === 'user' ? '用户' : '我'}：${text}`;
+    })
+    .join('\n');
   const previous = conv.summary ? `之前的摘要：\n${conv.summary}\n\n` : '';
 
   const summary = await runText({
@@ -140,7 +159,21 @@ export async function extractMemories(args: {
   const recent = (await getRecentMessages(args.conversationId, 12)).reverse();
   if (recent.length === 0) return;
   const transcript = recent
-    .map((m) => `${m.role === 'user' ? '用户' : '我'}：${m.content}`)
+    .map((m) => {
+      let text = m.content.trim();
+      if (m.attachments && m.attachments.length > 0) {
+        const summaries = m.attachments
+          .map((a) => a.perception?.summary)
+          .filter((s): s is string => Boolean(s && s.trim()));
+        if (summaries.length > 0) {
+          const note = summaries.map((s, idx) => (summaries.length > 1 ? `[图${idx + 1}: ${s}]` : `[图片: ${s}]`)).join(' ');
+          text = text ? `${text} ${note}` : note;
+        } else {
+          text = text ? `${text} [发送了图片]` : '[发送了图片]';
+        }
+      }
+      return `${m.role === 'user' ? '用户' : '我'}：${text}`;
+    })
     .join('\n');
 
   const existing = await getMemories(args.characterId, 30);
