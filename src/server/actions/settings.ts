@@ -6,8 +6,24 @@ import { z } from 'zod';
 import { db } from '@/db';
 import { modelConfigs, providerConfigs } from '@/db/schema';
 import { requireUserId } from '@/lib/session';
-import { PROVIDER_TYPES, type ProviderType } from '@/lib/providers-shared';
+import { PROVIDER_TYPES, supportsVision, type ProviderType } from '@/lib/providers-shared';
 import { setSetting, type CommunityConfig, type VisionConfig, type DeveloperConfig } from '@/server/settings';
+import { generateObject } from 'ai';
+import { createModelFor, getProviderConfig, getModelPrice } from '@/server/ai/providers';
+import {
+  resolveVisionModel,
+  getDefaultVisionModelForProvider,
+  recordUsage,
+  extractUsage,
+  type ResolvedModel,
+} from '@/server/ai/core';
+import {
+  VISION_INTERPRETER_SYSTEM_PROMPT,
+  imagePerceptionSchema,
+  formatAttachmentPromptBlock,
+  type ImagePerceptionData,
+} from '@/server/ai/vision';
+import { validateMediaFile, MAX_ATTACHMENT_SIZE } from '@/server/media';
 
 const providerSchema = z.object({
   name: z.string().trim().min(1, '名称必填').max(50),
@@ -158,6 +174,7 @@ const visionConfigSchema = z.object({
   enabled: z.boolean(),
   providerId: z.string().nullable(),
   modelId: z.string().nullable(),
+  prompt: z.string().trim().max(1000).nullable().optional(),
   temperature: z.number().min(0).max(2).nullable().optional(),
   maxTokens: z.number().int().min(50).max(16000).nullable().optional(),
 });
@@ -170,6 +187,140 @@ export async function saveVisionConfig(input: z.input<typeof visionConfigSchema>
   revalidatePath('/settings/models');
   revalidatePath('/settings/general');
   return { ok: true };
+}
+
+export type TestVisionModelResult = {
+  ok: boolean;
+  error?: string;
+  perception?: ImagePerceptionData;
+  formattedPromptBlock?: string;
+  usage?: {
+    model: string;
+    providerName: string;
+    durationMs: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    costUsd: number | null;
+  };
+};
+
+export async function testVisionModelAction(formData: FormData): Promise<TestVisionModelResult> {
+  const userId = await requireUserId();
+  const file = formData.get('file') as File | null;
+  const providerId = (formData.get('providerId') as string) || null;
+  const modelId = (formData.get('modelId') as string) || null;
+  const promptText = (formData.get('prompt') as string)?.trim() || '帮我解析这个图片';
+  const temperatureStr = formData.get('temperature') as string | null;
+  const maxTokensStr = formData.get('maxTokens') as string | null;
+
+  if (!file) {
+    return { ok: false, error: '请先选择需要测试的图片' };
+  }
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const validation = validateMediaFile({
+    buffer,
+    mimeType: file.type || 'image/jpeg',
+    originalFilename: file.name || 'test.jpg',
+    purpose: 'attachment',
+  });
+
+  if (!validation.valid) {
+    return { ok: false, error: validation.error };
+  }
+
+  const mime = validation.verifiedMime || 'image/jpeg';
+  const base64Data = `data:${mime};base64,${buffer.toString('base64')}`;
+
+  let resolved: ResolvedModel;
+  if (providerId) {
+    const provider = await getProviderConfig(userId, providerId);
+    if (!provider) return { ok: false, error: '指定的 Provider 不存在' };
+    const effectiveModelId = modelId || getDefaultVisionModelForProvider(provider.providerType);
+    resolved = {
+      provider,
+      modelId: effectiveModelId,
+      supportsVision: supportsVision(provider.providerType, effectiveModelId),
+      temperature: temperatureStr ? parseFloat(temperatureStr) : 0.2,
+      topP: null,
+      maxTokens: maxTokensStr ? parseInt(maxTokensStr, 10) : 800,
+    };
+  } else {
+    const visionResolved = await resolveVisionModel(userId);
+    if (!visionResolved.enabled && !modelId) {
+      return { ok: false, error: '图片理解功能已停用，请先勾选启用或选择测试模型' };
+    }
+    resolved = visionResolved;
+  }
+
+  const start = Date.now();
+  try {
+    const result = await generateObject({
+      model: createModelFor(resolved.provider, resolved.modelId),
+      system: VISION_INTERPRETER_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: promptText },
+            { type: 'image', image: base64Data },
+          ],
+        },
+      ],
+      schema: imagePerceptionSchema,
+      temperature: resolved.temperature ?? 0.2,
+      maxOutputTokens: resolved.maxTokens ?? 800,
+    });
+
+    const durationMs = Date.now() - start;
+    const usageMetrics = extractUsage(result.usage);
+    const price = await getModelPrice(userId, resolved.provider.id, resolved.modelId);
+    const costUsd = price
+      ? (usageMetrics.inputTokens / 1_000_000) * price.inputPricePerMTok +
+        (usageMetrics.outputTokens / 1_000_000) * price.outputPricePerMTok
+      : null;
+
+    await recordUsage({
+      userId,
+      characterId: null,
+      callType: 'image_understanding',
+      resolved,
+      usage: { ...usageMetrics, success: true, durationMs },
+    }).catch(console.error);
+
+    const perception = result.object as ImagePerceptionData;
+    const formattedPromptBlock = formatAttachmentPromptBlock([
+      {
+        id: 'test-preview',
+        originalFilename: file.name || 'test-image.png',
+        perception: {
+          status: 'ready',
+          summary: perception.summary,
+          perception: JSON.stringify(perception),
+          ocrText: perception.ocrText || null,
+        },
+      },
+    ]);
+
+    return {
+      ok: true,
+      perception,
+      formattedPromptBlock,
+      usage: {
+        model: resolved.modelId,
+        providerName: resolved.provider.name,
+        durationMs,
+        inputTokens: usageMetrics.inputTokens,
+        outputTokens: usageMetrics.outputTokens,
+        totalTokens: usageMetrics.totalTokens,
+        costUsd,
+      },
+    };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: errorMsg };
+  }
 }
 
 const developerConfigSchema = z.object({

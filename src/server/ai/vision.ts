@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { imagePerceptions, mediaAssets } from '@/db/schema';
 import { runVisionObject } from './core';
 import { getModelPrice } from './providers';
+import { getVisionConfig } from '@/server/settings';
 
 /**
  * Structured Image Perception schema for Vision Interpreter.
@@ -19,30 +20,28 @@ export const imagePerceptionSchema = z.object({
     .describe('画面的核心主体与主要内容，简明扼要'),
   scene: z
     .string()
-    .optional()
-    .describe('场景与环境（如：室内、室外、夜景、街景、办公室、咖啡厅等）'),
+    .nullable()
+    .describe('场景与环境（如：室内、室外、夜景、街景、办公室、咖啡厅等，若无则为 null）'),
   objects: z
     .array(z.string())
     .describe('画面中识别出的关键人物、动物、重要物体列表'),
   details: z
     .array(z.string())
-    .optional()
-    .describe('重要细节、颜色、相对位置或空间关系（不需要过度琐碎）'),
+    .nullable()
+    .describe('重要细节、颜色、相对位置或空间关系（不需要过度琐碎，若无则为 null）'),
   ocrText: z
     .string()
     .nullable()
-    .optional()
     .describe('画面中清晰可见的重要文字、标牌、字幕或截屏文字（若无文字则为 null）'),
   imageType: z
     .string()
-    .optional()
-    .describe('图片类型（如：真实照片、插画、截屏、表情包/梗图、漫画、自拍、设计图、文档等）'),
+    .nullable()
+    .describe('图片类型（如：真实照片、插画、截屏、表情包/梗图、漫画、自拍、设计图、文档等，若无则为 null）'),
   mood: z
     .string()
-    .optional()
-    .describe('画面传递的整体氛围或情绪基调（如：温馨、严肃、幽默、阴郁、日常等）'),
+    .nullable()
+    .describe('画面传递的整体氛围或情绪基调（如：温馨、严肃、幽默、阴郁、日常等，若无则为 null）'),
 });
-
 export type ImagePerceptionData = z.infer<typeof imagePerceptionSchema>;
 
 export type ImagePerceptionRow = typeof imagePerceptions.$inferSelect;
@@ -157,10 +156,13 @@ export async function processMediaAssetPerception(
   try {
     const imageUrl = await resolveImageForVision(asset.blobUrl, asset.mimeType);
 
+    const visionConfig = await getVisionConfig(userId);
+    const userPrompt = visionConfig.prompt?.trim() || '帮我解析这个图片';
+
     const result = await runVisionObject({
       userId,
       system: VISION_INTERPRETER_SYSTEM_PROMPT,
-      prompt: '请客观分析此图片并生成结构化感知数据及自然语言摘要：',
+      prompt: userPrompt,
       imageUrl,
       schema: imagePerceptionSchema,
       temperature: 0.2,

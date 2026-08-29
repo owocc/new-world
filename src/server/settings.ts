@@ -15,6 +15,7 @@ export type VisionConfig = {
   enabled: boolean;
   providerId: string | null;
   modelId: string | null;
+  prompt?: string | null;
   temperature: number | null;
   maxTokens: number | null;
 };
@@ -23,6 +24,7 @@ export const DEFAULT_VISION_CONFIG: VisionConfig = {
   enabled: true,
   providerId: null,
   modelId: null,
+  prompt: '帮我解析这个图片',
   temperature: 0.2,
   maxTokens: 800,
 };
