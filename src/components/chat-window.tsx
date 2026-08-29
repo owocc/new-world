@@ -161,27 +161,25 @@ export function ChatWindow({
                     sender={isUser ? 'user' : 'assistant'}
                     avatar={isUser ? undefined : avatar}
                   >
-                    {isUser ? (
-                      <ChatMessageBubble variant="filled">
+                    <ChatMessageBubble variant="filled">
+                      {isUser ? (
                         <p className="whitespace-pre-wrap break-words">{text}</p>
-                      </ChatMessageBubble>
-                    ) : (
-                      <ChatMessageBubble variant="ghost">
+                      ) : (
                         <Markdown className="text-[15px]">{text}</Markdown>
-                      </ChatMessageBubble>
-                    )}
+                      )}
+                    </ChatMessageBubble>
                   </ChatMessage>
                 );
               })}
 
               {status === 'submitted' && (
                 <ChatMessage sender="assistant" avatar={avatar}>
-                  <ChatMessageBubble variant="ghost">
-                    <span className="flex items-center gap-1.5 py-1" aria-label="正在输入">
+                  <ChatMessageBubble variant="filled">
+                    <span className="flex items-center gap-1.5 py-1 px-0.5" aria-label="正在输入">
                       {[0, 1, 2].map((i) => (
                         <span
                           key={i}
-                          className="h-1.5 w-1.5 animate-bounce rounded-full bg-border-strong"
+                          className="h-1.5 w-1.5 animate-bounce rounded-full bg-secondary"
                           style={{animationDelay: `${i * 0.15}s`}}
                         />
                       ))}

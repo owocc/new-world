@@ -7,6 +7,7 @@ import {
   ChatMessageList,
   ChatMessage,
   ChatMessageBubble,
+  ChatSystemMessage,
   ChatComposer,
 } from '@astryxdesign/core/Chat';
 import { Markdown } from '@astryxdesign/core/Markdown';
@@ -247,11 +248,9 @@ export function GroupChatWindow({
 
               if (isSystem) {
                 return (
-                  <div key={m.id} className="my-1 flex justify-center">
-                    <span className="rounded-full bg-muted px-3 py-1 text-xs text-secondary">
-                      {m.content}
-                    </span>
-                  </div>
+                  <ChatSystemMessage key={m.id} variant="default">
+                    {m.content}
+                  </ChatSystemMessage>
                 );
               }
 
@@ -317,7 +316,7 @@ export function GroupChatWindow({
                       </span>
                     </div>
                   )}
-                  <ChatMessageBubble variant="ghost">
+                  <ChatMessageBubble variant="filled">
                     <Markdown className="text-[15px]">{m.content}</Markdown>
                   </ChatMessageBubble>
                   {m.reactions && m.reactions.length > 0 && (

@@ -44,8 +44,10 @@ export function GroupList({
                 key={g.id}
                 href={`/groups/${g.id}`}
                 aria-current={isActive ? 'page' : undefined}
-                className={`mx-2 mb-0.5 flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors ${
-                  isActive ? 'bg-muted' : 'hover:bg-muted'
+                className={`mx-2 mb-0.5 flex items-center gap-3 rounded-xl px-2.5 py-2.5 transition-colors ${
+                  isActive
+                    ? 'bg-neutral text-primary font-medium shadow-xs'
+                    : 'text-secondary hover:bg-overlay-hover hover:text-primary'
                 }`}
               >
                 <UserAvatar
