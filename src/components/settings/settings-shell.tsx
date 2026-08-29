@@ -16,8 +16,8 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-full min-h-0 w-full overflow-hidden">
       {/* Settings Navigation Sidebar: 240px column on md+ screens */}
       <aside
-        className={`w-full shrink-0 overflow-y-auto border-border md:block md:h-full md:w-[240px] md:border-r ${
-          inDetail ? 'hidden' : 'block'
+        className={`w-full shrink-0 overflow-y-auto border-border md:h-full md:w-[240px] md:border-r ${
+          inDetail ? 'hidden md:block' : 'block'
         }`}
       >
         <SettingsSidebar />
@@ -26,8 +26,8 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
       {/* Settings Detail Pane */}
       <section
         className={`min-h-0 min-w-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6 lg:p-8 ${
-          inDetail ? 'flex' : 'hidden'
-        } md:flex`}
+          inDetail ? 'flex' : 'hidden md:flex'
+        }`}
       >
         <div className="mx-auto w-full max-w-[720px] pb-12">{children}</div>
       </section>

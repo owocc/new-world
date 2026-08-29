@@ -27,8 +27,8 @@ export function MessagesShell({
     <div className="flex h-full min-h-0 w-full overflow-hidden">
       {/* conversation list: fixed 320px column on desktop; full screen on mobile unless in conversation */}
       <aside
-        className={`w-full shrink-0 overflow-hidden border-border md:block md:h-full md:w-[320px] md:border-r ${
-          inConversation ? 'hidden' : 'block'
+        className={`w-full shrink-0 overflow-hidden border-border md:h-full md:w-[320px] md:border-r ${
+          inConversation ? 'hidden md:block' : 'block'
         }`}
       >
         <ConversationList chats={chats} contacts={contacts} />
@@ -37,8 +37,8 @@ export function MessagesShell({
       {/* chat column */}
       <section
         className={`min-h-0 min-w-0 flex-1 flex-col ${
-          inConversation ? 'flex' : 'hidden'
-        } md:flex`}
+          inConversation ? 'flex' : 'hidden md:flex'
+        }`}
       >
         {children}
       </section>
