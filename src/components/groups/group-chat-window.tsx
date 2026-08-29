@@ -171,12 +171,14 @@ export function GroupChatWindow({
   group,
   members,
   allCharacters,
+  user,
   initialMessages,
   isDevMode = false,
 }: {
   group: GroupRow;
   members: GroupMemberView[];
   allCharacters: CharacterRow[];
+  user: { name: string; imageUrl: string | null };
   initialMessages: GroupMessageView[];
   isDevMode?: boolean;
 }) {
@@ -567,7 +569,13 @@ export function GroupChatWindow({
 
                 if (isUser) {
                   return (
-                    <ChatMessage key={m.id} sender="user">
+                    <ChatMessage
+                      key={m.id}
+                      sender="user"
+                      avatar={
+                        <UserAvatar name={user.name || '我'} url={user.imageUrl} size={36} />
+                      }
+                    >
                       {m.replyTo && (
                         <div {...stylex.props(styles.reply)}>
                           <Reply size={12} />

@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { aiCharacters } from '@/db/schema';
 import { requireUserId } from '@/lib/session';
 import { getGroupDetails, getGroupMessages } from '@/server/groups';
+import { getUserProfile } from '@/server/feed';
 import { getDeveloperConfig } from '@/server/settings';
 import { GroupChatWindow } from '@/components/groups/group-chat-window';
 export const dynamic = 'force-dynamic';
@@ -21,7 +22,7 @@ export default async function MessageGroupRoomPage({ params }: { params: Promise
   const { id } = await params;
   const userId = await requireUserId();
 
-  const [details, initialMessages, allCharacters, devConfig] = await Promise.all([
+  const [details, initialMessages, allCharacters, devConfig, profile] = await Promise.all([
     getGroupDetails(userId, id),
     getGroupMessages(userId, id, 100),
     db
@@ -29,6 +30,7 @@ export default async function MessageGroupRoomPage({ params }: { params: Promise
       .from(aiCharacters)
       .where(and(eq(aiCharacters.userId, userId), eq(aiCharacters.status, 'active'))),
     getDeveloperConfig(userId),
+    getUserProfile(userId),
   ]);
   if (!details) {
     notFound();
@@ -39,6 +41,7 @@ export default async function MessageGroupRoomPage({ params }: { params: Promise
       group={details.group}
       members={details.members}
       allCharacters={allCharacters}
+      user={{ name: profile?.name ?? '', imageUrl: profile?.image ?? null }}
       initialMessages={initialMessages}
       isDevMode={devConfig?.enabled ?? false}
     />

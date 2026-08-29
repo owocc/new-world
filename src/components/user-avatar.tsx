@@ -89,10 +89,15 @@ export function UserAvatar({
   const gradient = GRADIENTS[color ?? 'violet'] ?? GRADIENTS.violet;
   const showImage = Boolean(finalUrl && !imgError);
 
+  const rootProps = stylex.props(styles.root, xstyle);
+  const rootClassName = className
+    ? [rootProps.className, className].filter(Boolean).join(' ')
+    : rootProps.className;
+
   const inner = (
     <span
-      {...stylex.props(styles.root, xstyle)}
-      className={className}
+      {...rootProps}
+      className={rootClassName}
       style={{
         width: size,
         height: size,

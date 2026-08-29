@@ -275,11 +275,13 @@ type PendingImage = {
 export function ChatWindow({
   conversationId,
   character,
+  user,
   initialMessages,
   isDevMode = false,
 }: {
   conversationId: string;
   character: CharacterRow;
+  user: { name: string; imageUrl: string | null };
   initialMessages: InitialMessage[];
   isDevMode?: boolean;
 }) {
@@ -473,6 +475,10 @@ export function ChatWindow({
     />
   );
 
+  const userAvatar = (
+    <UserAvatar name={user.name || '我'} url={user.imageUrl} size={36} />
+  );
+
   const handleSubmit = (text: string) => {
     if (isUploadingAny || generating) return;
 
@@ -627,7 +633,7 @@ export function ChatWindow({
                     <ChatMessage
                       key={m.id}
                       sender={isUser ? 'user' : 'assistant'}
-                      avatar={isUser ? undefined : avatar}
+                      avatar={isUser ? userAvatar : avatar}
                     >
                       <ChatMessageBubble variant="filled">
                         {/* Image attachments display */}
