@@ -5,6 +5,8 @@ import {
   uploadAndPerceiveMedia,
   type MediaPurpose,
 } from '@/server/media';
+import { scheduleMediaPerceptions } from '@/server/ai/vision';
+import type { ImageType } from '@/server/ai/vision-profiles';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -51,8 +53,9 @@ export async function POST(req: Request): Promise<Response> {
         onUploadCompleted: async ({ blob, tokenPayload }) => {
           try {
             const payload = tokenPayload ? JSON.parse(tokenPayload) : { userId };
-            await createMediaAssetRecord({
-              userId: payload.userId || userId,
+            const ownerId = payload.userId || userId;
+            const asset = await createMediaAssetRecord({
+              userId: ownerId,
               mediaType: 'image',
               blobUrl: blob.url,
               pathname: blob.pathname,
@@ -63,6 +66,7 @@ export async function POST(req: Request): Promise<Response> {
               purpose: blob.pathname.includes('/avatars/') ? 'avatar' : 'attachment',
               status: 'ready',
             });
+            scheduleMediaPerceptions(ownerId, [asset.id]);
           } catch (err) {
             console.error('[media] onUploadCompleted error:', err);
           }
@@ -81,6 +85,11 @@ export async function POST(req: Request): Promise<Response> {
       const formData = await req.formData();
       const file = formData.get('file') as File | null;
       const purpose = (formData.get('purpose') as MediaPurpose) || 'attachment';
+      const rawImageType = formData.get('imageType') as string | null;
+      const imageType =
+        rawImageType && ['chat', 'avatar', 'sticker', 'general'].includes(rawImageType)
+          ? (rawImageType as ImageType)
+          : undefined;
 
       if (!file) {
         return Response.json({ ok: false, error: '未找到上传文件' }, { status: 400 });
@@ -96,7 +105,8 @@ export async function POST(req: Request): Promise<Response> {
         originalFilename,
         mimeType: file.type || 'image/jpeg',
         purpose,
-        requireVisionPerception: purpose === 'attachment',
+        imageType,
+        requireVisionPerception: purpose === 'attachment' || purpose === 'sticker',
       });
 
       if (!result.ok) {

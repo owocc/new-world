@@ -5,7 +5,12 @@ import { db } from '@/db';
 import { imagePerceptions, mediaAssets } from '@/db/schema';
 import { runVisionObject } from './core';
 import { getModelPrice } from './providers';
-import { getVisionConfig } from '@/server/settings';
+import {
+  BUILTIN_VISION_PROFILES,
+  imageTypeToProfile,
+  resolveVisionProfile,
+  type VisionProfileKey,
+} from './vision-profiles';
 
 /**
  * Structured Image Perception schema for Vision Interpreter.
@@ -46,15 +51,11 @@ export type ImagePerceptionData = z.infer<typeof imagePerceptionSchema>;
 
 export type ImagePerceptionRow = typeof imagePerceptions.$inferSelect;
 
-export const VISION_INTERPRETER_SYSTEM_PROMPT = `你是一个专业的图片感知与理解系统（Vision Interpreter）。
-你的任务是客观、准确、精炼地分析图片内容，生成适合提供给其他 AI 角色作为感知上下文的描述。
-
-核心原则：
-1. 【客观看见，不扮演角色】：你的职责是“看见”，不要做第一人称角色扮演，不要抒情或代入角色情绪。
-2. 【语言自然流畅】：生成的 summary 必须是一份自然、连贯的中文描述，适合直接放入下游语言模型的对话上下文。
-3. 【抓住关键，拒绝过度冗长】：突出主要主体、人物/动物、场景、重要关系与可见文字，避免无意义的像素级琐碎描述。
-4. 【文字识别】：如果图片包含重要可见文字（如截屏内容、标语、表情包文字、商品名等），在 ocrText 和 summary 中合理体现。
-5. 【图片类型】：区分真实照片、截屏、插画、表情包等。`;
+/**
+ * Backward-compatible export of the general profile's system prompt.
+ * The canonical, per-profile prompts now live in vision-profiles.ts.
+ */
+export const VISION_INTERPRETER_SYSTEM_PROMPT = BUILTIN_VISION_PROFILES.general.systemPrompt;
 
 /**
  * Resolve an image URL into a format usable by Vision APIs.
@@ -101,7 +102,15 @@ async function resolveImageForVision(blobUrl: string, mimeType: string): Promise
 export async function processMediaAssetPerception(
   userId: string,
   mediaAssetId: string,
-  options?: { force?: boolean },
+  options?: {
+    force?: boolean;
+    /** Override the profile inferred from the asset's imageType */
+    profileKey?: VisionProfileKey;
+    /** Override the system prompt (developer re-run) */
+    systemPrompt?: string | null;
+    /** Override the user/instruction prompt (developer re-run) */
+    prompt?: string | null;
+  },
 ): Promise<ImagePerceptionRow | null> {
   const [asset] = await db
     .select()
@@ -156,12 +165,14 @@ export async function processMediaAssetPerception(
   try {
     const imageUrl = await resolveImageForVision(asset.blobUrl, asset.mimeType);
 
-    const visionConfig = await getVisionConfig(userId);
-    const userPrompt = visionConfig.prompt?.trim() || '帮我解析这个图片';
+    const profileKey = options?.profileKey ?? imageTypeToProfile(asset.imageType);
+    const profile = await resolveVisionProfile(userId, profileKey);
+    const systemPrompt = options?.systemPrompt?.trim() || profile.systemPrompt;
+    const userPrompt = options?.prompt?.trim() || profile.userPrompt;
 
     const result = await runVisionObject({
       userId,
-      system: VISION_INTERPRETER_SYSTEM_PROMPT,
+      system: systemPrompt,
       prompt: userPrompt,
       imageUrl,
       schema: imagePerceptionSchema,
@@ -181,6 +192,10 @@ export async function processMediaAssetPerception(
         status: 'ready',
         providerType: result.resolved.provider.providerType,
         model: result.resolved.modelId,
+        profile: profileKey,
+        systemPromptUsed: systemPrompt,
+        promptUsed: userPrompt,
+        editedByUser: false,
         summary: result.object.summary,
         perception: JSON.stringify(result.object),
         ocrText: result.object.ocrText || null,

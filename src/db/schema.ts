@@ -533,12 +533,18 @@ export const mediaAssets = sqliteTable('media_assets', {
   status: text('status').notNull().default('ready'),
   /** avatar | attachment | general */
   purpose: text('purpose').notNull().default('attachment'),
+  /** SHA-256 hex digest of the raw file bytes, used for dedup + unique validation */
+  contentHash: text('content_hash'),
+  /** Semantic image type driving the vision profile: chat | avatar | sticker | general */
+  imageType: text('image_type').notNull().default('general'),
   createdAt: ts('created_at').notNull().default(now()),
   updatedAt: ts('updated_at').notNull().default(now()),
 }, (t) => [
   index('media_assets_user_idx').on(t.userId),
   index('media_assets_status_created_idx').on(t.status, t.createdAt),
   index('media_assets_pathname_idx').on(t.pathname),
+  index('media_assets_hash_idx').on(t.contentHash),
+  uniqueIndex('media_assets_hash_type_unique_idx').on(t.userId, t.contentHash, t.imageType),
 ]);
 
 export const messageAttachments = sqliteTable('message_attachments', {
@@ -583,6 +589,14 @@ export const imagePerceptions = sqliteTable('image_perceptions', {
   status: text('status').notNull().default('pending'),
   providerType: text('provider_type'),
   model: text('model'),
+  /** Vision profile applied: general | avatar | sticker */
+  profile: text('profile').notNull().default('general'),
+  /** System prompt actually used for this perception */
+  systemPromptUsed: text('system_prompt_used'),
+  /** User/instruction prompt actually used for this perception */
+  promptUsed: text('prompt_used'),
+  /** 1 when the summary/perception was manually edited by a developer */
+  editedByUser: integer('edited_by_user', { mode: 'boolean' }).notNull().default(false),
   /** Natural language summary suitable for direct LLM context injection */
   summary: text('summary'),
   /** Full structured perception JSON string */

@@ -349,7 +349,7 @@ export function ChatContextInspector({
                                       key={att.id}
                                       variant="purple"
                                       icon={<ImageIcon size={12} />}
-                                      label={`图${i + 1}: ${att.perceptionSummary || '（正在解析中或未生成感知）'}`}
+                                      label={`图${i + 1}${att.imageType ? ` · ${att.imageType}` : ''}${att.profile ? ` · ${att.profile}` : ''}: ${att.perceptionSummary || '（正在解析中或未生成感知）'}`}
                                     />
                                   ))}
                                 </VStack>

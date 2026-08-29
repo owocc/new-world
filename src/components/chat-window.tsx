@@ -288,6 +288,7 @@ export function ChatWindow({
   const [composerValue, setComposerValue] = useState('');
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [activeLightboxMedia, setActiveLightboxMedia] = useState<{
+    id?: string | null;
     url: string;
     originalFilename?: string | null;
     width?: number | null;
@@ -525,6 +526,8 @@ export function ChatWindow({
       <MediaLightbox
         media={activeLightboxMedia}
         onClose={() => setActiveLightboxMedia(null)}
+        isDevMode={isDevMode}
+        mediaAssetId={activeLightboxMedia?.id}
       />
 
       {/* Developer Context Inspector Modal */}
@@ -637,6 +640,7 @@ export function ChatWindow({
                                 key={att.id}
                                 onClick={() =>
                                   setActiveLightboxMedia({
+                                    id: att.id,
                                     url: att.blobUrl,
                                     originalFilename: att.originalFilename,
                                     width: att.width,

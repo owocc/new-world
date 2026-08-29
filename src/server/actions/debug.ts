@@ -76,6 +76,8 @@ export type ConversationDebugContext = {
       perceptionSummary: string | null;
       perceptionStatus: string | null;
       ocrText: string | null;
+      imageType: string | null;
+      profile: string | null;
     }>;
     charCount: number;
     estimatedTokens: number;
@@ -232,6 +234,8 @@ export async function getConversationDebugContext(
           perceptionSummary: a.perception?.summary ?? null,
           perceptionStatus: a.perception?.status ?? null,
           ocrText: a.perception?.ocrText ?? null,
+          imageType: a.imageType ?? null,
+          profile: a.perception?.profile ?? null,
         })),
         charCount: finalPayloadText.length,
         estimatedTokens: Math.ceil(finalPayloadText.length * 0.7),

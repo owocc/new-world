@@ -190,6 +190,7 @@ export function GroupChatWindow({
   const [showInfoDrawer, setShowInfoDrawer] = useState(false);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [activeLightboxMedia, setActiveLightboxMedia] = useState<{
+    id?: string | null;
     url: string;
     originalFilename?: string | null;
     width?: number | null;
@@ -469,6 +470,8 @@ export function GroupChatWindow({
       <MediaLightbox
         media={activeLightboxMedia}
         onClose={() => setActiveLightboxMedia(null)}
+        isDevMode={isDevMode}
+        mediaAssetId={activeLightboxMedia?.id}
       />
 
       {/* Developer Context Inspector Modal */}
@@ -584,6 +587,7 @@ export function GroupChatWindow({
                                 key={att.id}
                                 onClick={() =>
                                   setActiveLightboxMedia({
+                                    id: att.id,
                                     url: att.blobUrl,
                                     originalFilename: att.originalFilename,
                                     width: att.width,
@@ -662,6 +666,7 @@ export function GroupChatWindow({
                               key={att.id}
                               onClick={() =>
                                 setActiveLightboxMedia({
+                                  id: att.id,
                                   url: att.blobUrl,
                                   originalFilename: att.originalFilename,
                                   width: att.width,

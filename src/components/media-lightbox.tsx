@@ -6,6 +6,7 @@ import * as stylex from '@stylexjs/stylex';
 import { colorVars, radiusVars, shadowVars } from '@astryxdesign/core/theme/tokens.stylex';
 import { Download, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { resolveMediaUrl } from '@/lib/utils';
+import { MediaPerceptionPanel } from '@/components/media-perception-panel';
 
 const styles = stylex.create({
   overlay: {
@@ -131,11 +132,27 @@ const styles = stylex.create({
     color: '#93c5fd',
     marginRight: 6,
   },
+  devSide: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: 'min(420px, 92vw)',
+    zIndex: 20,
+    backgroundColor: 'var(--color-background)',
+    borderLeft: '1px solid var(--color-border)',
+    boxShadow: shadowVars['--shadow-high'],
+    display: 'flex',
+    flexDirection: 'column',
+    overflowY: 'auto',
+  },
 });
 
 export function MediaLightbox({
   media,
   onClose,
+  isDevMode = false,
+  mediaAssetId,
 }: {
   media: {
     url: string;
@@ -145,6 +162,8 @@ export function MediaLightbox({
     perception?: { summary?: string | null; ocrText?: string | null; status?: string } | null;
   } | null;
   onClose: () => void;
+  isDevMode?: boolean;
+  mediaAssetId?: string | null;
 }) {
   const [mounted, setMounted] = useState(false);
   const [zoomed, setZoomed] = useState(false);
@@ -237,6 +256,13 @@ export function MediaLightbox({
             <span {...stylex.props(styles.captionTag)}>AI 视觉感知</span>
             {media.perception.summary}
           </div>
+        </div>
+      ) : null}
+
+      {/* Developer Mode: Image Perception Context Panel */}
+      {isDevMode && mediaAssetId ? (
+        <div {...stylex.props(styles.devSide)} onClick={(e) => e.stopPropagation()}>
+          <MediaPerceptionPanel mediaAssetId={mediaAssetId} onClose={onClose} />
         </div>
       ) : null}
     </div>,

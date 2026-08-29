@@ -23,6 +23,15 @@ import {
   formatAttachmentPromptBlock,
   type ImagePerceptionData,
 } from '@/server/ai/vision';
+import {
+  BUILTIN_VISION_PROFILES,
+  VISION_PROFILE_KEYS,
+  resolveAllVisionProfiles,
+  getVisionProfileOverrides,
+  setVisionProfileOverrides,
+  type VisionProfileKey,
+  type VisionProfileOverrides,
+} from '@/server/ai/vision-profiles';
 import { validateMediaFile, MAX_ATTACHMENT_SIZE } from '@/server/media';
 
 const providerSchema = z.object({
@@ -186,6 +195,97 @@ export async function saveVisionConfig(input: z.input<typeof visionConfigSchema>
   await setSetting(userId, 'ai_vision', parsed.data);
   revalidatePath('/settings/models');
   revalidatePath('/settings/general');
+  return { ok: true };
+}
+
+export type VisionProfileSettingsView = {
+  key: VisionProfileKey;
+  label: string;
+  description: string;
+  builtinSystemPrompt: string;
+  builtinUserPrompt: string;
+  /** Effective prompts after merging the user override (what the pipeline actually uses) */
+  systemPrompt: string;
+  userPrompt: string;
+  /** The raw override stored in DB, if any (null when using built-in) */
+  overrideSystemPrompt: string | null;
+  overrideUserPrompt: string | null;
+  isOverridden: boolean;
+};
+
+/**
+ * Server Action: Load all vision profiles (built-in + user overrides) for the
+ * settings UI. Profiles define per-image-type system prompts; users can override
+ * each and the override is persisted to the database.
+ */
+export async function getVisionProfilesAction(): Promise<{
+  ok: true;
+  profiles: VisionProfileSettingsView[];
+} | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  const overrides = await getVisionProfileOverrides(userId);
+  const resolved = await resolveAllVisionProfiles(userId);
+
+  const profiles: VisionProfileSettingsView[] = VISION_PROFILE_KEYS.map((key) => {
+    const base = BUILTIN_VISION_PROFILES[key];
+    const o = overrides[key];
+    const eff = resolved.find((r) => r.key === key)!;
+    return {
+      key,
+      label: base.label,
+      description: base.description,
+      builtinSystemPrompt: base.systemPrompt,
+      builtinUserPrompt: base.userPrompt,
+      systemPrompt: eff.systemPrompt,
+      userPrompt: eff.userPrompt,
+      overrideSystemPrompt: o?.systemPrompt ?? null,
+      overrideUserPrompt: o?.userPrompt ?? null,
+      isOverridden: eff.isOverridden,
+    };
+  });
+
+  return { ok: true, profiles };
+}
+
+const visionProfilePromptSchema = z.object({
+  key: z.enum(VISION_PROFILE_KEYS as unknown as [string, ...string[]]),
+  systemPrompt: z.string().max(8000).nullable().optional(),
+  userPrompt: z.string().max(2000).nullable().optional(),
+});
+
+/**
+ * Server Action: Save (override) the prompts for a single vision profile.
+ * Empty/null values fall back to the built-in prompts.
+ */
+export async function saveVisionProfilePromptsAction(input: z.input<typeof visionProfilePromptSchema>) {
+  const userId = await requireUserId();
+  const parsed = visionProfilePromptSchema.safeParse(input);
+  if (!parsed.success) return { error: '保存失败' };
+
+  const key = parsed.data.key as VisionProfileKey;
+  const overrides = await getVisionProfileOverrides(userId);
+  const next: VisionProfileOverrides = { ...overrides };
+  next[key] = {
+    systemPrompt: parsed.data.systemPrompt?.trim() || null,
+    userPrompt: parsed.data.userPrompt?.trim() || null,
+  };
+  await setVisionProfileOverrides(userId, next);
+  revalidatePath('/settings/vision');
+  return { ok: true };
+}
+
+/**
+ * Server Action: Reset a vision profile back to its built-in system prompts by
+ * removing the stored user override.
+ */
+export async function resetVisionProfileAction(key: VisionProfileKey) {
+  const userId = await requireUserId();
+  if (!VISION_PROFILE_KEYS.includes(key)) return { error: '无效的 Profile' };
+  const overrides = await getVisionProfileOverrides(userId);
+  const next: VisionProfileOverrides = { ...overrides };
+  delete next[key];
+  await setVisionProfileOverrides(userId, next);
+  revalidatePath('/settings/vision');
   return { ok: true };
 }
 

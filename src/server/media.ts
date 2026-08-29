@@ -1,4 +1,5 @@
 import { del, put } from '@vercel/blob';
+import { createHash } from 'node:crypto';
 import { and, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
@@ -10,6 +11,7 @@ import {
   aiCharacters,
 } from '@/db/schema';
 import { scheduleMediaPerceptions, processMediaAssetPerception, type ImagePerceptionRow } from '@/server/ai/vision';
+import { purposeToImageType, type ImageType } from '@/server/ai/vision-profiles';
 import { getFeedCover, setFeedCover } from '@/server/settings';
 
 export const ALLOWED_IMAGE_MIMES = [
@@ -25,9 +27,14 @@ export type AllowedImageMime = (typeof ALLOWED_IMAGE_MIMES)[number];
 export const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
 export const MAX_ATTACHMENT_SIZE = 15 * 1024 * 1024; // 15MB
 
-export type MediaPurpose = 'avatar' | 'attachment' | 'general';
+export type MediaPurpose = 'avatar' | 'attachment' | 'general' | 'sticker';
 export type MediaType = 'image' | 'video' | 'audio' | 'file';
 export type MediaStatus = 'pending' | 'ready' | 'orphan' | 'deleted';
+
+/** SHA-256 hex digest of the raw file bytes, the canonical content fingerprint. */
+export function computeContentHash(buffer: Buffer): string {
+  return createHash('sha256').update(buffer).digest('hex');
+}
 
 export type MediaAssetView = {
   id: string;
@@ -44,11 +51,14 @@ export type MediaAssetView = {
   duration: number | null;
   status: MediaStatus;
   purpose: MediaPurpose;
+  contentHash?: string | null;
+  imageType?: ImageType;
   perception?: {
     status: string;
     summary: string | null;
     perception?: string | null;
     ocrText: string | null;
+    profile?: string | null;
   } | null;
   createdAt: Date;
 };
@@ -322,9 +332,14 @@ export async function createMediaAssetRecord(args: {
   duration?: number | null;
   purpose?: MediaPurpose;
   status?: MediaStatus;
+  contentHash?: string | null;
+  imageType?: ImageType;
 }): Promise<MediaAssetView> {
   const id = crypto.randomUUID();
   const now = new Date();
+  const purpose = args.purpose ?? 'attachment';
+  const imageType = args.imageType ?? purposeToImageType(purpose);
+  const contentHash = args.contentHash ?? null;
 
   await db.insert(mediaAssets).values({
     id,
@@ -340,7 +355,9 @@ export async function createMediaAssetRecord(args: {
     height: args.height ?? null,
     duration: args.duration ?? null,
     status: args.status ?? 'ready',
-    purpose: args.purpose ?? 'attachment',
+    purpose,
+    contentHash,
+    imageType,
     createdAt: now,
     updatedAt: now,
   });
@@ -359,9 +376,38 @@ export async function createMediaAssetRecord(args: {
     height: args.height ?? null,
     duration: args.duration ?? null,
     status: args.status ?? 'ready',
-    purpose: args.purpose ?? 'attachment',
+    purpose,
+    contentHash,
+    imageType,
     createdAt: now,
   };
+}
+
+/**
+ * Look up an existing image asset by its content hash + semantic type for the
+ * same user. This is the "哈希值 + id 唯一校验" dedup path: identical bytes with
+ * the same image type reuse the existing asset (and its AI perception).
+ */
+export async function findImageByHash(
+  userId: string,
+  contentHash: string,
+  imageType: ImageType,
+): Promise<MediaAssetView | null> {
+  const [row] = await db
+    .select({ asset: mediaAssets, perception: imagePerceptions })
+    .from(mediaAssets)
+    .leftJoin(imagePerceptions, eq(imagePerceptions.mediaAssetId, mediaAssets.id))
+    .where(
+      and(
+        eq(mediaAssets.userId, userId),
+        eq(mediaAssets.contentHash, contentHash),
+        eq(mediaAssets.imageType, imageType),
+      ),
+    )
+    .limit(1);
+
+  if (!row) return null;
+  return assetRowToView(row.asset, row.perception);
 }
 
 export type UploadAndPerceiveResult = {
@@ -372,12 +418,15 @@ export type UploadAndPerceiveResult = {
 };
 
 /**
- * Unified Upload & AI Vision Perception Pipeline:
+ * Unified Upload & AI Vision Perception Pipeline (single entry point for all images):
  * 1. Validates image buffer, magic bytes, dimensions, and size limit.
- * 2. Uploads binary data to Blob Storage (Vercel Blob / data URL in dev).
- * 3. Creates the Media Asset record in database.
- * 4. Awaits the dedicated Vision Interpreter to parse and describe the image.
- * 5. ONLY returns success (ok: true) if AI vision perception succeeds!
+ * 2. Computes a SHA-256 content hash and deduplicates by (userId, hash, imageType):
+ *    identical bytes with the same semantic type reuse the existing asset + perception.
+ * 3. Uploads binary data to Blob Storage (Vercel Blob / data URL in dev).
+ * 4. Creates the Media Asset record (with hash + imageType) in database.
+ * 5. Runs the profile-aware Vision Interpreter. When requireVisionPerception is true the
+ *    call awaits and only returns ok when perception is ready; otherwise perception is
+ *    scheduled asynchronously so every image still gets analyzed without blocking.
  */
 export async function uploadAndPerceiveMedia(args: {
   userId: string;
@@ -385,9 +434,11 @@ export async function uploadAndPerceiveMedia(args: {
   originalFilename: string;
   mimeType: string;
   purpose?: MediaPurpose;
+  imageType?: ImageType;
   requireVisionPerception?: boolean;
 }): Promise<UploadAndPerceiveResult> {
   const { userId, buffer, originalFilename, mimeType, purpose = 'attachment', requireVisionPerception = true } = args;
+  const imageType: ImageType = args.imageType ?? purposeToImageType(purpose);
 
   // 1. Validate file
   const validation = validateMediaFile({
@@ -401,10 +452,40 @@ export async function uploadAndPerceiveMedia(args: {
     return { ok: false, error: validation.error };
   }
 
-  // 2. Upload to storage
+  // 2. Content hash + dedup (hash + type unique validation)
+  const contentHash = computeContentHash(buffer);
+  const existing = await findImageByHash(userId, contentHash, imageType);
+  if (existing) {
+    if (requireVisionPerception) {
+      let perceptionRow: ImagePerceptionRow | null = null;
+      if (existing.perception?.status !== 'ready' || !existing.perception.summary) {
+        perceptionRow = await processMediaAssetPerception(userId, existing.id, {});
+        if (!perceptionRow || perceptionRow.status !== 'ready' || !perceptionRow.summary) {
+          const errorDetail = perceptionRow?.errorMessage || '视觉感知模型未返回有效描述，图片理解失败';
+          return { ok: false, error: `AI 图片解析失败: ${errorDetail}` };
+        }
+        return {
+          ok: true,
+          media: {
+            ...existing,
+            perception: {
+              status: perceptionRow.status,
+              summary: perceptionRow.summary,
+              perception: perceptionRow.perception,
+              ocrText: perceptionRow.ocrText,
+            },
+          },
+          perception: perceptionRow,
+        };
+      }
+    }
+    return { ok: true, media: existing };
+  }
+
+  // 3. Upload to storage
   const ext = validation.verifiedMime.split('/')[1] || 'jpg';
   const cleanName = sanitizeFilename(originalFilename);
-  const subFolder = purpose === 'avatar' ? 'avatars' : 'messages';
+  const subFolder = purpose === 'avatar' ? 'avatars' : purpose === 'sticker' ? 'stickers' : 'messages';
   const pathname = `users/${userId}/${subFolder}/${Date.now()}-${cleanName}.${ext}`;
 
   let uploadResult;
@@ -419,7 +500,7 @@ export async function uploadAndPerceiveMedia(args: {
     return { ok: false, error: `图片存储上传失败: ${errorMsg}` };
   }
 
-  // 3. Create Media Asset Record
+  // 4. Create Media Asset Record (with content hash + semantic image type)
   const asset = await createMediaAssetRecord({
     userId,
     mediaType: 'image',
@@ -432,11 +513,13 @@ export async function uploadAndPerceiveMedia(args: {
     width: validation.width,
     height: validation.height,
     purpose,
+    imageType,
+    contentHash,
     status: 'ready',
   });
 
-  // 4. If AI Vision Perception is required (default for all image attachments)
-  if (requireVisionPerception && purpose !== 'avatar') {
+  // 5. Vision perception — every image is analyzed with its profile.
+  if (requireVisionPerception) {
     const perception = await processMediaAssetPerception(userId, asset.id, { force: true });
 
     if (!perception || perception.status !== 'ready' || !perception.summary) {
@@ -463,6 +546,9 @@ export async function uploadAndPerceiveMedia(args: {
       perception,
     };
   }
+
+  // Non-blocking analysis for avatars/covers so every image still gets a perception.
+  scheduleMediaPerceptions(userId, [asset.id]);
 
   return {
     ok: true,
@@ -550,6 +636,41 @@ export async function linkMediaToGroupMessage(
   }
 }
 
+type AssetRow = typeof mediaAssets.$inferSelect;
+type PerceptionRow = typeof imagePerceptions.$inferSelect;
+
+/** Build a MediaAssetView (hash + imageType + perception included) from raw rows. */
+export function assetRowToView(asset: AssetRow, perception: PerceptionRow | null): MediaAssetView {
+  return {
+    id: asset.id,
+    userId: asset.userId,
+    mediaType: asset.mediaType as MediaType,
+    blobUrl: asset.blobUrl,
+    pathname: asset.pathname,
+    downloadUrl: asset.downloadUrl,
+    mimeType: asset.mimeType,
+    fileSize: asset.fileSize,
+    originalFilename: asset.originalFilename,
+    width: asset.width,
+    height: asset.height,
+    duration: asset.duration,
+    status: asset.status as MediaStatus,
+    purpose: asset.purpose as MediaPurpose,
+    contentHash: asset.contentHash,
+    imageType: asset.imageType as ImageType,
+    perception: perception
+      ? {
+          status: perception.status,
+          summary: perception.summary,
+          perception: perception.perception,
+          ocrText: perception.ocrText,
+          profile: perception.profile,
+        }
+      : null,
+    createdAt: new Date(asset.createdAt),
+  };
+}
+
 /**
  * Get media attachments for a batch of 1-on-1 DM message IDs.
  */
@@ -574,31 +695,7 @@ export async function getMediaForMessages(
 
   for (const r of rows) {
     const list = result.get(r.messageId) ?? [];
-    list.push({
-      id: r.asset.id,
-      userId: r.asset.userId,
-      mediaType: r.asset.mediaType as MediaType,
-      blobUrl: r.asset.blobUrl,
-      pathname: r.asset.pathname,
-      downloadUrl: r.asset.downloadUrl,
-      mimeType: r.asset.mimeType,
-      fileSize: r.asset.fileSize,
-      originalFilename: r.asset.originalFilename,
-      width: r.asset.width,
-      height: r.asset.height,
-      duration: r.asset.duration,
-      status: r.asset.status as MediaStatus,
-      purpose: r.asset.purpose as MediaPurpose,
-      perception: r.perception
-        ? {
-            status: r.perception.status,
-            summary: r.perception.summary,
-            perception: r.perception.perception,
-            ocrText: r.perception.ocrText,
-          }
-        : null,
-      createdAt: new Date(r.asset.createdAt),
-    });
+    list.push(assetRowToView(r.asset, r.perception));
     result.set(r.messageId, list);
   }
 
@@ -629,31 +726,7 @@ export async function getMediaForGroupMessages(
 
   for (const r of rows) {
     const list = result.get(r.groupMessageId) ?? [];
-    list.push({
-      id: r.asset.id,
-      userId: r.asset.userId,
-      mediaType: r.asset.mediaType as MediaType,
-      blobUrl: r.asset.blobUrl,
-      pathname: r.asset.pathname,
-      downloadUrl: r.asset.downloadUrl,
-      mimeType: r.asset.mimeType,
-      fileSize: r.asset.fileSize,
-      originalFilename: r.asset.originalFilename,
-      width: r.asset.width,
-      height: r.asset.height,
-      duration: r.asset.duration,
-      status: r.asset.status as MediaStatus,
-      purpose: r.asset.purpose as MediaPurpose,
-      perception: r.perception
-        ? {
-            status: r.perception.status,
-            summary: r.perception.summary,
-            perception: r.perception.perception,
-            ocrText: r.perception.ocrText,
-          }
-        : null,
-      createdAt: new Date(r.asset.createdAt),
-    });
+    list.push(assetRowToView(r.asset, r.perception));
     result.set(r.groupMessageId, list);
   }
 
@@ -679,32 +752,7 @@ export async function getMediaAsset(
 
   if (!row) return null;
 
-  const asset = row.asset;
-  return {
-    id: asset.id,
-    userId: asset.userId,
-    mediaType: asset.mediaType as MediaType,
-    blobUrl: asset.blobUrl,
-    pathname: asset.pathname,
-    downloadUrl: asset.downloadUrl,
-    mimeType: asset.mimeType,
-    fileSize: asset.fileSize,
-    originalFilename: asset.originalFilename,
-    width: asset.width,
-    height: asset.height,
-    duration: asset.duration,
-    status: asset.status as MediaStatus,
-    purpose: asset.purpose as MediaPurpose,
-    perception: row.perception
-      ? {
-          status: row.perception.status,
-          summary: row.perception.summary,
-          perception: row.perception.perception,
-          ocrText: row.perception.ocrText,
-        }
-      : null,
-    createdAt: new Date(asset.createdAt),
-  };
+  return assetRowToView(row.asset, row.perception);
 }
 
 /**
@@ -776,6 +824,8 @@ export async function uploadUserAvatar(args: {
     width: validation.width,
     height: validation.height,
     purpose: 'avatar',
+    imageType: 'avatar',
+    contentHash: computeContentHash(args.buffer),
     status: 'ready',
   });
 
@@ -789,6 +839,8 @@ export async function uploadUserAvatar(args: {
   if (currentUser?.image && currentUser.image !== uploadRes.url) {
     await deleteFromBlobStorage(currentUser.image);
   }
+
+  scheduleMediaPerceptions(args.userId, [asset.id]);
 
   return { ok: true, avatarUrl: uploadRes.url, assetId: asset.id };
 }
@@ -843,6 +895,8 @@ export async function uploadCharacterAvatar(args: {
     width: validation.width,
     height: validation.height,
     purpose: 'avatar',
+    imageType: 'avatar',
+    contentHash: computeContentHash(args.buffer),
     status: 'ready',
   });
 
@@ -856,6 +910,8 @@ export async function uploadCharacterAvatar(args: {
   if (currentChar?.avatarUrl && currentChar.avatarUrl !== uploadRes.url) {
     await deleteFromBlobStorage(currentChar.avatarUrl);
   }
+
+  scheduleMediaPerceptions(args.userId, [asset.id]);
 
   return { ok: true, avatarUrl: uploadRes.url, assetId: asset.id };
 }
@@ -904,6 +960,8 @@ export async function uploadFeedCover(args: {
     width: validation.width,
     height: validation.height,
     purpose: 'general',
+    imageType: 'general',
+    contentHash: computeContentHash(args.buffer),
     status: 'ready',
   });
 
@@ -912,6 +970,8 @@ export async function uploadFeedCover(args: {
   if (oldCover && oldCover !== uploadRes.url) {
     await deleteFromBlobStorage(oldCover);
   }
+
+  scheduleMediaPerceptions(args.userId, [asset.id]);
 
   return { ok: true, coverUrl: uploadRes.url, assetId: asset.id };
 }

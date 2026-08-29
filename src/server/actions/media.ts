@@ -10,9 +10,10 @@ import {
   uploadUserAvatar,
 } from '@/server/media';
 import { db } from '@/db';
-import { aiCharacters, user } from '@/db/schema';
+import { aiCharacters, user, imagePerceptions, mediaAssets } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { processMediaAssetPerception } from '@/server/ai/vision';
+import type { VisionProfileKey } from '@/server/ai/vision-profiles';
 /**
  * Server Action: Upload and save avatar for the current logged-in user.
  */
@@ -148,9 +149,182 @@ export async function uploadFeedCoverAction(
 
 /**
  * Server Action: Re-analyze image perception on-demand for a media asset.
+ * Developer mode may override the profile and/or prompts to regenerate the
+ * description with different instructions.
  */
-export async function reanalyzeMediaPerceptionAction(mediaAssetId: string) {
+export async function reanalyzeMediaPerceptionAction(
+  mediaAssetId: string,
+  overrides?: {
+    profileKey?: VisionProfileKey;
+    systemPrompt?: string | null;
+    prompt?: string | null;
+  },
+) {
   const userId = await requireUserId();
-  const perception = await processMediaAssetPerception(userId, mediaAssetId, { force: true });
+  const perception = await processMediaAssetPerception(userId, mediaAssetId, {
+    force: true,
+    profileKey: overrides?.profileKey,
+    systemPrompt: overrides?.systemPrompt,
+    prompt: overrides?.prompt,
+  });
+
+  if (!perception) {
+    return { ok: false, error: '图片不存在或不可解析' };
+  }
+  if (perception.status !== 'ready') {
+    return { ok: false, error: perception.errorMessage || 'AI 重新解析失败', perception };
+  }
   return { ok: true, perception };
+}
+
+export type MediaPerceptionDetail = {
+  asset: {
+    id: string;
+    contentHash: string | null;
+    imageType: string;
+    purpose: string;
+    mimeType: string;
+    fileSize: number;
+    originalFilename: string | null;
+    blobUrl: string;
+  };
+  perception: {
+    id: string | null;
+    status: string;
+    profile: string | null;
+    systemPromptUsed: string | null;
+    promptUsed: string | null;
+    editedByUser: boolean;
+    summary: string | null;
+    perception: string | null;
+    ocrText: string | null;
+    model: string | null;
+    providerType: string | null;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    costUsd: number | null;
+    durationMs: number;
+    errorMessage: string | null;
+    analyzedAt: Date | null;
+  } | null;
+};
+
+/**
+ * Server Action: Fetch the full perception context for a single image, used by
+ * the developer-mode image inspector. Returns the asset identity (hash, type)
+ * and the complete perception record (profile, prompts, output, usage).
+ */
+export async function getMediaPerceptionDetailAction(
+  mediaAssetId: string,
+): Promise<{ ok: true; detail: MediaPerceptionDetail } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+
+  const [asset] = await db
+    .select()
+    .from(mediaAssets)
+    .where(and(eq(mediaAssets.id, mediaAssetId), eq(mediaAssets.userId, userId)))
+    .limit(1);
+
+  if (!asset) {
+    return { ok: false, error: '图片不存在' };
+  }
+
+  const [perception] = await db
+    .select()
+    .from(imagePerceptions)
+    .where(eq(imagePerceptions.mediaAssetId, mediaAssetId))
+    .limit(1);
+
+  return {
+    ok: true,
+    detail: {
+      asset: {
+        id: asset.id,
+        contentHash: asset.contentHash,
+        imageType: asset.imageType,
+        purpose: asset.purpose,
+        mimeType: asset.mimeType,
+        fileSize: asset.fileSize,
+        originalFilename: asset.originalFilename,
+        blobUrl: asset.blobUrl,
+      },
+      perception: perception
+        ? {
+            id: perception.id,
+            status: perception.status,
+            profile: perception.profile,
+            systemPromptUsed: perception.systemPromptUsed,
+            promptUsed: perception.promptUsed,
+            editedByUser: perception.editedByUser,
+            summary: perception.summary,
+            perception: perception.perception,
+            ocrText: perception.ocrText,
+            model: perception.model,
+            providerType: perception.providerType,
+            inputTokens: perception.inputTokens,
+            outputTokens: perception.outputTokens,
+            totalTokens: perception.totalTokens,
+            costUsd: perception.costUsd,
+            durationMs: perception.durationMs,
+            errorMessage: perception.errorMessage,
+            analyzedAt: perception.analyzedAt,
+          }
+        : null,
+    },
+  };
+}
+
+/**
+ * Server Action: Manually edit the AI perception summary (developer mode).
+ * Marks the record as user-edited so it is distinguishable from AI output.
+ */
+export async function editMediaPerceptionAction(
+  mediaAssetId: string,
+  summary: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+
+  const [asset] = await db
+    .select({ id: mediaAssets.id })
+    .from(mediaAssets)
+    .where(and(eq(mediaAssets.id, mediaAssetId), eq(mediaAssets.userId, userId)))
+    .limit(1);
+
+  if (!asset) {
+    return { ok: false, error: '图片不存在' };
+  }
+
+  const trimmed = summary.trim();
+  if (!trimmed) {
+    return { ok: false, error: '描述内容不能为空' };
+  }
+
+  const [existing] = await db
+    .select()
+    .from(imagePerceptions)
+    .where(eq(imagePerceptions.mediaAssetId, mediaAssetId))
+    .limit(1);
+
+  const now = new Date();
+  if (existing) {
+    await db
+      .update(imagePerceptions)
+      .set({ summary: trimmed, editedByUser: true, status: 'ready', errorMessage: null, updatedAt: now })
+      .where(eq(imagePerceptions.id, existing.id));
+  } else {
+    await db.insert(imagePerceptions).values({
+      id: crypto.randomUUID(),
+      mediaAssetId,
+      userId,
+      status: 'ready',
+      profile: 'general',
+      summary: trimmed,
+      editedByUser: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  return { ok: true };
 }
