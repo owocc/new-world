@@ -239,7 +239,7 @@ export function GroupChatWindow({
         onScroll={onScroll}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
       >
-        <div className="mx-auto w-full max-w-[720px] px-3 py-4 sm:px-4">
+        <div className="w-full px-4 py-4 sm:px-6">
           <ChatMessageList gap={2}>
             {messages.map((m) => {
               const isUser = m.senderType === 'user';
@@ -347,8 +347,8 @@ export function GroupChatWindow({
       </div>
 
       {/* Composer — fixed footer matching private chat */}
-      <footer className="shrink-0 border-t border-border bg-body px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
-        <div className="mx-auto w-full max-w-[720px] flex flex-col gap-2">
+      <footer className="shrink-0 border-t border-border bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
+        <div className="w-full flex flex-col gap-2">
           {replyingTo && (
             <div className="flex items-center justify-between rounded-lg border border-border bg-muted px-3 py-1.5 text-xs">
               <div className="flex items-center gap-1.5 truncate">

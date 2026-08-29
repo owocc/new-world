@@ -19,12 +19,11 @@ export interface SplitLayoutProps {
  * Universal Next.js nested layout shell for 2-column master-detail views (Chats, Settings).
  *
  * Layout Structure:
- * - Left column (Sidebar): fixed width (280px~300px), always visible on tablet/desktop.
- * - Right column (Detail Panel): floating embedded card with all 4 corners rounded (rounded-2xl),
- *   clean breathing margin on all sides, border, and surface background.
+ * - Column 2 (Sidebar): fixed width (240px~300px), always visible on tablet/desktop.
+ * - Column 3 (Detail Pane): directly occupies the rest of the content area.
  *
  * Responsiveness:
- * - Desktop/Tablet (sm+, >=640px): Sidebar + Embedded Right Panel always side-by-side.
+ * - Desktop/Tablet (sm+, >=640px): Sidebar + Detail Pane always side-by-side.
  * - Mobile Phone (<640px): If at rootPath, show sidebar full-screen; if in subroute, show detail full-screen.
  */
 export function SplitLayout({
@@ -39,7 +38,7 @@ export function SplitLayout({
   const inDetail = pathname !== rootPath;
 
   return (
-    <div className="flex h-full min-h-0 w-full overflow-hidden bg-body">
+    <div className="flex h-full min-h-0 w-full overflow-hidden bg-surface">
       {/* Secondary Sidebar (Column 2): always visible on sm+ (>=640px) */}
       <aside
         className={`${
@@ -49,21 +48,19 @@ export function SplitLayout({
         {sidebar}
       </aside>
 
-      {/* Right Detail Pane (Column 3): embedded rounded-2xl card with surrounding margins */}
+      {/* Right Detail Pane (Column 3): directly fills remaining space */}
       <section
         className={`${
           inDetail ? 'flex' : 'hidden sm:flex'
-        } min-h-0 min-w-0 flex-1 flex-col sm:p-2.5`}
+        } min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface`}
       >
-        <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden sm:rounded-2xl sm:border sm:border-border sm:bg-surface sm:shadow-xs">
-          {scrollableDetail ? (
-            <div className="h-full min-h-0 w-full flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-              <div className="mx-auto w-full max-w-[720px] pb-12">{children}</div>
-            </div>
-          ) : (
-            children
-          )}
-        </div>
+        {scrollableDetail ? (
+          <div className="h-full min-h-0 w-full flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <div className="w-full max-w-[760px] pb-12">{children}</div>
+          </div>
+        ) : (
+          children
+        )}
       </section>
     </div>
   );

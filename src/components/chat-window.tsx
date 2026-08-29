@@ -129,7 +129,7 @@ export function ChatWindow({
 
       {/* messages — the only scroll container in the chat column */}
       <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className="mx-auto w-full max-w-[720px] px-3 py-4 sm:px-4">
+        <div className="w-full px-4 py-4 sm:px-6">
           {messages.length === 0 ? (
             <div className="flex h-full min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
               <UserAvatar
@@ -195,8 +195,8 @@ export function ChatWindow({
       </div>
 
       {/* composer — fixed footer, no floating dock */}
-      <footer className="shrink-0 border-t border-border bg-surface px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
-        <div className="mx-auto w-full max-w-[720px]">
+      <footer className="shrink-0 border-t border-border bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
+        <div className="w-full">
           <ChatComposer
             elevation="none"
             placeholder={`给 ${character.name} 发消息…`}
