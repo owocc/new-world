@@ -6,7 +6,8 @@ import {LinkProvider} from '@astryxdesign/core/Link';
 import {InternationalizationProvider} from '@astryxdesign/core/i18n';
 import NextLink from 'next/link';
 import zhCN from '@astryxdesign/core/locales/zh-CN.json';
-import {myWorldTheme} from '@/theme/my-world';
+import {myWorldTheme} from '@/theme/my-world.js';
+import '@/theme/my-world.css';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 

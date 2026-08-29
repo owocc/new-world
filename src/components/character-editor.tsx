@@ -15,10 +15,9 @@ import {Collapsible} from '@astryxdesign/core/Collapsible';
 import {HStack, VStack} from '@astryxdesign/core/Stack';
 import {Section} from '@astryxdesign/core/Section';
 import {Text} from '@astryxdesign/core/Text';
-import { AvatarCropModal } from '@/components/avatar-crop-modal';
+import { AvatarPicker } from '@/components/avatar-picker';
 import { nativeAttrs } from '@/lib/native-attrs';
 import { useAppToast } from '@/lib/toast';
-import {UserAvatar, AVATAR_COLORS} from '@/components/user-avatar';
 import {createCharacter, updateCharacter, type CharacterInput} from '@/server/actions/characters';
 
 const spin = stylex.keyframes({
@@ -65,7 +64,14 @@ const styles = stylex.create({
     backgroundColor: 'var(--color-background-surface)',
     padding: 'var(--spacing-3)',
   },
-  avatarContainer: {position: 'relative'},
+  avatarContainer: {
+    position: 'relative',
+    width: '64px',
+    height: '64px',
+    flexShrink: 0,
+    borderRadius: 'var(--radius-container, 12px)',
+    overflow: 'hidden',
+  },
   avatarOverlay: {
     position: 'absolute',
     inset: 0,
@@ -73,7 +79,7 @@ const styles = stylex.create({
     alignItems: 'center',
     justifyContent: 'center',
     border: 0,
-    borderRadius: 'var(--radius-full)',
+    borderRadius: 'var(--radius-container, 12px)',
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     color: 'white',
     opacity: 0,
@@ -123,49 +129,6 @@ export type CharacterFormValues = {
   maxTokens: string;
 };
 
-export const EMOJI_CHOICES = [
-  '🙂','🌙','🍜','🎮','📚','💪','☕️','🐱','🐶','🌸','🎸','🎧','✈️','🎨','⚽️','🧋','🦊','🐧','🌻','⚡️',
-];
-
-function EmojiPicker({value, onChange}: {value: string; onChange: (v: string) => void}) {
-  return (
-    <div>
-      <div {...stylex.props(styles.emojiList)}>
-        {EMOJI_CHOICES.map((e) => (
-          <button
-            key={e}
-            type="button"
-            aria-pressed={value === e}
-            onClick={() => onChange(e)}
-            {...stylex.props(styles.emojiButton, value === e && styles.emojiSelected)}
-          >
-            {e}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ColorPicker({value, onChange}: {value: string; onChange: (v: string) => void}) {
-  return (
-    <div {...stylex.props(styles.colorList)}>
-      {AVATAR_COLORS.map((c) => (
-        <button
-          key={c}
-          type="button"
-          aria-label={`头像配色 ${c}`}
-          aria-pressed={value === c}
-          onClick={() => onChange(c)}
-          {...stylex.props(styles.colorButton, value === c && styles.colorSelected)}
-        >
-          <UserAvatar name="·" emoji="·" color={c} size={36} tooltip={false} />
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function RateSlider({
   label,
   hint,
@@ -207,49 +170,7 @@ export function CharacterEditor({
   const toast = useAppToast();
   const [values, setValues] = useState(initial);
   const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [cropModalOpen, setCropModalOpen] = useState(false);
-  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [tab, setTab] = useState('profile');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const objectUrl = URL.createObjectURL(file);
-    setCropImageSrc(objectUrl);
-    setCropModalOpen(true);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleCropConfirm = async (croppedBlob: Blob) => {
-    setUploadingAvatar(true);
-    try {
-      const file = new File([croppedBlob], 'avatar.jpg', { type: 'image/jpeg' });
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('purpose', 'avatar');
-
-      const res = await fetch('/api/media/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        toast.error(data.error || '头像上传失败');
-        return;
-      }
-
-      setValues((v) => ({ ...v, avatarUrl: data.media.blobUrl }));
-      toast.success('头像裁剪并上传成功');
-    } catch (err) {
-      console.error('Avatar upload error', err);
-      toast.error('网络错误，上传头像失败');
-    } finally {
-      setUploadingAvatar(false);
-    }
-  };
-
   const set = <K extends keyof CharacterFormValues>(key: K, value: CharacterFormValues[K]) =>
     setValues((v) => ({ ...v, [key]: value }));
   const submit = async () => {
@@ -281,76 +202,18 @@ export function CharacterEditor({
       router.refresh();
     }
   };
-
-      {/* 1:1 Avatar Crop Modal */}
-      <AvatarCropModal
-        isOpen={cropModalOpen}
-        imageSrc={cropImageSrc}
-        onClose={() => {
-          setCropModalOpen(false);
-          if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
-          setCropImageSrc(null);
-        }}
-        onConfirm={handleCropConfirm}
-      />
-
   return (
     <VStack gap={4}>
-      {/* identity preview with avatar upload */}
-      <div {...stylex.props(styles.identityPreview)}>
-        <div {...stylex.props(styles.avatarContainer)}>
-          <UserAvatar
-            name={values.name || '?'}
-            emoji={values.avatarEmoji}
-            color={values.avatarColor}
-            url={values.avatarUrl || null}
-            size={64}
-          />
-          <button
-            type="button"
-            disabled={uploadingAvatar}
-            onClick={() => fileInputRef.current?.click()}
-            {...stylex.props(styles.avatarOverlay, uploadingAvatar && styles.avatarOverlayVisible)}
-            title="点击更换头像"
-          >
-            {uploadingAvatar ? (
-              <Loader2 {...stylex.props(styles.spinner)} size={20} />
-            ) : (
-              <Camera size={20} />
-            )}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
-            {...stylex.props(styles.hidden)}
-            onChange={handleAvatarFileSelect}
-          />
-        </div>
-        <div {...stylex.props(styles.previewDetails)}>
-          <div {...stylex.props(styles.previewName)}>{values.name || '新居民'}</div>
-          <div {...stylex.props(styles.previewUsername)}>@{values.username || 'username'}</div>
-          <div {...stylex.props(styles.previewActions)}>
-            <Button
-              label={uploadingAvatar ? '上传中…' : '上传头像'}
-              size="sm"
-              variant="secondary"
-              icon={uploadingAvatar ? <Loader2 {...stylex.props(styles.spinner)} size={14} /> : <Upload size={14} />}
-              isDisabled={uploadingAvatar}
-              onClick={() => fileInputRef.current?.click()}
-            />
-            {values.avatarUrl ? (
-              <Button
-                label="移除图片"
-                size="sm"
-                variant="ghost"
-                icon={<Trash2 size={14} />}
-                onClick={() => setValues((v) => ({ ...v, avatarUrl: '' }))}
-              />
-            ) : null}
-          </div>
-        </div>
-      </div>
+      {/* identity preview with unified avatar picker */}
+      <AvatarPicker
+        name={values.name || '新居民'}
+        avatarUrl={values.avatarUrl}
+        avatarEmoji={values.avatarEmoji}
+        avatarColor={values.avatarColor}
+        onUrlChange={(url) => set('avatarUrl', url || '')}
+        onEmojiChange={(emoji) => set('avatarEmoji', emoji)}
+        onColorChange={(color) => set('avatarColor', color)}
+      />
       <TabList value={tab} onChange={setTab} hasDivider>
         <Tab value="profile" label="基本资料" />
         <Tab value="persona" label="人设" />
@@ -371,23 +234,6 @@ export function CharacterEditor({
             htmlName="username"
           />
           <TextInput label="简介" isOptional value={values.bio} onChange={(v) => set('bio', v)} {...nativeAttrs({maxLength: 200})} placeholder="一句话介绍" htmlName="bio" />
-          <div>
-            <div {...stylex.props(styles.fieldLabel)}>头像 Emoji</div>
-            <EmojiPicker value={values.avatarEmoji} onChange={(v) => set('avatarEmoji', v)} />
-          </div>
-          <div>
-            <div {...stylex.props(styles.fieldLabel)}>头像渐变色</div>
-            <ColorPicker value={values.avatarColor} onChange={(v) => set('avatarColor', v)} />
-          </div>
-          <TextInput
-            label="头像图片 URL"
-            isOptional
-            description="优先于 Emoji"
-            value={values.avatarUrl}
-            onChange={(v) => set('avatarUrl', v)}
-            placeholder="https://…"
-            htmlName="avatarUrl"
-          />
           <TextInput
             label="与你的关系"
             value={values.relationshipToUser}

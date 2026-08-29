@@ -255,7 +255,7 @@ const styles = stylex.create({
   },
   avatarLink: {
     display: 'inline-flex',
-    borderRadius: 9999,
+    borderRadius: 'var(--radius-container, 12px)',
     transitionProperty: 'transform',
     transitionDuration: '200ms',
     userSelect: 'none',

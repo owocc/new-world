@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@astryxdesign/core/Button';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { Text } from '@astryxdesign/core/Text';
-import { UserAvatar, AVATAR_COLORS } from '@/components/user-avatar';
+import { AvatarPicker } from '@/components/avatar-picker';
+import { UserAvatar } from '@/components/user-avatar';
 import {
   updateGroupProfile,
   addAiMembers,
@@ -359,58 +360,15 @@ export function GroupInfoDrawer({
                 onChange={(v) => setDescription(v)}
               />
 
-              <div>
-                <label {...stylex.props(styles.label)}>
-                  群图标 Emoji
-                </label>
-                <div {...stylex.props(styles.optionRow)}>
-                  {['💬', '☕️', '🌙', '🍜', '🎮', '📚', '💪', '🔥', '🎉', '🐱'].map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => setAvatarEmoji(emoji)}
-                      {...stylex.props(styles.emoji, avatarEmoji === emoji && styles.emojiActive)}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label {...stylex.props(styles.label)}>主题色</label>
-                <div {...stylex.props(styles.optionRow)}>
-                  {AVATAR_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setAvatarColor(color)}
-                      {...stylex.props(styles.color, avatarColor === color && styles.colorActive)}
-                      style={{
-                        background:
-                          color === 'violet'
-                            ? '#8b5cf6'
-                            : color === 'rose'
-                              ? '#f43f5e'
-                              : color === 'indigo'
-                                ? '#6366f1'
-                                : color === 'emerald'
-                                  ? '#10b981'
-                                  : color === 'amber'
-                                    ? '#f59e0b'
-                                    : color === 'sky'
-                                      ? '#0ea5e9'
-                                      : color === 'teal'
-                                        ? '#14b8a6'
-                                        : '#d946ef',
-                      }}
-                    >
-                      {avatarColor === color && <Check {...stylex.props(styles.onAccent)} size={12} />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
+              <AvatarPicker
+                name={group.name || '群聊'}
+                avatarUrl={group.avatarUrl}
+                avatarEmoji={avatarEmoji}
+                avatarColor={avatarColor}
+                onEmojiChange={setAvatarEmoji}
+                onColorChange={setAvatarColor}
+                showEmojiColorTab={true}
+              />
               <div {...stylex.props(styles.formActions)}>
                 <Button
                   label="取消"
