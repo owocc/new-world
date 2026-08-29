@@ -35,7 +35,14 @@ const bounce = stylex.keyframes({
 });
 
 const styles = stylex.create({
-  root: {display: 'flex', height: '100%', minHeight: 0, flexDirection: 'column'},
+  root: {
+    position: 'relative',
+    display: 'flex',
+    height: '100%',
+    minHeight: 0,
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
   header: {
     display: 'flex',
     height: '56px',
@@ -64,11 +71,28 @@ const styles = stylex.create({
   headerName: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '15px', fontWeight: 'var(--font-weight-semibold)', lineHeight: 1.25},
   shrink: {flexShrink: 0},
   headerBio: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'},
-  scrollArea: {minHeight: 0, flex: 1, overflowY: 'auto', overscrollBehavior: 'contain'},
+  scrollAreaWrapper: {
+    position: 'relative',
+    minHeight: 0,
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  scrollArea: {
+    minHeight: 0,
+    flex: 1,
+    overflowY: 'auto',
+    overscrollBehavior: 'contain',
+  },
   messagesInner: {
     width: '100%',
-    padding: 'var(--spacing-4)',
-    '@media (min-width: 640px)': {paddingInline: 'var(--spacing-6)'},
+    paddingTop: 'var(--spacing-4)',
+    paddingInline: 'var(--spacing-4)',
+    paddingBottom: '50vh',
+    '@media (min-width: 640px)': {
+      paddingInline: 'var(--spacing-6)',
+    },
   },
   emptyState: {
     display: 'flex',
@@ -118,13 +142,50 @@ const styles = stylex.create({
     animationIterationCount: 'infinite',
   },
   footer: {
-    flexShrink: 0,
-    borderTop: 'var(--border-width) solid var(--color-border)',
-    backgroundColor: 'var(--color-background-surface)',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    pointerEvents: 'none',
+    backgroundColor: 'transparent',
     paddingInline: 'var(--spacing-4)',
-    paddingTop: 'var(--spacing-3)',
-    paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
-    '@media (min-width: 640px)': {paddingInline: 'var(--spacing-6)'},
+    paddingBottom: 'calc(var(--spacing-3) + env(safe-area-inset-bottom, 0px))',
+    paddingTop: 'var(--spacing-2)',
+    '@media (min-width: 640px)': {
+      paddingInline: 'var(--spacing-6)',
+      paddingBottom: 'calc(var(--spacing-4) + env(safe-area-inset-bottom, 0px))',
+    },
+  },
+  gradientBackdrop: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: '100%',
+    height: '180px',
+    pointerEvents: 'none',
+    zIndex: 6,
+    background: 'linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.3) 100%)',
+    opacity: 0,
+    transition: 'opacity 250ms ease',
+  },
+  gradientBackdropVisible: {
+    opacity: 1,
+  },
+  composerFloating: {
+    pointerEvents: 'auto',
+    width: '100%',
+    maxWidth: '800px',
+    marginInline: 'auto',
+  },
+  composerBody: {
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: 'var(--color-border)',
+    boxShadow: 'none',
+    backgroundColor: 'var(--color-background-body)',
+    borderRadius: 'var(--radius-chat)',
   },
   fullWidth: {width: '100%'},
   hidden: {display: 'none'},
@@ -265,7 +326,7 @@ export function ChatWindow({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
-
+  const [isAtBottom, setIsAtBottom] = useState(true);
   useEffect(() => {
     markRead(conversationId);
   }, [conversationId]);
@@ -289,13 +350,20 @@ export function ChatWindow({
     const el = scrollRef.current;
     if (el && stickToBottomRef.current) {
       el.scrollTop = el.scrollHeight;
+      setIsAtBottom(true);
+    } else if (el) {
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 10;
+      setIsAtBottom(atBottom);
     }
   }, [messages, status]);
 
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const atBottom = remaining <= 10;
+    stickToBottomRef.current = remaining < 80;
+    setIsAtBottom(atBottom);
   };
 
   // keep pinned to bottom when viewport resizes
@@ -520,109 +588,116 @@ export function ChatWindow({
       </header>
 
       {/* messages */}
-      <div ref={scrollRef} onScroll={onScroll} {...stylex.props(styles.scrollArea)}>
-        <div {...stylex.props(styles.messagesInner)}>
-          {messages.length === 0 ? (
-            <div {...stylex.props(styles.emptyState)}>
-              <UserAvatar
-                name={character.name}
-                emoji={character.avatarEmoji}
-                color={character.avatarColor}
-                url={character.avatarUrl}
-                size={72}
-              />
-              <div {...stylex.props(styles.emptyName)}>{character.name}</div>
-              <Text type="supporting" as="p" xstyle={styles.emptyBio}>
-                {character.bio}
-              </Text>
-              <Text type="supporting" size="sm" as="p">
-                打个招呼，开启你们的对话吧
-              </Text>
-            </div>
-          ) : (
-            <ChatMessageList isStreaming={status === 'streaming'} gap={2}>
-              {messages.map((m) => {
-                const isUser = m.role === 'user';
-                const text = m.parts
-                  .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-                  .map((p) => p.text)
-                  .join('');
+      <div {...stylex.props(styles.scrollAreaWrapper)}>
+        <div ref={scrollRef} onScroll={onScroll} {...stylex.props(styles.scrollArea)}>
+          <div {...stylex.props(styles.messagesInner)}>
+            {messages.length === 0 ? (
+              <div {...stylex.props(styles.emptyState)}>
+                <UserAvatar
+                  name={character.name}
+                  emoji={character.avatarEmoji}
+                  color={character.avatarColor}
+                  url={character.avatarUrl}
+                  size={72}
+                />
+                <div {...stylex.props(styles.emptyName)}>{character.name}</div>
+                <Text type="supporting" as="p" xstyle={styles.emptyBio}>
+                  {character.bio}
+                </Text>
+                <Text type="supporting" size="sm" as="p">
+                  打个招呼，开启你们的对话吧
+                </Text>
+              </div>
+            ) : (
+              <ChatMessageList isStreaming={status === 'streaming'} gap={2}>
+                {messages.map((m) => {
+                  const isUser = m.role === 'user';
+                  const text = m.parts
+                    .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+                    .map((p) => p.text)
+                    .join('');
 
-                const isLastUser = isUser && messages.findLast((msg) => msg.role === 'user')?.id === m.id;
-                const attachments = messageAttachmentsMap[m.id] || (isLastUser && pendingSendAttachmentsRef.current.length > 0 ? pendingSendAttachmentsRef.current : []);
+                  const isLastUser = isUser && messages.findLast((msg) => msg.role === 'user')?.id === m.id;
+                  const attachments = messageAttachmentsMap[m.id] || (isLastUser && pendingSendAttachmentsRef.current.length > 0 ? pendingSendAttachmentsRef.current : []);
 
-                return (
-                  <ChatMessage
-                    key={m.id}
-                    sender={isUser ? 'user' : 'assistant'}
-                    avatar={isUser ? undefined : avatar}
-                  >
+                  return (
+                    <ChatMessage
+                      key={m.id}
+                      sender={isUser ? 'user' : 'assistant'}
+                      avatar={isUser ? undefined : avatar}
+                    >
+                      <ChatMessageBubble variant="filled">
+                        {/* Image attachments display */}
+                        {attachments.length > 0 && (
+                          <div
+                            {...stylex.props(attachments.length === 1 ? styles.attachmentSingle : styles.attachmentGrid)}
+                          >
+                            {attachments.map((att) => (
+                              <div
+                                key={att.id}
+                                onClick={() =>
+                                  setActiveLightboxMedia({
+                                    url: att.blobUrl,
+                                    originalFilename: att.originalFilename,
+                                    width: att.width,
+                                    height: att.height,
+                                    perception: att.perception,
+                                  })
+                                }
+                              >
+                                <img
+                                  src={resolveMediaUrl(att.blobUrl) || att.blobUrl}
+                                  alt={att.originalFilename || '图片'}
+                                  {...stylex.props(styles.attachmentImage)}
+                                  loading="lazy"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Message text */}
+                        {text && text.trim() ? (
+                          isUser ? (
+                            <p {...stylex.props(styles.userMessage)}>{text}</p>
+                          ) : (
+                            <Markdown xstyle={styles.assistantMarkdown}>{text}</Markdown>
+                          )
+                        ) : null}
+                      </ChatMessageBubble>
+                    </ChatMessage>
+                  );
+                })}
+
+                {status === 'submitted' && (
+                  <ChatMessage sender="assistant" avatar={avatar}>
                     <ChatMessageBubble variant="filled">
-                      {/* Image attachments display */}
-                      {attachments.length > 0 && (
-                        <div
-                          {...stylex.props(attachments.length === 1 ? styles.attachmentSingle : styles.attachmentGrid)}
-                        >
-                          {attachments.map((att) => (
-                            <div
-                              key={att.id}
-                              onClick={() =>
-                                setActiveLightboxMedia({
-                                  url: att.blobUrl,
-                                  originalFilename: att.originalFilename,
-                                  width: att.width,
-                                  height: att.height,
-                                  perception: att.perception,
-                                })
-                              }
-                            >
-                              <img
-                                src={resolveMediaUrl(att.blobUrl) || att.blobUrl}
-                                alt={att.originalFilename || '图片'}
-                                {...stylex.props(styles.attachmentImage)}
-                                loading="lazy"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Message text */}
-                      {text && text.trim() ? (
-                        isUser ? (
-                          <p {...stylex.props(styles.userMessage)}>{text}</p>
-                        ) : (
-                          <Markdown xstyle={styles.assistantMarkdown}>{text}</Markdown>
-                        )
-                      ) : null}
+                      <span {...stylex.props(styles.typing)} aria-label="正在输入">
+                        {[0, 1, 2].map((i) => (
+                          <span
+                            key={i}
+                            {...stylex.props(styles.typingDot)}
+                            style={{ animationDelay: `${i * 0.15}s` }}
+                          />
+                        ))}
+                      </span>
                     </ChatMessageBubble>
                   </ChatMessage>
-                );
-              })}
-
-              {status === 'submitted' && (
-                <ChatMessage sender="assistant" avatar={avatar}>
-                  <ChatMessageBubble variant="filled">
-                    <span {...stylex.props(styles.typing)} aria-label="正在输入">
-                      {[0, 1, 2].map((i) => (
-                        <span
-                          key={i}
-                          {...stylex.props(styles.typingDot)}
-                          style={{ animationDelay: `${i * 0.15}s` }}
-                        />
-                      ))}
-                    </span>
-                  </ChatMessageBubble>
-                </ChatMessage>
-              )}
-            </ChatMessageList>
-          )}
+                )}
+              </ChatMessageList>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* composer */}
+      {/* 100% width gradient backdrop (transparent at top to 30% transparent black at bottom, hidden when at bottom) */}
+      <div
+        aria-hidden="true"
+        {...stylex.props(styles.gradientBackdrop, !isAtBottom && styles.gradientBackdropVisible)}
+      />
+      {/* Floating Borderless Composer */}
       <footer {...stylex.props(styles.footer)}>
-        <div {...stylex.props(styles.fullWidth)}>
+        <div {...stylex.props(styles.composerFloating)}>
           {/* Hidden File Picker */}
           <input
             ref={fileInputRef}
@@ -635,6 +710,7 @@ export function ChatWindow({
 
           <ChatComposer
             elevation="none"
+            xstyle={styles.composerBody}
             placeholder={
               pendingImages.length > 0
                 ? '添加说明，或直接发送图片…'

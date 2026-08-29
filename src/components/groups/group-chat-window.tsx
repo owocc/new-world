@@ -64,15 +64,24 @@ const spin = stylex.keyframes({
   to: {transform: 'rotate(360deg)'},
 });
 const styles = stylex.create({
-  root: {display: 'flex', height: '100%', minHeight: 0, flexDirection: 'column'},
+  root: {position: 'relative', display: 'flex', height: '100%', minHeight: 0, flexDirection: 'column', overflow: 'hidden'},
   header: {display: 'flex', height: '56px', flexShrink: 0, alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-background-surface)', paddingInline: '8px', '@media (min-width: 640px)': {paddingInline: '16px'}},
   backLink: {display: 'flex', width: '36px', height: '36px', flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', color: 'var(--color-text-secondary)', transition: 'background-color 150ms ease', '@media (min-width: 1024px)': {display: 'none'}, ':hover': {backgroundColor: 'var(--color-background-muted)'}},
   headerInfo: {minWidth: 0, flex: 1, overflow: 'hidden'},
   headerTitle: {display: 'flex', alignItems: 'center', gap: '6px'},
   name: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '15px', fontWeight: 'var(--font-weight-semibold)', lineHeight: 1.1},
   memberCount: {borderRadius: '9999px', backgroundColor: 'var(--color-background-muted)', paddingInline: '6px', paddingBlock: '2px', fontSize: '11px', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-secondary)'},
+  scrollAreaWrapper: {position: 'relative', minHeight: 0, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden'},
   scroll: {minHeight: 0, flex: 1, overflowY: 'auto', overscrollBehavior: 'contain'},
-  messages: {width: '100%', paddingInline: '16px', paddingBlock: '16px', '@media (min-width: 640px)': {paddingInline: '24px'}},
+  messages: {
+    width: '100%',
+    paddingTop: '16px',
+    paddingInline: '16px',
+    paddingBottom: '50vh',
+    '@media (min-width: 640px)': {
+      paddingInline: '24px',
+    },
+  },
   reply: {display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)'},
   replyText: {maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'},
   attachmentSingle: {maxWidth: '320px', marginBottom: '8px'},
@@ -85,9 +94,54 @@ const styles = stylex.create({
   reaction: {display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid var(--color-border)', borderRadius: '9999px', backgroundColor: 'var(--color-background-surface)', paddingInline: '8px', paddingBlock: '2px', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', transition: 'all 150ms ease', ':hover': {backgroundColor: 'var(--color-background-muted)'}},
   reacted: {borderColor: 'var(--color-accent)', backgroundColor: 'var(--color-accent-muted)', color: 'var(--color-text-accent)'},
   reactionCount: {fontSize: '11px'},
-  footer: {flexShrink: 0, borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-background-surface)', paddingInline: '16px', paddingTop: '12px', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))', '@media (min-width: 640px)': {paddingInline: '24px'}},
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    pointerEvents: 'none',
+    backgroundColor: 'transparent',
+    paddingInline: '16px',
+    paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
+    paddingTop: '8px',
+    '@media (min-width: 640px)': {
+      paddingInline: '24px',
+      paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
+    },
+  },
+  gradientBackdrop: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: '100%',
+    height: '180px',
+    pointerEvents: 'none',
+    zIndex: 6,
+    background: 'linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.3) 100%)',
+    opacity: 0,
+    transition: 'opacity 250ms ease',
+  },
+  gradientBackdropVisible: {
+    opacity: 1,
+  },
+  composerFloating: {
+    pointerEvents: 'auto',
+    width: '100%',
+    maxWidth: '800px',
+    marginInline: 'auto',
+  },
   composerWrap: {display: 'flex', width: '100%', flexDirection: 'column', gap: '8px'},
-  replyBar: {display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-element)', backgroundColor: 'var(--color-background-muted)', paddingInline: '12px', paddingBlock: '6px', fontSize: 'var(--font-size-xs)'},
+  composerBody: {
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: 'var(--color-border)',
+    boxShadow: 'none',
+    backgroundColor: 'var(--color-background-body)',
+    borderRadius: 'var(--radius-chat)',
+  },
+  replyBar: {display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-element)', backgroundColor: 'var(--color-background-surface)', paddingInline: '12px', paddingBlock: '6px', fontSize: 'var(--font-size-xs)'},
   replyBarInner: {display: 'flex', minWidth: 0, alignItems: 'center', gap: '6px', overflow: 'hidden'},
   smallSecondary: {color: 'var(--color-text-secondary)'},
   smallButton: {padding: '2px', color: 'var(--color-text-secondary)', ':hover': {color: 'var(--color-text-primary)'}},
@@ -127,6 +181,7 @@ export function GroupChatWindow({
   isDevMode?: boolean;
 }) {
   const toast = useAppToast();
+  const [isPending, startTransition] = useTransition();
   const [showDevInspector, setShowDevInspector] = useState(false);
   const [messages, setMessages] = useState<GroupMessageView[]>(initialMessages);
   const [inputValue, setInputValue] = useState('');
@@ -141,12 +196,10 @@ export function GroupChatWindow({
     height?: number | null;
     perception?: { summary?: string | null; ocrText?: string | null; status?: string } | null;
   } | null>(null);
-
-  const [isPending, startTransition] = useTransition();
-
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stickToBottomRef = useRef(true);
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
   // Sync initial messages when props change
   useEffect(() => {
@@ -162,6 +215,10 @@ export function GroupChatWindow({
     const el = scrollRef.current;
     if (el && stickToBottomRef.current) {
       el.scrollTop = el.scrollHeight;
+      setIsAtBottom(true);
+    } else if (el) {
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 10;
+      setIsAtBottom(atBottom);
     }
   };
 
@@ -172,9 +229,11 @@ export function GroupChatWindow({
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const atBottom = remaining <= 10;
+    stickToBottomRef.current = remaining < 80;
+    setIsAtBottom(atBottom);
   };
-
   useEffect(() => {
     const handleResize = () => {
       const el = scrollRef.current;
@@ -481,30 +540,109 @@ export function GroupChatWindow({
       </header>
 
       {/* Messages list */}
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        {...stylex.props(styles.scroll)}
-      >
-        <div {...stylex.props(styles.messages)}>
-          <ChatMessageList gap={2}>
-            {messages.map((m) => {
-              const isUser = m.senderType === 'user';
-              const isSystem = m.senderType === 'system';
+      <div {...stylex.props(styles.scrollAreaWrapper)}>
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          {...stylex.props(styles.scroll)}
+        >
+          <div {...stylex.props(styles.messages)}>
+            <ChatMessageList gap={2}>
+              {messages.map((m) => {
+                const isUser = m.senderType === 'user';
+                const isSystem = m.senderType === 'system';
 
-              if (isSystem) {
-                return (
-                  <ChatSystemMessage key={m.id} variant="default">
-                    {m.content}
-                  </ChatSystemMessage>
+                if (isSystem) {
+                  return (
+                    <ChatSystemMessage key={m.id} variant="default">
+                      {m.content}
+                    </ChatSystemMessage>
+                  );
+                }
+
+                const attachments = m.attachments || [];
+
+                if (isUser) {
+                  return (
+                    <ChatMessage key={m.id} sender="user">
+                      {m.replyTo && (
+                        <div {...stylex.props(styles.reply)}>
+                          <Reply size={12} />
+                          <span {...stylex.props(styles.replyText)}>
+                            回复 @{m.replyTo.senderName}: {m.replyTo.content}
+                          </span>
+                        </div>
+                      )}
+                      <ChatMessageBubble variant="filled">
+                        {/* Attachments rendering */}
+                        {attachments.length > 0 && (
+                          <div
+                            {...stylex.props(attachments.length === 1 ? styles.attachmentSingle : styles.attachmentGrid)}
+                          >
+                            {attachments.map((att) => (
+                              <div
+                                key={att.id}
+                                onClick={() =>
+                                  setActiveLightboxMedia({
+                                    url: att.blobUrl,
+                                    originalFilename: att.originalFilename,
+                                    width: att.width,
+                                    height: att.height,
+                                    perception: att.perception,
+                                  })
+                                }
+                                {...stylex.props(styles.attachment)}
+                              >
+                                <img
+                                  src={resolveMediaUrl(att.blobUrl) || att.blobUrl}
+                                  alt={att.originalFilename || '图片'}
+                                  {...stylex.props(styles.image)}
+                                  loading="lazy"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {m.content && m.content !== '[图片]' ? (
+                          <p {...stylex.props(styles.messageText)}>{m.content}</p>
+                        ) : null}
+                      </ChatMessageBubble>
+                      {m.reactions && m.reactions.length > 0 && (
+                        <div {...stylex.props(styles.reactionsUser)}>
+                          {m.reactions.map((rx) => (
+                            <button
+                              key={rx.emoji}
+                              type="button"
+                              onClick={() => handleReaction(m.id, rx.emoji)}
+                              {...stylex.props(styles.reaction, rx.hasReacted && styles.reacted)}
+                            >
+                              <span>{rx.emoji}</span>
+                              <span {...stylex.props(styles.reactionCount)}>{rx.count}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </ChatMessage>
+                  );
+                }
+
+                const charAvatar = (
+                  <UserAvatar
+                    name={m.senderName}
+                    emoji={m.senderAvatarEmoji}
+                    color={m.senderAvatarColor}
+                    url={m.senderAvatarUrl}
+                    size={36}
+                  />
                 );
-              }
 
-              const attachments = m.attachments || [];
-
-              if (isUser) {
                 return (
-                  <ChatMessage key={m.id} sender="user">
+                  <ChatMessage
+                    key={m.id}
+                    sender="assistant"
+                    name={m.senderName}
+                    avatar={charAvatar}
+                  >
                     {m.replyTo && (
                       <div {...stylex.props(styles.reply)}>
                         <Reply size={12} />
@@ -544,11 +682,11 @@ export function GroupChatWindow({
                         </div>
                       )}
                       {m.content && m.content !== '[图片]' ? (
-                        <p {...stylex.props(styles.messageText)}>{m.content}</p>
+                        <Markdown xstyle={styles.name}>{m.content}</Markdown>
                       ) : null}
                     </ChatMessageBubble>
                     {m.reactions && m.reactions.length > 0 && (
-                      <div {...stylex.props(styles.reactionsUser)}>
+                      <div {...stylex.props(styles.reactions)}>
                         {m.reactions.map((rx) => (
                           <button
                             key={rx.emoji}
@@ -564,93 +702,23 @@ export function GroupChatWindow({
                     )}
                   </ChatMessage>
                 );
-              }
-
-              const charAvatar = (
-                <UserAvatar
-                  name={m.senderName}
-                  emoji={m.senderAvatarEmoji}
-                  color={m.senderAvatarColor}
-                  url={m.senderAvatarUrl}
-                  size={36}
-                />
-              );
-
-              return (
-                <ChatMessage
-                  key={m.id}
-                  sender="assistant"
-                  name={m.senderName}
-                  avatar={charAvatar}
-                >
-                  {m.replyTo && (
-                    <div {...stylex.props(styles.reply)}>
-                      <Reply size={12} />
-                      <span {...stylex.props(styles.replyText)}>
-                        回复 @{m.replyTo.senderName}: {m.replyTo.content}
-                      </span>
-                    </div>
-                  )}
-                  <ChatMessageBubble variant="filled">
-                    {/* Attachments rendering */}
-                    {attachments.length > 0 && (
-                      <div
-                        {...stylex.props(attachments.length === 1 ? styles.attachmentSingle : styles.attachmentGrid)}
-                      >
-                        {attachments.map((att) => (
-                          <div
-                            key={att.id}
-                            onClick={() =>
-                              setActiveLightboxMedia({
-                                url: att.blobUrl,
-                                originalFilename: att.originalFilename,
-                                width: att.width,
-                                height: att.height,
-                                perception: att.perception,
-                              })
-                            }
-                            {...stylex.props(styles.attachment)}
-                          >
-                            <img
-                              src={resolveMediaUrl(att.blobUrl) || att.blobUrl}
-                              alt={att.originalFilename || '图片'}
-                              {...stylex.props(styles.image)}
-                              loading="lazy"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {m.content && m.content !== '[图片]' ? (
-                      <Markdown xstyle={styles.name}>{m.content}</Markdown>
-                    ) : null}
-                  </ChatMessageBubble>
-                  {m.reactions && m.reactions.length > 0 && (
-                    <div {...stylex.props(styles.reactions)}>
-                      {m.reactions.map((rx) => (
-                        <button
-                          key={rx.emoji}
-                          type="button"
-                          onClick={() => handleReaction(m.id, rx.emoji)}
-                          {...stylex.props(styles.reaction, rx.hasReacted && styles.reacted)}
-                        >
-                          <span>{rx.emoji}</span>
-                          <span {...stylex.props(styles.reactionCount)}>{rx.count}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </ChatMessage>
-              );
-            })}
-          </ChatMessageList>
+              })}
+            </ChatMessageList>
+          </div>
         </div>
       </div>
 
-      {/* Composer */}
+      {/* 100% width gradient backdrop (transparent at top to 30% transparent black at bottom, hidden when at bottom) */}
+      <div
+        aria-hidden="true"
+        {...stylex.props(styles.gradientBackdrop, !isAtBottom && styles.gradientBackdropVisible)}
+      />
+
+      {/* Floating Borderless Composer */}
       <footer {...stylex.props(styles.footer)}>
-        <div {...stylex.props(styles.composerWrap)}>
-          {/* Hidden File Picker */}
+        <div {...stylex.props(styles.composerFloating)}>
+          <div {...stylex.props(styles.composerWrap)}>
+            {/* Hidden File Picker */}
           <input
             ref={fileInputRef}
             type="file"
@@ -719,6 +787,7 @@ export function GroupChatWindow({
 
           <ChatComposer
             elevation="none"
+            xstyle={styles.composerBody}
             placeholder={
               pendingImages.length > 0
                 ? '添加说明，或直接发送图片…'
@@ -817,6 +886,7 @@ export function GroupChatWindow({
               </div>
             }
           />
+        </div>
         </div>
       </footer>
 
