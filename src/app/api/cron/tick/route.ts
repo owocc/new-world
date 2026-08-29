@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { user } from '@/db/schema';
 import { processDueEvents, maybePulse } from '@/server/ai/community/engine';
 import { tickGroupAttention } from '@/server/ai/group/engine';
-
+import { cleanupOrphanMedia } from '@/server/media';
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +27,13 @@ export async function GET(req: Request) {
     } catch (err) {
       console.error('[cron] failed for user', u.id, err);
     }
+  }
+
+  // Periodic lifecycle cleanup for orphan/pending Blobs
+  try {
+    await cleanupOrphanMedia(120);
+  } catch (err) {
+    console.error('[cron] orphan cleanup error', err);
   }
 
   return Response.json({ ok: true, users: processed });

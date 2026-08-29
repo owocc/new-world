@@ -19,14 +19,24 @@ export function formatTimeAwarenessBlock(ctx: PerceptionContext): string {
 - 未读消息数量：${ctx.unreadCount} 条`;
 }
 
-export function formatGroupChatContextBlock(ctx: PerceptionContext): string {
+export function formatGroupChatContextBlock(ctx: PerceptionContext, options?: { supportsVision?: boolean }): string {
   const parts: string[] = [];
+  const supportsVision = options?.supportsVision ?? false;
 
   parts.push(`【群聊信息】\n群名称：「${ctx.group.name}」\n群成员：${ctx.group.membersSummary}`);
 
+  const formatMsgContent = (content: string, atts?: { id: string }[]) => {
+    const text = content.trim();
+    if (!atts || atts.length === 0) return text;
+    const attNote = supportsVision
+      ? `[发送了 ${atts.length} 张图片]`
+      : `[发送了 ${atts.length} 张图片 (当前模型无法直接查看图片内容)]`;
+    return text ? `${text} ${attNote}` : attNote;
+  };
+
   if (ctx.precedingMessages.length > 0) {
     const lines = ctx.precedingMessages.map(
-      (m) => `[${m.timeFormatted}] ${m.senderName}${m.isSelf ? ' (你)' : ''}: ${m.content}`,
+      (m) => `[${m.timeFormatted}] ${m.senderName}${m.isSelf ? ' (你)' : ''}: ${formatMsgContent(m.content, m.attachments)}`,
     );
     parts.push(`【你上次看过的最后几条消息（上下文）】\n${lines.join('\n')}`);
   }
@@ -50,7 +60,8 @@ export function formatGroupChatContextBlock(ctx: PerceptionContext): string {
         rxStr = ` [互动: ${m.reactions.map((r) => `${r.emoji} by ${r.reactorName}`).join(', ')}]`;
       }
 
-      return `[ID: ${m.id} | ${m.timeFormatted}] ${m.senderName}${m.isSelf ? ' (你)' : ''}${tagStr}: ${m.content}${quoteStr}${rxStr}`;
+      const body = formatMsgContent(m.content, m.attachments);
+      return `[ID: ${m.id} | ${m.timeFormatted}] ${m.senderName}${m.isSelf ? ' (你)' : ''}${tagStr}: ${body}${quoteStr}${rxStr}`;
     });
 
     parts.push(`【你本次爬楼看到的消息】\n${lines.join('\n')}`);

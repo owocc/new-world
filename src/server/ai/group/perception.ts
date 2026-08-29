@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gt, gte, inArray, isNull, lte, sql } from 'drizzle-
 import { db } from '@/db';
 import { aiCharacters, groupMembers, groupMessages, groupReactions, groups, user } from '@/db/schema';
 import type { AiCharacter, GroupMemberRow, GroupMessageRow, PerceptionContext } from './types';
+import { getMediaForGroupMessages, type MediaAssetView } from '@/server/media';
 import { calculateTopicAffinity, resolveSocialProfile } from './profile';
 
 /**
@@ -139,9 +140,10 @@ export async function buildPerceptionContext(
     precedingRows.reverse();
   }
 
-  // Fetch reactions for all relevant messages
+  // Fetch reactions and media attachments for all relevant messages
   const allMsgIds = [...precedingRows, ...unreadRows].map((m) => m.id);
   const reactionsMap = new Map<string, { emoji: string; reactorName: string }[]>();
+  const mediaMap = await getMediaForGroupMessages(allMsgIds);
 
   if (allMsgIds.length > 0) {
     const rxRows = await db
@@ -188,6 +190,7 @@ export async function buildPerceptionContext(
       isSelf,
       isUser,
       content: m.content,
+      attachments: mediaMap.get(m.id) || [],
       timeFormatted: formatFullTime(new Date(m.createdAt), timezone),
       isMentioningMe,
       isReplyingToMe: false, // will update below

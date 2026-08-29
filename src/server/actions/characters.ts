@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { db } from '@/db';
 import { aiCharacters, aiRelationships } from '@/db/schema';
 import { requireUserId } from '@/lib/session';
+import { deleteFromBlobStorage } from '@/server/media';
 
 const characterSchema = z.object({
   name: z.string().trim().min(1, '名字必填').max(30),
@@ -102,6 +103,16 @@ export async function setCharacterStatus(id: string, status: 'active' | 'paused'
 
 export async function deleteCharacter(id: string) {
   const userId = await requireUserId();
+  const [char] = await db
+    .select({ avatarUrl: aiCharacters.avatarUrl })
+    .from(aiCharacters)
+    .where(and(eq(aiCharacters.id, id), eq(aiCharacters.userId, userId)))
+    .limit(1);
+
+  if (char?.avatarUrl) {
+    await deleteFromBlobStorage(char.avatarUrl);
+  }
+
   await db.delete(aiCharacters).where(and(eq(aiCharacters.id, id), eq(aiCharacters.userId, userId)));
   revalidatePath('/characters');
   return { ok: true };

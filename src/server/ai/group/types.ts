@@ -1,5 +1,5 @@
 import type { aiCharacters, groups, groupMembers, groupMessages, groupReactions, groupAttentionEvents } from '@/db/schema';
-
+import type { MediaAssetView } from '@/server/media';
 export type AiCharacter = typeof aiCharacters.$inferSelect;
 export type GroupRow = typeof groups.$inferSelect;
 export type GroupMemberRow = typeof groupMembers.$inferSelect;
@@ -65,6 +65,7 @@ export type PerceptionContext = {
     isSelf: boolean;
     isUser: boolean;
     content: string;
+    attachments?: MediaAssetView[];
     timeFormatted: string;
   }[];
   /** Unread messages structured for model consumption */
@@ -79,6 +80,7 @@ export type PerceptionContext = {
       isSelf: boolean;
       isUser: boolean;
       content: string;
+      attachments?: MediaAssetView[];
       timeFormatted: string;
       isMentioningMe: boolean;
       isReplyingToMe: boolean;

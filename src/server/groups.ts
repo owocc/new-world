@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { aiCharacters, groupMembers, groupMessages, groupReactions, groups, user } from '@/db/schema';
-
+import { getMediaForGroupMessages, type MediaAssetView } from '@/server/media';
 export type GroupView = {
   id: string;
   name: string;
@@ -51,6 +51,7 @@ export type GroupMessageView = {
   senderAvatarColor: string;
   senderAvatarUrl: string | null;
   content: string;
+  attachments: MediaAssetView[];
   replyTo: {
     id: string;
     senderName: string;
@@ -258,7 +259,7 @@ export async function getGroupMessages(
 
   const msgIds = msgRows.map((r) => r.msg.id);
   const msgMap = new Map(msgRows.map((r) => [r.msg.id, r]));
-
+  const mediaMap = await getMediaForGroupMessages(msgIds);
   // Fetch reactions
   const rxRows = await db
     .select({
@@ -343,6 +344,7 @@ export async function getGroupMessages(
       senderAvatarColor,
       senderAvatarUrl,
       content: msg.content,
+      attachments: mediaMap.get(msg.id) ?? [],
       replyTo,
       mentions: parsedMentions,
       reactions: Array.from(emojiMap.values()),

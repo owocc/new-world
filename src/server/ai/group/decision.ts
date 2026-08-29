@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { db } from '@/db';
 import { aiMemories, groupMessages, user } from '@/db/schema';
-import { runObject } from '@/server/ai/core';
+import { resolveModel, runObject } from '@/server/ai/core';
 import type { AiCharacter, GroupDecisionResult, PerceptionContext } from './types';
 import { calculateTopicAffinity, isWithinActiveHours, resolveSocialProfile } from './profile';
 import {
@@ -117,13 +117,14 @@ export async function makeGroupDecision(
     .limit(1);
   const humanName = humanUser?.name || '你';
 
-  // 6. Build Prompt
+  // 6. Resolve Model to know vision capabilities
+  const resolved = await resolveModel(userId, character.id);
+
+  // 7. Build Prompt
   const systemPrompt = buildGroupDecisionSystemPrompt(character, humanName, memories);
   const timeBlock = formatTimeAwarenessBlock(ctx);
-  const contextBlock = formatGroupChatContextBlock(ctx);
-
+  const contextBlock = formatGroupChatContextBlock(ctx, { supportsVision: resolved.supportsVision });
   const userPrompt = `${timeBlock}\n\n${contextBlock}\n\n${GROUP_DECISION_SCHEMA_INSTRUCTION}`;
-
   try {
     const result = await runObject({
       userId,

@@ -2,20 +2,32 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Reply, X, AtSign, Info } from 'lucide-react';
+import {
+  ArrowLeft,
+  Reply,
+  X,
+  AtSign,
+  Info,
+  Image as ImageIcon,
+  Loader2,
+  RefreshCw,
+} from 'lucide-react';
 import {
   ChatMessageList,
   ChatMessage,
   ChatMessageBubble,
   ChatSystemMessage,
   ChatComposer,
+  ChatComposerDrawer,
 } from '@astryxdesign/core/Chat';
 import { Markdown } from '@astryxdesign/core/Markdown';
 import { Button } from '@astryxdesign/core/Button';
 import { Text } from '@astryxdesign/core/Text';
 import { UserAvatar } from '@/components/user-avatar';
-import { TimeAgo } from '@/components/time-ago';
+import { MediaLightbox } from '@/components/media-lightbox';
 import { GroupInfoDrawer } from './group-info-drawer';
+import { useAppToast } from '@/lib/toast';
+import { resolveMediaUrl } from '@/lib/utils';
 import {
   sendGroupMessage,
   toggleGroupReaction,
@@ -23,11 +35,20 @@ import {
 } from '@/server/actions/groups';
 import type { GroupMemberView, GroupMessageView } from '@/server/groups';
 import type { aiCharacters, groups } from '@/db/schema';
+import type { MediaAssetView } from '@/server/media';
 
 type CharacterRow = typeof aiCharacters.$inferSelect;
 type GroupRow = typeof groups.$inferSelect;
 
-const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '☕️', '🌙', '🍜', '👏', '👀'];
+type PendingImage = {
+  id: string;
+  file: File;
+  previewUrl: string;
+  assetId?: string;
+  blobUrl?: string;
+  status: 'uploading' | 'ready' | 'error';
+  error?: string;
+};
 
 export function GroupChatWindow({
   group,
@@ -40,15 +61,24 @@ export function GroupChatWindow({
   allCharacters: CharacterRow[];
   initialMessages: GroupMessageView[];
 }) {
+  const toast = useAppToast();
   const [messages, setMessages] = useState<GroupMessageView[]>(initialMessages);
   const [inputValue, setInputValue] = useState('');
   const [replyingTo, setReplyingTo] = useState<GroupMessageView | null>(null);
   const [showMentionPicker, setShowMentionPicker] = useState(false);
   const [showInfoDrawer, setShowInfoDrawer] = useState(false);
-  const [activeReactionPickerMsgId, setActiveReactionPickerMsgId] = useState<string | null>(null);
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const [activeLightboxMedia, setActiveLightboxMedia] = useState<{
+    url: string;
+    originalFilename?: string | null;
+    width?: number | null;
+    height?: number | null;
+  } | null>(null);
+
   const [isPending, startTransition] = useTransition();
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const stickToBottomRef = useRef(true);
 
   // Sync initial messages when props change
@@ -61,7 +91,6 @@ export function GroupChatWindow({
     markGroupAsRead(group.id).catch(console.error);
   }, [group.id]);
 
-  // Scroll to bottom
   const scrollToBottom = () => {
     const el = scrollRef.current;
     if (el && stickToBottomRef.current) {
@@ -88,7 +117,7 @@ export function GroupChatWindow({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Real-time polling for group messages and opportunistic ticks
+  // Real-time polling for group messages
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -107,10 +136,118 @@ export function GroupChatWindow({
     return () => clearInterval(interval);
   }, [group.id]);
 
+  // Image Upload helper
+  const uploadImageFile = async (file: File) => {
+    const tempId = crypto.randomUUID();
+    const previewUrl = URL.createObjectURL(file);
+
+    const newPending: PendingImage = {
+      id: tempId,
+      file,
+      previewUrl,
+      status: 'uploading',
+    };
+
+    setPendingImages((prev) => [...prev, newPending]);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('purpose', 'attachment');
+
+      const res = await fetch('/api/media/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        setPendingImages((prev) =>
+          prev.map((item) =>
+            item.id === tempId
+              ? { ...item, status: 'error', error: data.error || '上传失败' }
+              : item,
+          ),
+        );
+        toast.error(data.error || '图片上传失败');
+        return;
+      }
+
+      setPendingImages((prev) =>
+        prev.map((item) =>
+          item.id === tempId
+            ? {
+                ...item,
+                status: 'ready',
+                assetId: data.media.id,
+                blobUrl: data.media.blobUrl,
+              }
+            : item,
+        ),
+      );
+    } catch (err) {
+      console.error('Failed to upload image', err);
+      setPendingImages((prev) =>
+        prev.map((item) =>
+          item.id === tempId ? { ...item, status: 'error', error: '网络错误' } : item,
+        ),
+      );
+      toast.error('网络错误，图片上传失败');
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    for (const file of files) {
+      uploadImageFile(file);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const retryUpload = (img: PendingImage) => {
+    setPendingImages((prev) => prev.filter((i) => i.id !== img.id));
+    uploadImageFile(img.file);
+  };
+
+  const removePendingImage = (id: string) => {
+    setPendingImages((prev) => {
+      const target = prev.find((i) => i.id === id);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((i) => i.id !== id);
+    });
+  };
+
+  const isUploadingAny = pendingImages.some((i) => i.status === 'uploading');
+
   // Handle Send Message
   const handleSend = async (rawText?: string) => {
     const text = (rawText ?? inputValue).trim();
-    if (!text || isPending) return;
+    if (isUploadingAny || isPending) return;
+
+    const readyAttachments: MediaAssetView[] = pendingImages
+      .filter((i) => i.status === 'ready' && i.assetId && i.blobUrl)
+      .map((i) => ({
+        id: i.assetId!,
+        userId: '',
+        mediaType: 'image' as const,
+        blobUrl: i.blobUrl!,
+        pathname: '',
+        downloadUrl: null,
+        mimeType: i.file.type || 'image/jpeg',
+        fileSize: i.file.size,
+        originalFilename: i.file.name,
+        width: null,
+        height: null,
+        duration: null,
+        status: 'ready' as const,
+        purpose: 'attachment' as const,
+        createdAt: new Date(),
+      }));
+
+    const mediaAssetIds = readyAttachments.map((a) => a.id);
+
+    if (!text && mediaAssetIds.length === 0) return;
 
     // Detect mentioned AI members in text
     const mentions: { type: 'ai'; id: string; name: string; username: string }[] = [];
@@ -139,7 +276,8 @@ export function GroupChatWindow({
       senderAvatarEmoji: '👤',
       senderAvatarColor: 'violet',
       senderAvatarUrl: null,
-      content: text,
+      content: text || (mediaAssetIds.length > 0 ? '[图片]' : ''),
+      attachments: readyAttachments,
       replyTo: replyingTo
         ? {
             id: replyingTo.id,
@@ -156,6 +294,7 @@ export function GroupChatWindow({
     setInputValue('');
     setReplyingTo(null);
     setShowMentionPicker(false);
+    setPendingImages([]);
     stickToBottomRef.current = true;
     scrollToBottom();
 
@@ -163,18 +302,19 @@ export function GroupChatWindow({
       try {
         await sendGroupMessage(group.id, {
           content: text,
+          mediaAssetIds,
           replyToMessageId: replyId,
           mentions,
         });
       } catch (err) {
         console.error('Failed to send group message', err);
+        toast.error('发送失败，请重试');
       }
     });
   };
 
   // Toggle Reaction
   const handleReaction = async (messageId: string, emoji: string) => {
-    setActiveReactionPickerMsgId(null);
     try {
       await toggleGroupReaction(group.id, messageId, emoji);
       const res = await fetch(`/api/groups/${group.id}/messages`);
@@ -189,7 +329,6 @@ export function GroupChatWindow({
     }
   };
 
-  // Insert mention from picker
   const insertMention = (member: GroupMemberView) => {
     const mentionTag = `@${member.name} `;
     setInputValue((prev) => `${prev}${mentionTag}`);
@@ -198,8 +337,14 @@ export function GroupChatWindow({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Header — friend first, matches private chat structure */}
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-4">
+      {/* Lightbox */}
+      <MediaLightbox
+        media={activeLightboxMedia}
+        onClose={() => setActiveLightboxMedia(null)}
+      />
+
+      {/* Header */}
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-4 bg-surface">
         <Link
           href="/messages"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-secondary transition-colors hover:bg-muted lg:hidden"
@@ -234,7 +379,7 @@ export function GroupChatWindow({
         />
       </header>
 
-      {/* Messages — exactly max-w-[720px] and ChatMessageList as in private chat */}
+      {/* Messages list */}
       <div
         ref={scrollRef}
         onScroll={onScroll}
@@ -254,6 +399,8 @@ export function GroupChatWindow({
                 );
               }
 
+              const attachments = m.attachments || [];
+
               if (isUser) {
                 return (
                   <ChatMessage key={m.id} sender="user">
@@ -266,7 +413,41 @@ export function GroupChatWindow({
                       </div>
                     )}
                     <ChatMessageBubble variant="filled">
-                      <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                      {/* Attachments rendering */}
+                      {attachments.length > 0 && (
+                        <div
+                          className={`mb-2 ${
+                            attachments.length === 1
+                              ? 'max-w-[320px]'
+                              : 'grid grid-cols-2 gap-1.5 max-w-[360px]'
+                          }`}
+                        >
+                          {attachments.map((att) => (
+                            <div
+                              key={att.id}
+                              onClick={() =>
+                                setActiveLightboxMedia({
+                                  url: att.blobUrl,
+                                  originalFilename: att.originalFilename,
+                                  width: att.width,
+                                  height: att.height,
+                                })
+                              }
+                              className="group/img relative overflow-hidden rounded-xl border border-border/40 bg-surface/50 cursor-pointer transition-all hover:opacity-95 hover:shadow-md"
+                            >
+                              <img
+                                src={resolveMediaUrl(att.blobUrl) || att.blobUrl}
+                                alt={att.originalFilename || '图片'}
+                                className="w-full h-auto max-h-[260px] object-cover transition-transform duration-200 group-hover/img:scale-[1.02]"
+                                loading="lazy"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {m.content && m.content !== '[图片]' ? (
+                        <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                      ) : null}
                     </ChatMessageBubble>
                     {m.reactions && m.reactions.length > 0 && (
                       <div className="mt-1 flex flex-wrap justify-end gap-1">
@@ -317,7 +498,41 @@ export function GroupChatWindow({
                     </div>
                   )}
                   <ChatMessageBubble variant="filled">
-                    <Markdown className="text-[15px]">{m.content}</Markdown>
+                    {/* Attachments rendering */}
+                    {attachments.length > 0 && (
+                      <div
+                        className={`mb-2 ${
+                          attachments.length === 1
+                            ? 'max-w-[320px]'
+                            : 'grid grid-cols-2 gap-1.5 max-w-[360px]'
+                        }`}
+                      >
+                        {attachments.map((att) => (
+                          <div
+                            key={att.id}
+                            onClick={() =>
+                              setActiveLightboxMedia({
+                                url: att.blobUrl,
+                                originalFilename: att.originalFilename,
+                                width: att.width,
+                                height: att.height,
+                              })
+                            }
+                            className="group/img relative overflow-hidden rounded-xl border border-border/40 bg-surface/50 cursor-pointer transition-all hover:opacity-95 hover:shadow-md"
+                          >
+                            <img
+                              src={resolveMediaUrl(att.blobUrl) || att.blobUrl}
+                              alt={att.originalFilename || '图片'}
+                              className="w-full h-auto max-h-[260px] object-cover transition-transform duration-200 group-hover/img:scale-[1.02]"
+                              loading="lazy"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {m.content && m.content !== '[图片]' ? (
+                      <Markdown className="text-[15px]">{m.content}</Markdown>
+                    ) : null}
                   </ChatMessageBubble>
                   {m.reactions && m.reactions.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1">
@@ -345,9 +560,19 @@ export function GroupChatWindow({
         </div>
       </div>
 
-      {/* Composer — fixed footer matching private chat */}
+      {/* Composer */}
       <footer className="shrink-0 border-t border-border bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
         <div className="w-full flex flex-col gap-2">
+          {/* Hidden File Picker */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+
           {replyingTo && (
             <div className="flex items-center justify-between rounded-lg border border-border bg-muted px-3 py-1.5 text-xs">
               <div className="flex items-center gap-1.5 truncate">
@@ -407,7 +632,11 @@ export function GroupChatWindow({
 
           <ChatComposer
             elevation="none"
-            placeholder={`发消息给群聊「${group.name}」…`}
+            placeholder={
+              pendingImages.length > 0
+                ? '添加说明，或直接发送图片…'
+                : `发消息给群聊「${group.name}」…`
+            }
             value={inputValue}
             onChange={(v) => {
               setInputValue(v);
@@ -416,15 +645,89 @@ export function GroupChatWindow({
               }
             }}
             onSubmit={(text) => handleSend(text)}
-            isDisabled={isPending}
+            isDisabled={isPending || isUploadingAny}
+            drawer={
+              pendingImages.length > 0 ? (
+                <ChatComposerDrawer count={pendingImages.length}>
+                  <div className="flex flex-wrap items-center gap-2 py-1">
+                    {pendingImages.map((img) => (
+                      <div
+                        key={img.id}
+                        className="relative group flex items-center gap-2 p-1.5 pr-2 rounded-xl bg-surface border border-border text-xs"
+                      >
+                        <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                          <img
+                            src={img.previewUrl}
+                            alt="preview"
+                            className="h-full w-full object-cover"
+                          />
+                          {img.status === 'uploading' && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white">
+                              <Loader2 className="animate-spin" size={16} />
+                            </div>
+                          )}
+                          {img.status === 'error' && (
+                            <div className="absolute inset-0 bg-error/70 flex items-center justify-center text-white">
+                              <X size={16} />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="max-w-[120px] truncate">
+                          <div className="font-medium truncate">{img.file.name}</div>
+                          <div className="text-[11px] text-secondary">
+                            {img.status === 'uploading'
+                              ? '上传中…'
+                              : img.status === 'error'
+                              ? '上传失败'
+                              : `${(img.file.size / 1024).toFixed(0)} KB`}
+                          </div>
+                        </div>
+
+                        {img.status === 'error' ? (
+                          <button
+                            type="button"
+                            onClick={() => retryUpload(img)}
+                            className="p-1 rounded-full text-secondary hover:text-primary hover:bg-muted"
+                            title="重试"
+                          >
+                            <RefreshCw size={14} />
+                          </button>
+                        ) : null}
+
+                        <button
+                          type="button"
+                          onClick={() => removePendingImage(img.id)}
+                          className="p-1 rounded-full text-secondary hover:text-error hover:bg-muted"
+                          title="移除"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </ChatComposerDrawer>
+              ) : undefined
+            }
             footerActions={
-              <Button
-                label="@ 成员"
-                variant="ghost"
-                size="sm"
-                icon={<AtSign size={15} />}
-                onClick={() => setShowMentionPicker(!showMentionPicker)}
-              />
+              <div className="flex items-center gap-1.5">
+                <Button
+                  label="图片"
+                  variant="ghost"
+                  size="sm"
+                  icon={<ImageIcon size={16} />}
+                  aria-label="发送图片"
+                  onClick={() => fileInputRef.current?.click()}
+                  isDisabled={isUploadingAny || isPending}
+                />
+                <Button
+                  label="@ 成员"
+                  variant="ghost"
+                  size="sm"
+                  icon={<AtSign size={15} />}
+                  onClick={() => setShowMentionPicker(!showMentionPicker)}
+                />
+              </div>
             }
           />
         </div>

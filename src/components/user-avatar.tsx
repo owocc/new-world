@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {Avatar} from '@astryxdesign/core/Avatar';
 import type {AvatarSize} from '@astryxdesign/core/Avatar';
+import {resolveMediaUrl} from '@/lib/utils';
 
 /**
  * App avatar: Astryx Avatar for image avatars, with a gradient + emoji
@@ -45,9 +46,10 @@ export function UserAvatar({
   href?: string;
   tooltip?: boolean | string;
 }) {
-  if (url) {
+  const finalUrl = resolveMediaUrl(url);
+  if (finalUrl) {
     return (
-      <Avatar name={name} src={url} size={snapSize(size) as AvatarSize} href={href} tooltip={tooltip} />
+      <Avatar name={name} src={finalUrl} size={snapSize(size) as AvatarSize} href={href} tooltip={tooltip} />
     );
   }
 

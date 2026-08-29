@@ -2,6 +2,7 @@ import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/db';
 import { aiMemories, conversations, messages } from '@/db/schema';
+import { getMediaForMessages, type MediaAssetView } from '@/server/media';
 import { runObject, runText } from './core';
 
 /** How many recent messages are kept verbatim in the model context. */
@@ -9,13 +10,21 @@ const CONTEXT_WINDOW = 16;
 /** Once unsummarized messages exceed this, older ones get folded into the summary. */
 const SUMMARIZE_THRESHOLD = 20;
 
-export async function getRecentMessages(conversationId: string, limit = CONTEXT_WINDOW) {
-  return db
+export async function getRecentMessages(conversationId: string, limit = CONTEXT_WINDOW): Promise<(typeof messages.$inferSelect & { attachments: MediaAssetView[] })[]> {
+  const rows = await db
     .select()
     .from(messages)
     .where(eq(messages.conversationId, conversationId))
     .orderBy(desc(messages.createdAt))
     .limit(limit);
+
+  const msgIds = rows.map((r) => r.id);
+  const mediaMap = await getMediaForMessages(msgIds);
+
+  return rows.map((r) => ({
+    ...r,
+    attachments: mediaMap.get(r.id) ?? [],
+  }));
 }
 
 export async function getMemories(characterId: string, limit = 10) {

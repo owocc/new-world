@@ -1,11 +1,11 @@
 'use client';
 
-import {useState} from 'react';
-import {useRouter} from 'next/navigation';
-import {Save} from 'lucide-react';
-import {Button} from '@astryxdesign/core/Button';
-import {TextInput} from '@astryxdesign/core/TextInput';
-import {TextArea} from '@astryxdesign/core/TextArea';
+import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Camera, Loader2, Save, Trash2, Upload } from 'lucide-react';
+import { Button } from '@astryxdesign/core/Button';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { TextArea } from '@astryxdesign/core/TextArea';
 import {Selector} from '@astryxdesign/core/Selector';
 import {Slider} from '@astryxdesign/core/Slider';
 import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/SegmentedControl';
@@ -14,8 +14,9 @@ import {Collapsible} from '@astryxdesign/core/Collapsible';
 import {HStack, VStack} from '@astryxdesign/core/Stack';
 import {Section} from '@astryxdesign/core/Section';
 import {Text} from '@astryxdesign/core/Text';
-import {nativeAttrs} from '@/lib/native-attrs';
-import {useAppToast} from '@/lib/toast';
+import { AvatarCropModal } from '@/components/avatar-crop-modal';
+import { nativeAttrs } from '@/lib/native-attrs';
+import { useAppToast } from '@/lib/toast';
 import {UserAvatar, AVATAR_COLORS} from '@/components/user-avatar';
 import {createCharacter, updateCharacter, type CharacterInput} from '@/server/actions/characters';
 
@@ -135,11 +136,51 @@ export function CharacterEditor({
   const toast = useAppToast();
   const [values, setValues] = useState(initial);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [tab, setTab] = useState('profile');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const objectUrl = URL.createObjectURL(file);
+    setCropImageSrc(objectUrl);
+    setCropModalOpen(true);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleCropConfirm = async (croppedBlob: Blob) => {
+    setUploadingAvatar(true);
+    try {
+      const file = new File([croppedBlob], 'avatar.jpg', { type: 'image/jpeg' });
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('purpose', 'avatar');
+
+      const res = await fetch('/api/media/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        toast.error(data.error || '头像上传失败');
+        return;
+      }
+
+      setValues((v) => ({ ...v, avatarUrl: data.media.blobUrl }));
+      toast.success('头像裁剪并上传成功');
+    } catch (err) {
+      console.error('Avatar upload error', err);
+      toast.error('网络错误，上传头像失败');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const set = <K extends keyof CharacterFormValues>(key: K, value: CharacterFormValues[K]) =>
-    setValues((v) => ({...v, [key]: value}));
-
+    setValues((v) => ({ ...v, [key]: value }));
   const submit = async () => {
     setSaving(true);
     const input: CharacterInput = {
@@ -170,23 +211,75 @@ export function CharacterEditor({
     }
   };
 
+      {/* 1:1 Avatar Crop Modal */}
+      <AvatarCropModal
+        isOpen={cropModalOpen}
+        imageSrc={cropImageSrc}
+        onClose={() => {
+          setCropModalOpen(false);
+          if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
+          setCropImageSrc(null);
+        }}
+        onConfirm={handleCropConfirm}
+      />
+
   return (
     <VStack gap={4}>
-      {/* identity preview */}
-      <div className="flex items-center gap-4">
-        <UserAvatar
-          name={values.name || '?'}
-          emoji={values.avatarEmoji}
-          color={values.avatarColor}
-          url={values.avatarUrl || null}
-          size={56}
-        />
+      {/* identity preview with avatar upload */}
+      <div className="flex items-center gap-4 p-3 rounded-2xl bg-surface border border-border">
+        <div className="relative group">
+          <UserAvatar
+            name={values.name || '?'}
+            emoji={values.avatarEmoji}
+            color={values.avatarColor}
+            url={values.avatarUrl || null}
+            size={64}
+          />
+          <button
+            type="button"
+            disabled={uploadingAvatar}
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-100"
+            title="点击更换头像"
+          >
+            {uploadingAvatar ? (
+              <Loader2 className="animate-spin" size={20} />
+            ) : (
+              <Camera size={20} />
+            )}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+            className="hidden"
+            onChange={handleAvatarFileSelect}
+          />
+        </div>
         <div className="min-w-0 flex-1">
           <div className="text-lg font-semibold">{values.name || '新居民'}</div>
           <div className="truncate text-sm text-secondary">@{values.username || 'username'}</div>
+          <div className="flex items-center gap-2 mt-1.5">
+            <Button
+              label={uploadingAvatar ? '上传中…' : '上传头像'}
+              size="sm"
+              variant="secondary"
+              icon={uploadingAvatar ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />}
+              isDisabled={uploadingAvatar}
+              onClick={() => fileInputRef.current?.click()}
+            />
+            {values.avatarUrl ? (
+              <Button
+                label="移除图片"
+                size="sm"
+                variant="ghost"
+                icon={<Trash2 size={14} />}
+                onClick={() => setValues((v) => ({ ...v, avatarUrl: '' }))}
+              />
+            ) : null}
+          </div>
         </div>
       </div>
-
       <TabList value={tab} onChange={setTab} hasDivider>
         <Tab value="profile" label="基本资料" />
         <Tab value="persona" label="人设" />

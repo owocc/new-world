@@ -2,10 +2,11 @@ import { eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { conversations, messages } from '@/db/schema';
 import { getSession } from '@/lib/session';
-import { NoProviderError, runStream } from '@/server/ai/core';
+import { NoProviderError, resolveModel, runStream } from '@/server/ai/core';
 import { characterSystemPrompt, chatMemoryBlock } from '@/server/ai/prompts';
 import { buildChatContext, maybeSummarizeConversation, extractMemories } from '@/server/ai/memory';
 import { getConversation, markConversationRead } from '@/server/chat';
+import { linkMediaToMessage, getMediaForMessages } from '@/server/media';
 import type { ModelMessage, UIMessage } from 'ai';
 
 export const maxDuration = 60;
@@ -13,6 +14,7 @@ export const maxDuration = 60;
 type ChatRequestBody = {
   conversationId?: string;
   messages?: UIMessage[];
+  mediaAssetIds?: string[];
 };
 
 function extractText(message: UIMessage): string {
@@ -34,28 +36,40 @@ export async function POST(req: Request) {
     const uiMessages = body.messages ?? [];
     const lastUser = [...uiMessages].reverse().find((m) => m.role === 'user');
     const text = lastUser ? extractText(lastUser) : '';
-    if (!body.conversationId || !text.trim()) {
+    const mediaAssetIds = Array.isArray(body.mediaAssetIds) ? body.mediaAssetIds : [];
+
+    if (!body.conversationId || (!text.trim() && mediaAssetIds.length === 0)) {
       return new Response('Bad Request', { status: 400 });
     }
 
-    // conversationId here is the conversation id; verify ownership
+    // verify conversation ownership
     const conv = await getConversation(userId, body.conversationId);
     if (!conv) {
       return new Response('Not Found', { status: 404 });
     }
     const convId = body.conversationId;
 
-    // persist the user's message
+    // Resolve model to know vision capability
+    const resolved = await resolveModel(userId, conv.character.id);
+
+    // Persist the user's message
+    const userMsgId = crypto.randomUUID();
     await db.insert(messages).values({
-      id: crypto.randomUUID(),
+      id: userMsgId,
       conversationId: convId,
       userId,
       role: 'user',
       content: text.trim(),
     });
+
+    // Link uploaded media assets
+    if (mediaAssetIds.length > 0) {
+      await linkMediaToMessage(userId, userMsgId, mediaAssetIds);
+    }
+
     await markConversationRead(userId, convId);
 
-    // assemble memory-aware context
+    // Assemble memory-aware context
     const { recent, memories } = await buildChatContext({
       userId,
       conversationId: convId,
@@ -66,17 +80,54 @@ export async function POST(req: Request) {
     const system =
       characterSystemPrompt(conv.character, session.user.name) + (memoryBlock ? `\n\n${memoryBlock}` : '');
 
-    const contextMessages: ModelMessage[] = recent.map((m) => ({
-      role: m.role === 'user' ? 'user' : 'assistant',
-      content: m.content,
-    }));
+    // Convert recent messages to ModelMessage format with vision support
+    const contextMessages: ModelMessage[] = recent.map((m) => {
+      if (m.role === 'assistant') {
+        return {
+          role: 'assistant',
+          content: m.content,
+        };
+      }
+
+      // For user messages: check attachments
+      const hasAttachments = m.attachments && m.attachments.length > 0;
+
+      if (!hasAttachments) {
+        return {
+          role: 'user',
+          content: m.content || ' ',
+        };
+      }
+
+      if (resolved.supportsVision) {
+        // Model supports vision -> pass multimodal parts
+        const parts: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> = [];
+        if (m.content.trim()) {
+          parts.push({ type: 'text', text: m.content.trim() });
+        }
+        for (const att of m.attachments) {
+          parts.push({ type: 'image', image: att.blobUrl });
+        }
+        return {
+          role: 'user',
+          content: parts,
+        };
+      }
+
+      // Model does not support vision -> annotate text gracefully without exposing raw URL
+      const notice = `\n[User sent ${m.attachments.length} image(s) that your current model cannot inspect.]`;
+      return {
+        role: 'user',
+        content: (m.content.trim() ? m.content.trim() + ' ' : '') + notice,
+      };
+    });
 
     const result = await runStream({
       userId,
       characterId: conv.character.id,
       callType: 'chat',
       system,
-      prompt: text,
+      prompt: text.trim() || '（用户发送了图片）',
       messages: contextMessages,
       maxOutputTokens: 800,
       onFinish: async (fullText) => {
@@ -93,7 +144,7 @@ export async function POST(req: Request) {
           .set({ lastMessageAt: new Date() })
           .where(eq(conversations.id, convId));
 
-        // memory maintenance (best-effort)
+        // Memory maintenance (best-effort)
         await maybeSummarizeConversation({ userId, conversationId: convId }).catch(console.error);
         const [{ count }] = await db
           .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })

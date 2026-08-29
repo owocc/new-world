@@ -508,3 +508,65 @@ export const appSettings = sqliteTable('app_settings', {
   value: text('value').notNull(),
   updatedAt: ts('updated_at').notNull().default(now()),
 }, (t) => [uniqueIndex('app_settings_unique_idx').on(t.userId, t.key)]);
+
+/* ------------------------------------------------------------------ */
+/* Media & Attachments (Vercel Blob + Media Assets)                  */
+/* ------------------------------------------------------------------ */
+
+export const mediaAssets = sqliteTable('media_assets', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  /** image | video | audio | file */
+  mediaType: text('media_type').notNull().default('image'),
+  blobUrl: text('blob_url').notNull(),
+  pathname: text('pathname').notNull(),
+  downloadUrl: text('download_url'),
+  mimeType: text('mime_type').notNull(),
+  fileSize: integer('file_size').notNull(),
+  originalFilename: text('original_filename'),
+  width: integer('width'),
+  height: integer('height'),
+  duration: real('duration'),
+  /** pending | ready | orphan | deleted */
+  status: text('status').notNull().default('ready'),
+  /** avatar | attachment | general */
+  purpose: text('purpose').notNull().default('attachment'),
+  createdAt: ts('created_at').notNull().default(now()),
+  updatedAt: ts('updated_at').notNull().default(now()),
+}, (t) => [
+  index('media_assets_user_idx').on(t.userId),
+  index('media_assets_status_created_idx').on(t.status, t.createdAt),
+  index('media_assets_pathname_idx').on(t.pathname),
+]);
+
+export const messageAttachments = sqliteTable('message_attachments', {
+  id: text('id').primaryKey(),
+  messageId: text('message_id')
+    .notNull()
+    .references(() => messages.id, { onDelete: 'cascade' }),
+  mediaAssetId: text('media_asset_id')
+    .notNull()
+    .references(() => mediaAssets.id, { onDelete: 'cascade' }),
+  order: integer('order').notNull().default(0),
+  createdAt: ts('created_at').notNull().default(now()),
+}, (t) => [
+  index('message_attachments_msg_idx').on(t.messageId),
+  index('message_attachments_asset_idx').on(t.mediaAssetId),
+]);
+
+export const groupMessageAttachments = sqliteTable('group_message_attachments', {
+  id: text('id').primaryKey(),
+  groupMessageId: text('group_message_id')
+    .notNull()
+    .references(() => groupMessages.id, { onDelete: 'cascade' }),
+  mediaAssetId: text('media_asset_id')
+    .notNull()
+    .references(() => mediaAssets.id, { onDelete: 'cascade' }),
+  order: integer('order').notNull().default(0),
+  createdAt: ts('created_at').notNull().default(now()),
+}, (t) => [
+  index('group_message_attachments_msg_idx').on(t.groupMessageId),
+  index('group_message_attachments_asset_idx').on(t.mediaAssetId),
+]);

@@ -1,7 +1,7 @@
 import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { aiCharacters, conversations, messages } from '@/db/schema';
-
+import { getMediaForMessages, type MediaAssetView } from '@/server/media';
 export type ConversationView = {
   id: string;
   characterId: string;
@@ -78,16 +78,41 @@ export async function getOrCreateConversation(userId: string, characterId: strin
   return id;
 }
 
-export async function getConversationMessages(conversationId: string, limit = 100) {
+export type ChatMessageRow = {
+  id: string;
+  conversationId: string;
+  userId: string;
+  role: 'user' | 'assistant';
+  content: string;
+  usageId: string | null;
+  attachments: MediaAssetView[];
+  createdAt: Date;
+};
+
+export async function getConversationMessages(conversationId: string, limit = 100): Promise<ChatMessageRow[]> {
   const rows = await db
     .select()
     .from(messages)
     .where(eq(messages.conversationId, conversationId))
     .orderBy(desc(messages.createdAt))
     .limit(limit);
-  return rows.reverse();
-}
 
+  const msgIds = rows.map((r) => r.id);
+  const mediaMap = await getMediaForMessages(msgIds);
+
+  const list: ChatMessageRow[] = rows.map((r) => ({
+    id: r.id,
+    conversationId: r.conversationId,
+    userId: r.userId,
+    role: r.role as 'user' | 'assistant',
+    content: r.content,
+    usageId: r.usageId,
+    attachments: mediaMap.get(r.id) ?? [],
+    createdAt: new Date(r.createdAt),
+  }));
+
+  return list.reverse();
+}
 export async function markConversationRead(userId: string, conversationId: string) {
   await db
     .update(conversations)

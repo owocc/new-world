@@ -10,7 +10,10 @@ export default async function AccountSettingsPage() {
 
   return (
     <AccountSettings
+      name={profile?.name ?? ''}
       email={profile?.email ?? ''}
+      bio={profile?.bio ?? ''}
+      image={profile?.image ?? null}
       createdAt={
         profile?.createdAt
           ? new Date(profile.createdAt).toLocaleDateString('zh-CN', {

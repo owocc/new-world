@@ -21,6 +21,7 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
         id: m.id,
         role: m.role,
         content: m.content,
+        attachments: m.attachments,
         createdAt: m.createdAt,
       }))}
     />

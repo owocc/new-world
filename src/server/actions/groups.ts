@@ -10,7 +10,7 @@ import { requireUserId } from '@/lib/session';
 import { markGroupRead } from '@/server/groups';
 import { scheduleGroupMessageAttention } from '@/server/ai/group/attention';
 import { tickGroupAttention } from '@/server/ai/group/engine';
-
+import { linkMediaToGroupMessage } from '@/server/media';
 const createGroupSchema = z.object({
   name: z.string().trim().min(1, '群聊名称必填').max(50, '群聊名称最多 50 字'),
   description: z.string().trim().max(200, '描述最多 200 字').default(''),
@@ -238,7 +238,8 @@ export async function leaveGroup(groupId: string) {
 }
 
 const sendMessageSchema = z.object({
-  content: z.string().trim().min(1, '发送内容不能为空').max(2000, '单条消息最多 2000 字'),
+  content: z.string().trim().max(2000, '单条消息最多 2000 字').default(''),
+  mediaAssetIds: z.array(z.string()).optional().default([]),
   replyToMessageId: z.string().optional().nullable(),
   mentions: z
     .array(
@@ -250,8 +251,9 @@ const sendMessageSchema = z.object({
       }),
     )
     .optional(),
+}).refine((data) => data.content.trim().length > 0 || data.mediaAssetIds.length > 0, {
+  message: '发送内容不能为空',
 });
-
 /**
  * Send a message to group as human user.
  * Immediately records message and dispatches attention to AI group members.
@@ -263,9 +265,10 @@ export async function sendGroupMessage(groupId: string, input: z.input<typeof se
     return { error: parsed.error.issues[0]?.message ?? '发送失败' };
   }
 
-  const { content, replyToMessageId, mentions = [] } = parsed.data;
+  const { content, mediaAssetIds = [], replyToMessageId, mentions = [] } = parsed.data;
   const now = new Date();
   const msgId = crypto.randomUUID();
+  const effectiveContent = content.trim() || (mediaAssetIds.length > 0 ? '[图片]' : '');
 
   // 1. Insert message
   await db.insert(groupMessages).values({
@@ -273,12 +276,16 @@ export async function sendGroupMessage(groupId: string, input: z.input<typeof se
     groupId,
     userId,
     senderType: 'user',
-    content,
+    content: effectiveContent,
     replyToMessageId: replyToMessageId || null,
     mentions: JSON.stringify(mentions),
     createdAt: now,
   });
 
+  // 1.1 Link media assets
+  if (mediaAssetIds.length > 0) {
+    await linkMediaToGroupMessage(userId, msgId, mediaAssetIds);
+  }
   // 2. Update group metadata
   await db
     .update(groups)

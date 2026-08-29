@@ -10,8 +10,8 @@ import {
   getModelPrice,
   type ProviderConfigRow,
 } from './providers';
+import { supportsVision } from '@/lib/providers-shared';
 import { getDefaultAIConfig } from '@/server/settings';
-
 export type CallType =
   | 'chat'
   | 'post_generation'
@@ -31,11 +31,11 @@ export type CallType =
 export type ResolvedModel = {
   provider: ProviderConfigRow;
   modelId: string;
+  supportsVision: boolean;
   temperature: number | null;
   topP: number | null;
   maxTokens: number | null;
 };
-
 /**
  * Resolve which provider/model a call should use:
  * character override -> user default -> error.
@@ -82,14 +82,20 @@ export async function resolveModel(
     throw new NoProviderError();
   }
 
+  const finalModelId = modelId ?? 'gpt-4o-mini';
+  const isVision = supportsVision(provider.providerType, finalModelId);
+
   return {
     provider,
-    modelId: modelId ?? 'gpt-4o-mini',
+    modelId: finalModelId,
+    supportsVision: isVision,
     temperature: character?.temperature ?? defaults.temperature ?? null,
     topP: character?.topP ?? defaults.topP ?? null,
     maxTokens: character?.maxTokens ?? defaults.maxTokens ?? null,
   };
-}export class NoProviderError extends Error {
+}
+
+export class NoProviderError extends Error {
   constructor() {
     super('尚未配置 AI Provider。请先在「设置 → AI Providers」中添加并启用一个 Provider。');
     this.name = 'NoProviderError';
