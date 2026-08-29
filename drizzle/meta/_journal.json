@@ -15,6 +15,13 @@
       "when": 1788003930682,
       "tag": "0001_cultured_namorita",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788013739532,
+      "tag": "0002_dear_mikhail_rasputin",
+      "breakpoints": true
     }
   ]
 }

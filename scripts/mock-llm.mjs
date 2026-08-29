@@ -10,6 +10,18 @@ function pickText(messages, kind) {
   const chars = [...sys.matchAll(/名字：(.+?)（/g)].map((m) => m[1]);
   const name = chars[0] ?? 'AI';
 
+  // group decision
+  if (user.includes('行为决策') || sys.includes('群聊') || user.includes('【群聊信息】')) {
+    return JSON.stringify({
+      action: 'reply',
+      reasoning: `看到大家在聊，${name}决定参与回复`,
+      replyContent: `（${name}）这个我赞同，大家接着聊！`,
+      shouldFormMemory: true,
+      memoryFact: '群里讨论了近期计划',
+      memoryImportance: 0.7,
+    });
+  }
+
   // decision calls ask for JSON with act/comment
   if (user.includes('决定是否评论') || user.includes('回复这条评论')) {
     const act = Math.random() < 0.85;

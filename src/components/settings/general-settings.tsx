@@ -2,6 +2,8 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
+import Link from 'next/link';
+import {ArrowLeft} from 'lucide-react';
 import {Text} from '@astryxdesign/core/Text';
 import {Section} from '@astryxdesign/core/Section';
 import {Button} from '@astryxdesign/core/Button';
@@ -76,7 +78,20 @@ export function GeneralSettings({
   const models = ai.providerId ? (modelsByProvider[ai.providerId] ?? []) : [];
 
   return (
-    <VStack gap={8}>
+    <VStack gap={6}>
+      <div className="flex items-center gap-2 border-b border-border pb-3">
+        <Link
+          href="/settings"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary hover:bg-muted lg:hidden"
+          aria-label="返回设置菜单"
+        >
+          <ArrowLeft size={18} />
+        </Link>
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">通用设置</h1>
+          <p className="text-xs text-secondary">管理个人基础资料与默认社区规则</p>
+        </div>
+      </div>
       <Section variant="transparent" padding={0}>
         <VStack gap={4}>
           <VStack gap={0.5}>

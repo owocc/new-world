@@ -1,0 +1,71 @@
+import { getConversations, type ConversationView } from '@/server/chat';
+import { getGroups, type GroupView } from '@/server/groups';
+
+export type UnifiedChatItem = {
+  id: string;
+  kind: 'dm' | 'group';
+  name: string;
+  username?: string;
+  avatarUrl: string | null;
+  avatarEmoji: string;
+  avatarColor: string;
+  lastMessageAt: Date | null;
+  lastMessagePreview: string | null;
+  unreadCount: number;
+  // DM specific
+  characterId?: string;
+  // Group specific
+  memberCount?: number;
+  href: string;
+};
+
+/**
+ * Get unified chat list containing both DMs and Group Chats,
+ * sorted chronologically by latest message timestamp.
+ */
+export async function getUnifiedChats(userId: string): Promise<UnifiedChatItem[]> {
+  const [conversations, groups] = await Promise.all([
+    getConversations(userId),
+    getGroups(userId),
+  ]);
+
+  const dmItems: UnifiedChatItem[] = conversations.map((c) => ({
+    id: c.id,
+    kind: 'dm',
+    name: c.characterName,
+    username: c.characterUsername,
+    avatarUrl: c.characterAvatarUrl,
+    avatarEmoji: c.characterAvatarEmoji,
+    avatarColor: c.characterAvatarColor,
+    lastMessageAt: c.lastMessageAt ? new Date(c.lastMessageAt) : null,
+    lastMessagePreview: c.lastMessagePreview,
+    unreadCount: c.unreadCount,
+    characterId: c.characterId,
+    href: `/messages/${c.id}`,
+  }));
+
+  const groupItems: UnifiedChatItem[] = groups.map((g) => ({
+    id: g.id,
+    kind: 'group',
+    name: g.name,
+    avatarUrl: g.avatarUrl,
+    avatarEmoji: g.avatarEmoji,
+    avatarColor: g.avatarColor,
+    lastMessageAt: g.lastMessageAt ? new Date(g.lastMessageAt) : null,
+    lastMessagePreview: g.lastMessagePreview,
+    unreadCount: g.unreadCount,
+    memberCount: g.memberCount,
+    href: `/messages/group/${g.id}`,
+  }));
+
+  const all = [...dmItems, ...groupItems];
+
+  // Sort descending by latest message time (most recent first)
+  all.sort((a, b) => {
+    const tA = a.lastMessageAt ? a.lastMessageAt.getTime() : 0;
+    const tB = b.lastMessageAt ? b.lastMessageAt.getTime() : 0;
+    return tB - tA;
+  });
+
+  return all;
+}

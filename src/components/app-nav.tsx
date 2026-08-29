@@ -13,6 +13,7 @@ import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
 import {Avatar} from '@astryxdesign/core/Avatar';
 import {
   Bell,
+  Compass,
   Globe,
   Heart,
   MessageCircle,
@@ -42,61 +43,49 @@ function UnreadBadge({count}: {count: number}) {
 const isActive = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(href + '/');
 
-function CommunityNavItems({
-  unreadMessages,
-  unreadNotifications,
+function MainNavItems({
+  unreadChats = 0,
 }: {
-  unreadMessages: number;
-  unreadNotifications: number;
+  unreadChats: number;
 }) {
   const pathname = usePathname();
   return (
     <>
       <SideNavItem
-        href="/feed"
-        label="世界"
-        icon={<Globe size={18} strokeWidth={2} />}
-        isSelected={isActive(pathname, '/feed') || isActive(pathname, '/post')}
-      />
-      <SideNavItem
         href="/messages"
-        label="私信"
+        label="聊天"
         icon={<MessageCircle size={18} strokeWidth={2} />}
-        isSelected={isActive(pathname, '/messages')}
-        endContent={<UnreadBadge count={unreadMessages} />}
+        isSelected={isActive(pathname, '/messages') || isActive(pathname, '/groups')}
+        endContent={<UnreadBadge count={unreadChats} />}
       />
       <SideNavItem
         href="/characters"
-        label="居民"
+        label="联系人"
         icon={<Users size={18} strokeWidth={2} />}
         isSelected={isActive(pathname, '/characters')}
       />
       <SideNavItem
-        href="/notifications"
-        label="通知"
-        icon={<Bell size={18} strokeWidth={2} />}
-        isSelected={isActive(pathname, '/notifications')}
-        endContent={<UnreadBadge count={unreadNotifications} />}
+        href="/feed"
+        label="朋友圈"
+        icon={<Compass size={18} strokeWidth={2} />}
+        isSelected={isActive(pathname, '/feed') || isActive(pathname, '/post')}
       />
     </>
   );
 }
-
 function UtilityNavItems() {
   const pathname = usePathname();
   return (
     <>
       <SideNavItem
-        href="/usage"
-        label="用量"
-        icon={<BarChart3 size={18} strokeWidth={2} />}
-        isSelected={isActive(pathname, '/usage')}
-      />
-      <SideNavItem
         href="/settings"
         label="设置"
         icon={<Settings size={18} strokeWidth={2} />}
-        isSelected={isActive(pathname, '/settings')}
+        isSelected={
+          isActive(pathname, '/settings') ||
+          isActive(pathname, '/usage') ||
+          isActive(pathname, '/notifications')
+        }
       />
     </>
   );
@@ -125,28 +114,29 @@ function ThemeMenu() {
 export function AppNav({
   user,
   unreadMessages,
+  unreadGroups = 0,
   unreadNotifications,
   initialNotifications = [],
   children,
 }: {
   user: ShellUser;
   unreadMessages: number;
+  unreadGroups?: number;
   unreadNotifications: number;
   initialNotifications?: NotificationItem[];
   children: React.ReactNode;
 }) {
+  const totalUnreadChats = unreadMessages + unreadGroups;
+
   const sideNav = (
     <SideNav
       collapsible={true}
       footerIcons={<ThemeMenu />}
     >
       <SideNavSection title="社区">
-        <CommunityNavItems
-          unreadMessages={unreadMessages}
-          unreadNotifications={unreadNotifications}
-        />
+        <MainNavItems unreadChats={totalUnreadChats} />
       </SideNavSection>
-      <SideNavSection title="工具">
+      <SideNavSection title="系统">
         <UtilityNavItems />
       </SideNavSection>
     </SideNav>

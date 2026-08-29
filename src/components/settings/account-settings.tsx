@@ -2,7 +2,8 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {LogOut} from 'lucide-react';
+import Link from 'next/link';
+import {ArrowLeft, LogOut} from 'lucide-react';
 import {Button} from '@astryxdesign/core/Button';
 import {Section} from '@astryxdesign/core/Section';
 import {TextInput} from '@astryxdesign/core/TextInput';
@@ -44,7 +45,20 @@ export function AccountSettings({email, createdAt}: {email: string; createdAt: s
   };
 
   return (
-    <VStack gap={8}>
+    <VStack gap={6}>
+      <div className="flex items-center gap-2 border-b border-border pb-3">
+        <Link
+          href="/settings"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary hover:bg-muted lg:hidden"
+          aria-label="返回设置菜单"
+        >
+          <ArrowLeft size={18} />
+        </Link>
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">账户与资料</h1>
+          <p className="text-xs text-secondary">管理你的账号信息与安全凭证</p>
+        </div>
+      </div>
       <Section variant="transparent" padding={0}>
         <VStack gap={4}>
           <h2 className="text-base font-semibold">账号信息</h2>

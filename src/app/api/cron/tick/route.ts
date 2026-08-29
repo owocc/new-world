@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { user } from '@/db/schema';
 import { processDueEvents, maybePulse } from '@/server/ai/community/engine';
+import { tickGroupAttention } from '@/server/ai/group/engine';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
     try {
       await maybePulse(u.id);
       await processDueEvents(u.id, 8);
-      processed++;
+      await tickGroupAttention(u.id, undefined, 8);
     } catch (err) {
       console.error('[cron] failed for user', u.id, err);
     }

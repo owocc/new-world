@@ -223,6 +223,140 @@ export const messages = sqliteTable('messages', {
 }, (t) => [index('messages_conversation_idx').on(t.conversationId, t.createdAt)]);
 
 /* ------------------------------------------------------------------ */
+/* Group Chat                                                          */
+/* ------------------------------------------------------------------ */
+
+export const groups = sqliteTable('groups', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  avatarUrl: text('avatar_url'),
+  avatarEmoji: text('avatar_emoji').notNull().default('💬'),
+  avatarColor: text('avatar_color').notNull().default('indigo'),
+  createdBy: text('created_by').notNull().default('user'),
+  lastMessageAt: ts('last_message_at'),
+  lastMessagePreview: text('last_message_preview'),
+  createdAt: ts('created_at').notNull().default(now()),
+  updatedAt: ts('updated_at').notNull().default(now()),
+}, (t) => [
+  index('groups_user_updated_idx').on(t.userId, t.updatedAt),
+]);
+
+export const groupMembers = sqliteTable('group_members', {
+  id: text('id').primaryKey(),
+  groupId: text('group_id')
+    .notNull()
+    .references(() => groups.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  /** user | ai */
+  memberType: text('member_type').notNull().default('ai'),
+  /** null if memberType === 'user' */
+  characterId: text('character_id')
+    .references(() => aiCharacters.id, { onDelete: 'cascade' }),
+  /** owner | admin | member */
+  role: text('role').notNull().default('member'),
+  joinedAt: ts('joined_at').notNull().default(now()),
+  /** independent reading progress & attention state */
+  lastReadMessageId: text('last_read_message_id'),
+  lastReadAt: ts('last_read_at'),
+  nextCheckAt: ts('next_check_at'),
+  /** normal | muted | active | urgent */
+  attentionLevel: text('attention_level').notNull().default('normal'),
+  isPinned: integer('is_pinned', { mode: 'boolean' }).notNull().default(false),
+  createdAt: ts('created_at').notNull().default(now()),
+  updatedAt: ts('updated_at').notNull().default(now()),
+}, (t) => [
+  uniqueIndex('group_members_unique_idx').on(t.groupId, t.memberType, t.characterId),
+  index('group_members_group_idx').on(t.groupId),
+  index('group_members_user_idx').on(t.userId),
+  index('group_members_char_idx').on(t.characterId),
+  index('group_members_next_check_idx').on(t.nextCheckAt),
+]);
+
+export const groupMessages = sqliteTable('group_messages', {
+  id: text('id').primaryKey(),
+  groupId: text('group_id')
+    .notNull()
+    .references(() => groups.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  /** user | ai | system */
+  senderType: text('sender_type').notNull(),
+  senderCharacterId: text('sender_character_id')
+    .references(() => aiCharacters.id, { onDelete: 'set null' }),
+  content: text('content').notNull(),
+  replyToMessageId: text('reply_to_message_id'),
+  /** JSON array of mentioned entities: [{ type: 'user' | 'ai', id: string, name: string, username: string }] */
+  mentions: text('mentions').notNull().default('[]'),
+  isDeleted: integer('is_deleted', { mode: 'boolean' }).notNull().default(false),
+  usageId: text('usage_id'),
+  createdAt: ts('created_at').notNull().default(now()),
+}, (t) => [
+  index('group_messages_group_created_idx').on(t.groupId, t.createdAt),
+  index('group_messages_sender_idx').on(t.senderCharacterId),
+]);
+
+export const groupReactions = sqliteTable('group_reactions', {
+  id: text('id').primaryKey(),
+  groupId: text('group_id')
+    .notNull()
+    .references(() => groups.id, { onDelete: 'cascade' }),
+  messageId: text('message_id')
+    .notNull()
+    .references(() => groupMessages.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  /** user | ai */
+  reactorType: text('reactor_type').notNull(),
+  characterId: text('character_id')
+    .references(() => aiCharacters.id, { onDelete: 'cascade' }),
+  emoji: text('emoji').notNull(),
+  createdAt: ts('created_at').notNull().default(now()),
+}, (t) => [
+  index('group_reactions_msg_idx').on(t.messageId),
+  index('group_reactions_group_idx').on(t.groupId),
+  uniqueIndex('group_reactions_unique_idx').on(t.messageId, t.reactorType, t.characterId, t.emoji),
+]);
+
+export const groupAttentionEvents = sqliteTable('group_attention_events', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  groupId: text('group_id')
+    .notNull()
+    .references(() => groups.id, { onDelete: 'cascade' }),
+  characterId: text('character_id')
+    .notNull()
+    .references(() => aiCharacters.id, { onDelete: 'cascade' }),
+  /** mention | reply | new_message | topic_affinity | pulse | catchup */
+  triggerType: text('trigger_type').notNull(),
+  /** priority level: 0 (pulse), 1 (normal message), 2 (reply), 3 (direct @mention) */
+  priority: integer('priority').notNull().default(1),
+  triggerMessageId: text('trigger_message_id'),
+  scheduledFor: ts('scheduled_for').notNull().default(now()),
+  /** pending | processing | done | skipped | failed */
+  status: text('status').notNull().default('pending'),
+  actionTaken: text('action_taken'),
+  processedAt: ts('processed_at'),
+  dedupeKey: text('dedupe_key'),
+  attempts: integer('attempts').notNull().default(0),
+  lastError: text('last_error'),
+  createdAt: ts('created_at').notNull().default(now()),
+}, (t) => [
+  index('group_attention_status_idx').on(t.status, t.scheduledFor),
+  index('group_attention_group_char_idx').on(t.groupId, t.characterId),
+  index('group_attention_user_idx').on(t.userId),
+]);
+
+/* ------------------------------------------------------------------ */
 /* Community: posts / comments / reactions                             */
 /* ------------------------------------------------------------------ */
 

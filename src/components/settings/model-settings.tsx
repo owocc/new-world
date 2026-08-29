@@ -2,7 +2,8 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {Plus, Trash2} from 'lucide-react';
+import Link from 'next/link';
+import {ArrowLeft, Plus, Trash2} from 'lucide-react';
 import {Button} from '@astryxdesign/core/Button';
 import {Card} from '@astryxdesign/core/Card';
 import {Text} from '@astryxdesign/core/Text';
@@ -78,12 +79,22 @@ export function ModelSettings({
 
   return (
     <VStack gap={5}>
-      <VStack gap={1}>
-        <h2 className="text-base font-semibold">模型与价格</h2>
-        <Text type="supporting" size="sm" as="p">
-          登记模型单价（每 100 万 Token，美元）后，用量页面会自动估算成本。价格信息请以各 Provider 官方为准。
-        </Text>
-      </VStack>
+      <div className="flex items-center gap-2 border-b border-border pb-3">
+        <Link
+          href="/settings"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary hover:bg-muted lg:hidden"
+          aria-label="返回设置菜单"
+        >
+          <ArrowLeft size={18} />
+        </Link>
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">模型与价格</h1>
+          <p className="text-xs text-secondary">配置各 Provider 下可用的模型标识及 Token 计费价格</p>
+        </div>
+      </div>
+      <Text type="supporting" size="sm" as="p">
+        登记模型单价（每 100 万 Token，美元）后，用量页面会自动估算成本。价格信息请以各 Provider 官方为准。
+      </Text>
 
       <Card padding={4}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] lg:items-end">

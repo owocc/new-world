@@ -1,9 +1,9 @@
 'use client';
 
-import {usePathname} from 'next/navigation';
-import type {ConversationView} from '@/server/chat';
-import type {aiCharacters} from '@/db/schema';
-import {ConversationList} from '@/components/conversation-list';
+import { usePathname } from 'next/navigation';
+import type { UnifiedChatItem } from '@/server/unified-chat';
+import type { aiCharacters } from '@/db/schema';
+import { ConversationList } from '@/components/conversation-list';
 
 type CharacterRow = typeof aiCharacters.$inferSelect;
 
@@ -12,31 +12,33 @@ type CharacterRow = typeof aiCharacters.$inferSelect;
  * view). On mobile the list and each conversation are separate full screens.
  */
 export function MessagesShell({
-  conversations,
+  chats,
   contacts,
   children,
 }: {
-  conversations: ConversationView[];
+  chats: UnifiedChatItem[];
   contacts: CharacterRow[];
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const inConversation = pathname.startsWith('/messages/');
+  const inConversation = pathname.startsWith('/messages/') && pathname !== '/messages';
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden">
-      {/* conversation list: fixed budget column on desktop; full screen on
-          mobile unless a conversation is open */}
+    <div className="flex h-full min-h-0 w-full overflow-hidden">
+      {/* conversation list: fixed 320px column on desktop; full screen on mobile unless in conversation */}
       <aside
-        className={`w-full shrink-0 overflow-hidden border-border lg:block lg:h-full lg:w-[320px] lg:border-r ${
+        className={`w-full shrink-0 overflow-hidden border-border md:block md:h-full md:w-[320px] md:border-r ${
           inConversation ? 'hidden' : 'block'
         }`}
       >
-        <ConversationList conversations={conversations} contacts={contacts} />
+        <ConversationList chats={chats} contacts={contacts} />
       </aside>
-      {/* chat column: full screen on mobile when a conversation is open */}
+
+      {/* chat column */}
       <section
-        className={`min-h-0 min-w-0 flex-1 flex-col ${inConversation ? 'flex' : 'hidden'} lg:flex`}
+        className={`min-h-0 min-w-0 flex-1 flex-col ${
+          inConversation ? 'flex' : 'hidden'
+        } md:flex`}
       >
         {children}
       </section>

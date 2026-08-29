@@ -4,16 +4,16 @@ import {aiCharacters} from '@/db/schema';
 import {ConversationList} from '@/components/conversation-list';
 import {MessagesShell} from '@/components/messages-shell';
 import {requireUserId} from '@/lib/session';
-import {getConversations} from '@/server/chat';
+import {getUnifiedChats} from '@/server/unified-chat';
 
-export const metadata = {title: '私信'};
+export const metadata = {title: '聊天'};
 export const dynamic = 'force-dynamic';
 
 export default async function MessagesLayout({children}: {children: React.ReactNode}) {
   const userId = await requireUserId();
-  const conversations = await getConversations(userId);
+  const chats = await getUnifiedChats(userId);
 
-  const withConvIds = conversations.map((c) => c.characterId);
+  const withConvIds = chats.filter((c) => c.kind === 'dm' && c.characterId).map((c) => c.characterId!);
   const contacts = await db
     .select()
     .from(aiCharacters)
@@ -26,7 +26,7 @@ export default async function MessagesLayout({children}: {children: React.ReactN
     );
 
   return (
-    <MessagesShell conversations={conversations} contacts={contacts}>
+    <MessagesShell chats={chats} contacts={contacts}>
       {children}
     </MessagesShell>
   );

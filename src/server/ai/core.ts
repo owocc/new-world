@@ -20,7 +20,13 @@ export type CallType =
   | 'reaction_decision'
   | 'memory'
   | 'summary'
-  | 'system';
+  | 'system'
+  | 'group_message'
+  | 'group_attention'
+  | 'group_decision'
+  | 'group_digest'
+  | 'group_reply'
+  | 'group_reaction';
 
 export type ResolvedModel = {
   provider: ProviderConfigRow;

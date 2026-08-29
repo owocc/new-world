@@ -195,7 +195,7 @@ export function ChatWindow({
       </div>
 
       {/* composer — fixed footer, no floating dock */}
-      <footer className="shrink-0 border-t border-border bg-body px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
+      <footer className="shrink-0 border-t border-border bg-surface px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
         <div className="mx-auto w-full max-w-[720px]">
           <ChatComposer
             elevation="none"

@@ -2,7 +2,8 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {Check, Plus, Star, Trash2} from 'lucide-react';
+import Link from 'next/link';
+import {ArrowLeft, Check, Plus, Star, Trash2} from 'lucide-react';
 import {Badge} from '@astryxdesign/core/Badge';
 import {Button} from '@astryxdesign/core/Button';
 import {Card} from '@astryxdesign/core/Card';
@@ -38,13 +39,20 @@ export function ProviderSettings({providers}: {providers: ProviderRow[]}) {
 
   return (
     <VStack gap={5}>
+      <div className="flex items-center gap-2 border-b border-border pb-3">
+        <Link
+          href="/settings"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary hover:bg-muted lg:hidden"
+          aria-label="返回设置菜单"
+        >
+          <ArrowLeft size={18} />
+        </Link>
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">AI 服务商配置</h1>
+          <p className="text-xs text-secondary">接入 OpenAI、Anthropic、DeepSeek 等大模型服务商</p>
+        </div>
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <VStack gap={0.5}>
-          <h2 className="text-base font-semibold">AI Providers</h2>
-          <Text type="supporting" size="sm" as="p">
-            API Key 仅保存在服务端数据库，绝不会发送到浏览器。
-          </Text>
-        </VStack>
         <Button
           label={showForm ? '收起' : '新增'}
           variant={showForm ? 'secondary' : 'primary'}
