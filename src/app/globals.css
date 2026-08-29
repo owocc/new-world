@@ -10,14 +10,14 @@
 
 /* App-level chrome only. All colors/spacings come from Astryx tokens. */
 @layer base {
-  html {
+  html, body {
     -webkit-tap-highlight-color: transparent;
-    background-color: var(--color-background-body);
-  }
-  body {
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     background-color: var(--color-background-body);
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
   }
   * {
     scrollbar-width: thin;

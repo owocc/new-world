@@ -35,8 +35,8 @@ export default async function CharactersPage() {
   items.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
   return (
-    <div className="h-full min-h-0 w-full overflow-y-auto sm:p-2.5">
-      <div className="mx-auto w-full max-w-[960px] p-4 sm:p-6 sm:rounded-2xl sm:border sm:border-border sm:bg-surface sm:shadow-xs pb-12">
+    <div className="h-full min-h-0 w-full overflow-y-auto p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto w-full max-w-[960px] pb-12">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold tracking-tight">联系人</h1>
           <Link href="/characters/new">

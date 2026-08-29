@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 export interface SplitLayoutProps {
   /** Root pathname for the master list (e.g. '/messages', '/settings', '/groups') */
   rootPath: string;
-  /** Width class for the master sidebar (e.g. 'sm:w-[300px]', 'sm:w-[240px]'). Defaults to 'sm:w-[300px]' */
+  /** Width class for the master sidebar (e.g. 'w-[280px]', 'w-[220px]'). Defaults to 'w-[280px]' */
   sidebarWidth?: string;
   /** Secondary sidebar content (e.g. ConversationList, SettingsSidebar) */
   sidebar: React.ReactNode;
@@ -19,7 +19,7 @@ export interface SplitLayoutProps {
  * Universal Next.js nested layout shell for 2-column master-detail views (Chats, Settings).
  *
  * Layout Structure:
- * - Column 2 (Sidebar): fixed width (240px~300px), always visible on tablet/desktop.
+ * - Column 2 (Sidebar): fixed width (240px~280px), always visible on tablet/desktop.
  * - Column 3 (Detail Pane): directly occupies the rest of the content area.
  *
  * Responsiveness:
@@ -28,34 +28,33 @@ export interface SplitLayoutProps {
  */
 export function SplitLayout({
   rootPath,
-  sidebarWidth = 'sm:w-[300px]',
+  sidebarWidth = 'w-[280px]',
   sidebar,
   children,
   scrollableDetail = false,
 }: SplitLayoutProps) {
   const pathname = usePathname();
-  // Check if user is on a detail subroute (not exactly at rootPath)
   const inDetail = pathname !== rootPath;
 
   return (
-    <div className="flex h-full min-h-0 w-full overflow-hidden bg-surface">
-      {/* Secondary Sidebar (Column 2): always visible on sm+ (>=640px) */}
+    <div className="flex h-full min-h-0 w-full overflow-hidden">
+      {/* Secondary Sidebar (Column 2) */}
       <aside
         className={`${
           inDetail ? 'hidden sm:flex' : 'flex'
-        } h-full w-full shrink-0 flex-col overflow-hidden border-border bg-surface ${sidebarWidth} sm:border-r`}
+        } h-full shrink-0 flex-col overflow-hidden border-border ${sidebarWidth} sm:border-r`}
       >
         {sidebar}
       </aside>
 
-      {/* Right Detail Pane (Column 3): directly fills remaining space */}
+      {/* Right Detail Pane (Column 3) — directly occupies the remaining width */}
       <section
         className={`${
           inDetail ? 'flex' : 'hidden sm:flex'
-        } min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface`}
+        } min-h-0 min-w-0 flex-1 flex-col overflow-hidden`}
       >
         {scrollableDetail ? (
-          <div className="h-full min-h-0 w-full flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <div className="h-full min-h-0 w-full flex-1 overflow-y-auto p-6 lg:p-8">
             <div className="w-full max-w-[760px] pb-12">{children}</div>
           </div>
         ) : (

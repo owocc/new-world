@@ -29,8 +29,8 @@ export default async function FeedPage() {
   const userName = profile?.name ?? '你';
 
   return (
-    <div className="h-full min-h-0 w-full overflow-y-auto sm:p-2.5">
-      <div className="mx-auto w-full max-w-[680px] p-4 sm:p-6 sm:rounded-2xl sm:border sm:border-border sm:bg-surface sm:shadow-xs pb-12">
+    <div className="h-full min-h-0 w-full overflow-y-auto p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto w-full max-w-[680px] pb-12">
         <h1 className="mb-3 text-xl font-semibold tracking-tight">朋友圈</h1>
         <div>
           <Composer userName={userName} userImage={profile?.image ?? null} />
