@@ -6,8 +6,10 @@ import { colorVars } from '@astryxdesign/core/theme/tokens.stylex';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Code2, Image as ImageIcon, Loader2, RefreshCw, X } from 'lucide-react';
 import { ChatContextInspector } from '@/components/chat-context-inspector';
+import { CharacterProfile } from '@/components/character-profile';
 import {
   ChatMessageList,
   ChatMessage,
@@ -77,6 +79,52 @@ const styles = stylex.create({
     '@media (hover: hover)': {
       ':hover': {color: colorVars['--color-text-accent']},
     },
+  },
+  profileOverlay: {
+    position: 'absolute',
+    inset: 0,
+    zIndex: 30,
+    display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: colorVars['--color-background-surface'],
+  },
+  profileOverlayBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flexShrink: 0,
+    paddingBlock: '8px',
+    paddingInline: '12px',
+    borderBottom: '1px solid',
+    borderBottomColor: colorVars['--color-border'],
+  },
+  profileOverlayTitle: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: '15px',
+    fontWeight: 'var(--font-weight-semibold)',
+    color: colorVars['--color-text-primary'],
+  },
+  profileOverlayBody: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: 'auto',
+    padding: '16px',
+    '@media (min-width: 640px)': {
+      padding: '24px',
+    },
+  },
+  overlayClose: {
+    display: 'flex',
+    width: '32px',
+    height: '32px',
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 'var(--radius-full, 9999px)',
+    color: colorVars['--color-text-secondary'],
+    textDecoration: 'none',
+    ':hover': {backgroundColor: colorVars['--color-background-muted'], color: colorVars['--color-text-primary']},
   },
   scrollAreaWrapper: {
     position: 'relative',
@@ -293,6 +341,7 @@ export function ChatWindow({
   isDevMode?: boolean;
 }) {
   const toast = useAppToast();
+  const profileOpen = useSearchParams().get('profile') === '1';
   const [showDevInspector, setShowDevInspector] = useState(false);
   const [composerValue, setComposerValue] = useState('');
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
@@ -564,41 +613,27 @@ export function ChatWindow({
           color={character.avatarColor}
           url={character.avatarUrl}
           size={36}
-          href={`/characters/${character.id}`}
+          href={`/messages/${conversationId}?profile=1`}
         />
         <div {...stylex.props(styles.headerInfo)}>
           <Link
-            href={`/characters/${character.id}`}
+            href={`/messages/${conversationId}?profile=1`}
             {...stylex.props(styles.headerName, styles.headerNameLink)}
           >
             {character.name}
           </Link>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {isDevMode && (
-            <button
-              type="button"
-              onClick={() => setShowDevInspector(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '5px 10px',
-                borderRadius: 6,
-                border: '1px solid var(--color-border)',
-                backgroundColor: 'var(--color-background-muted)',
-                color: 'var(--color-primary, #6366f1)',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-              title="打开开发者工具 · 查看实时 AI 上下文"
-            >
-              <Code2 size={14} />
-              <span>开发者工具</span>
-            </button>
-          )}
-        </div>
+        {isDevMode && (
+          <Button
+            label="开发者工具"
+            variant="ghost"
+            size="sm"
+            icon={<Code2 size={16} />}
+            isIconOnly
+            tooltip="打开开发者工具 · 查看实时 AI 上下文"
+            onClick={() => setShowDevInspector(true)}
+          />
+        )}
       </header>
 
       {/* messages */}
@@ -818,6 +853,27 @@ export function ChatWindow({
           />
         </div>
       </footer>
+
+      {profileOpen && (
+        <div {...stylex.props(styles.profileOverlay)} role="dialog" aria-label={`${character.name} 的资料`}>
+          <div {...stylex.props(styles.profileOverlayBar)}>
+            <span {...stylex.props(styles.profileOverlayTitle)}>居民资料</span>
+            <Link href={`/characters/${character.id}`}>
+              <Button label="完整资料页" variant="ghost" size="sm" />
+            </Link>
+            <Link
+              href={`/messages/${conversationId}`}
+              {...stylex.props(styles.overlayClose)}
+              aria-label="关闭资料"
+            >
+              <X size={18} />
+            </Link>
+          </div>
+          <div {...stylex.props(styles.profileOverlayBody)}>
+            <CharacterProfile character={character} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

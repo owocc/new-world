@@ -512,27 +512,15 @@ export function GroupChatWindow({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {isDevMode && (
-            <button
-              type="button"
+            <Button
+              label="开发者工具"
+              variant="ghost"
+              size="sm"
+              icon={<Code2 size={16} />}
+              isIconOnly
+              tooltip="打开开发者工具 · 查看实时 AI 上下文"
               onClick={() => setShowDevInspector(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '5px 10px',
-                borderRadius: 6,
-                border: '1px solid var(--color-border)',
-                backgroundColor: 'var(--color-background-muted)',
-                color: 'var(--color-primary, #6366f1)',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-              title="打开开发者工具 · 查看实时 AI 上下文"
-            >
-              <Code2 size={14} />
-              <span>开发者工具</span>
-            </button>
+            />
           )}
           <Button
             label="群资料"

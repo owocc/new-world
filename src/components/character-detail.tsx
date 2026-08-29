@@ -5,18 +5,14 @@ import * as stylex from '@stylexjs/stylex';
 import {MessageCircle} from 'lucide-react';
 import {Button} from '@astryxdesign/core/Button';
 import {Dialog} from '@astryxdesign/core/Dialog';
-import {Divider} from '@astryxdesign/core/Divider';
 import {Layout} from '@astryxdesign/core/Layout';
 import {LayoutHeader} from '@astryxdesign/core/Layout';
 import {LayoutContent} from '@astryxdesign/core/Layout';
-import {StatusDot} from '@astryxdesign/core/StatusDot';
-import {Text} from '@astryxdesign/core/Text';
-import {Token} from '@astryxdesign/core/Token';
 import {VStack} from '@astryxdesign/core/Stack';
 import {useRouter} from 'next/navigation';
 import {openConversation} from '@/server/actions/chat';
 import {useAppToast} from '@/lib/toast';
-import {UserAvatar} from '@/components/user-avatar';
+import {CharacterProfile} from '@/components/character-profile';
 import {
   CharacterEditor,
   type CharacterFormValues,
@@ -24,33 +20,13 @@ import {
 import type {CharacterListItem} from '@/components/character-card';
 
 const styles = stylex.create({
-  profileHeader: {display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--spacing-4)'},
-  headline: {display: 'flex', alignItems: 'center', gap: '10px'},
-  heading: {
-    fontSize: 'var(--font-size-2xl)',
-    fontWeight: 'var(--font-weight-semibold)',
-    letterSpacing: '-0.025em',
-  },
-  grow: {flex: 1},
-  buttonGroup: {display: 'flex', alignItems: 'center', gap: 'var(--spacing-2)'},
-  bio: {maxWidth: '36rem', lineHeight: 1.625, color: 'var(--color-text-secondary)'},
-  tags: {display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-1-5)'},
-  prose: {whiteSpace: 'pre-wrap', lineHeight: 1.625},
-  proseSecondary: {whiteSpace: 'pre-wrap', lineHeight: 1.625, color: 'var(--color-text-secondary)'},
   dialogTitle: {fontSize: 'var(--font-size-lg)', fontWeight: 'var(--font-weight-semibold)'},
   editorContainer: {marginInline: 'auto', width: '100%', maxWidth: '640px', paddingBlock: 'var(--spacing-2)'},
 });
 
-function splitTags(value: string): string[] {
-  return value
-    .split(/[,，、]/)
-    .map((t) => t.trim())
-    .filter(Boolean);
-}
-
 /**
- * Profile-first resident detail: shows the person first. Technical settings
- * (model, rates, prompt) live inside the editor dialog.
+ * Profile-first resident detail page: the read-only profile card plus the
+ * edit dialog (technical settings live inside the editor).
  */
 export function CharacterDetail({
   character,
@@ -62,7 +38,6 @@ export function CharacterDetail({
   const router = useRouter();
   const toast = useAppToast();
   const [editing, setEditing] = useState(false);
-  const active = character.status === 'active';
 
   const chat = async () => {
     const res = await openConversation(character.id);
@@ -98,105 +73,16 @@ export function CharacterDetail({
 
   return (
     <VStack gap={6}>
-      {/* profile header */}
-      <VStack gap={3}>
-        <div {...stylex.props(styles.profileHeader)}>
-          <UserAvatar
-            name={character.name}
-            emoji={character.avatarEmoji}
-            color={character.avatarColor}
-            url={character.avatarUrl}
-            size={72}
-          />
-          <VStack gap={1}>
-            <div {...stylex.props(styles.headline)}>
-              <h1 {...stylex.props(styles.heading)}>{character.name}</h1>
-              <StatusDot variant={active ? 'success' : 'neutral'} label={active ? '活跃' : '已禁用'} />
-            </div>
-            <Text type="supporting" as="div">
-              @{character.username}
-              {character.relationshipToUser ? ` · 与你的关系：${character.relationshipToUser}` : ''}
-            </Text>
-          </VStack>
-          <div {...stylex.props(styles.grow)} />
-          <div {...stylex.props(styles.buttonGroup)}>
+      <CharacterProfile
+        character={character}
+        modelText={character.modelLabel ?? character.modelId ?? '全局默认'}
+        actions={
+          <>
             <Button label="发私信" variant="primary" icon={<MessageCircle size={16} />} onClick={chat} />
             <Button label="编辑" variant="secondary" onClick={() => setEditing(true)} />
-          </div>
-        </div>
-        {character.bio && (
-          <Text as="p" xstyle={styles.bio}>
-            {character.bio}
-          </Text>
-        )}
-      </VStack>
-
-      {/* personality */}
-      {(splitTags(character.personality).length > 0 || splitTags(character.interests).length > 0) && (
-        <VStack gap={4}>
-          {splitTags(character.personality).length > 0 && (
-            <VStack gap={1.5}>
-              <Text weight="medium" as="div">
-                性格
-              </Text>
-              <div {...stylex.props(styles.tags)}>
-                {splitTags(character.personality).map((t) => (
-                  <Token key={t} label={t} color="orange" />
-                ))}
-              </div>
-            </VStack>
-          )}
-          {splitTags(character.interests).length > 0 && (
-            <VStack gap={1.5}>
-              <Text weight="medium" as="div">
-                兴趣
-              </Text>
-              <div {...stylex.props(styles.tags)}>
-                {splitTags(character.interests).map((t) => (
-                  <Token key={t} label={t} color="teal" />
-                ))}
-              </div>
-            </VStack>
-          )}
-        </VStack>
-      )}
-
-      <Divider />
-
-      {/* persona & expression */}
-      {(character.persona || character.expressionStyle) && (
-        <VStack gap={4}>
-          {character.persona && (
-            <VStack gap={1.5}>
-              <Text weight="medium" as="div">
-                关于 TA
-              </Text>
-              <Text as="p" textWrap="wrap" xstyle={styles.prose}>
-                {character.persona}
-              </Text>
-            </VStack>
-          )}
-          {character.expressionStyle && (
-            <VStack gap={1.5}>
-              <Text weight="medium" as="div">
-                表达方式
-              </Text>
-              <Text as="p" textWrap="wrap" xstyle={styles.proseSecondary}>
-                {character.expressionStyle}
-              </Text>
-            </VStack>
-          )}
-        </VStack>
-      )}
-
-      <Divider />
-
-      {/* quiet technical facts */}
-      <VStack gap={1.5}>
-        <Text type="supporting" size="sm" as="div">
-          模型：{character.modelLabel ?? character.modelId ?? '全局默认'}
-        </Text>
-      </VStack>
+          </>
+        }
+      />
 
       <Dialog isOpen={editing} onOpenChange={setEditing} purpose="form" variant="fullscreen" padding={6}>
         <Layout
