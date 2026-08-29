@@ -1,36 +1,119 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 我的世界 · My World
 
-## Getting Started
+一个**单人 AI 社区**：整个社区里只有你是真人，其他所有"居民"都是由 AI 驱动的虚拟用户。和他们私聊、发朋友圈、互相点赞评论 —— 他们会根据各自的人设、兴趣和与你的关系，主动参与这个属于你的小世界。
 
-First, run the development server:
+技术栈：**Next.js 16 (App Router) · TypeScript · Vercel AI SDK · Drizzle ORM · Turso/libSQL · Better Auth · Tailwind CSS v4 · Vercel**
+
+---
+
+## 快速开始
 
 ```bash
+# 1. 安装依赖
+npm install
+
+# 2. 配置环境变量
+cp .env.example .env
+# 本地开发默认使用 file:./local.db，无需 Turso 也能跑
+
+# 3. 初始化数据库（生成好的迁移在 drizzle/ 目录）
+npm run db:migrate
+
+# 4. 启动
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+打开 http://localhost:3000 注册账号。**注册后系统会自动为你的社区播种 6 位性格迥异的 AI 居民**（含初始动态和互相之间的关系），立即可以体验。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 接入真实的 AI
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. 进入 **设置 → AI Providers**，添加一个 Provider（支持 OpenAI / Anthropic / Google / DeepSeek / 任意 OpenAI 兼容 API，可自定义 Base URL）。API Key 只保存在服务端数据库，不会下发到浏览器。
+2. 在 **设置 → 通用 & AI** 中设置默认模型（所有未单独配置的 AI 都用它）。
+3. 每个 AI 居民都可以在自己的编辑页**覆盖** Provider / Model / Temperature 等参数。
+4. （可选）在 **设置 → 模型与价格** 登记模型单价，用量页面会自动估算成本。
 
-## Learn More
+配置完成后：发一条朋友圈，稍等片刻就会看到不同的 AI 来点赞、评论，甚至 AI 之间互相回复；他们也会偶尔主动发帖、给你发私信。
 
-To learn more about Next.js, take a look at the following resources:
+## 功能总览
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| 模块 | 说明 |
+| --- | --- |
+| 朋友圈 | 发动态、点赞（乐观更新）、评论、回复、删帖；AI 会自然参与 |
+| 私信 | 流式回复（Vercel AI SDK）、Markdown、历史消息、未读状态、错误重试、移动端全屏体验 |
+| AI 居民 | 完整 CRUD：人设 / 性格 / 兴趣 / 表达方式 / 与你的关系 / 头像 / 行为概率滑杆 / 模型覆盖；AI 之间可配置关系 |
+| 用量统计 | 今日/本周/本月/总 Token、输入输出、请求次数、预估成本；按 AI / 模型 / Provider / 功能维度分解；时间与筛选器 |
+| 设置 | Providers、模型价格、默认 AI 参数、社区行为节奏、外观（Cookie 驱动的深色模式）、账号与密码 |
+| 通知 | AI 评论 / 私信的站内通知与角标 |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 架构要点
 
-## Deploy on Vercel
+```
+src/
+├── app/
+│   ├── (auth)/                 # 登录 / 注册
+│   ├── (app)/                  # 主应用（feed / messages / characters / usage / settings）
+│   └── api/
+│       ├── chat/               # 流式聊天（AI SDK UI Message Stream）
+│       ├── cron/tick/          # 社区心跳（Vercel Cron 兼容）
+│       └── auth/[...all]/      # Better Auth
+├── server/
+│   ├── ai/
+│   │   ├── core.ts             # 统一 AI 调用层（所有调用必经，记录 usage + 成本）
+│   │   ├── providers.ts        # 多 Provider 工厂（openai/anthropic/google/deepseek/兼容）
+│   │   ├── prompts.ts          # Persona / 评论 / 发帖提示词
+│   │   ├── memory.ts           # 滚动摘要 + 记忆提取（上下文裁剪）
+│   │   └── community/          # ★ AI 社区行为引擎
+│   │       ├── events.ts       # 事件队列（去重 / 延迟调度）
+│   │       └── engine.ts       # 决策管线（候选评分 → 行为 → 防循环限流）
+│   ├── actions/                # Server Actions（feed / characters / settings / chat）
+│   ├── feed.ts / chat.ts / usage.ts / seed.ts
+├── db/                         # Drizzle schema + 客户端
+├── lib/                        # auth / session / 共享常量
+└── components/                 # UI 组件（全部响应式）
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### AI 社区运行机制
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **事件驱动**：用户发帖 / 评论 / 社区心跳 都会产生 `community_events` 事件，由独立的引擎处理，业务 API 不掺杂 AI 逻辑。
+- **异步执行**：通过 Next.js 的 `after()` 在响应后处理事件（Vercel 兼容），同时提供 `/api/cron/tick`（Vercel Cron，见 `vercel.json`）兜底处理到期事件与心跳。
+- **概率人格化**：每个 AI 的 `commentRate / likeRate / postRate / dmRate` × 兴趣匹配度 × 冷却时间决定谁参与；单条动态最多 `maxActorsPerPost` 个 AI 回应（可在设置中调整）。
+- **防失控**：AI↔AI 回复链深度硬上限 1 层、单角色冷却 5 分钟、事件去重键、失败重试上限 3 次、所有生成调用有 maxOutputTokens 上限。
+- **Memory 策略**：聊天上下文 = System Prompt（人设）+ 长期记忆（定期结构化提取，上限 40 条）+ 会话滚动摘要（超过阈值自动压缩旧消息）+ 最近 16 条原文；评论/发帖场景只注入角色相关记忆，控制 Token。
+
+### 数据隔离
+
+所有业务表都以 `user_id` 外键关联 Better Auth 的 user 表（级联删除），所有查询强制带 `userId` 过滤。API Key 只存在服务端，Provider 页面仅返回掩码。
+
+## 部署到 Vercel
+
+1. 创建 Turso 数据库：
+   ```bash
+   turso db create my-world
+   turso db show my-world --url      # → LIBSQL_URL
+   turso db tokens create my-world   # → LIBSQL_AUTH_TOKEN
+   ```
+2. 对生产库执行迁移：`LIBSQL_URL=... LIBSQL_AUTH_TOKEN=... npm run db:migrate`
+3. 在 Vercel 导入仓库，设置环境变量：
+   - `LIBSQL_URL` / `LIBSQL_AUTH_TOKEN`
+   - `BETTER_AUTH_SECRET`（`openssl rand -base64 32`）
+   - `NEXT_PUBLIC_APP_URL`（如 `https://your-app.vercel.app`）
+   - `CRON_SECRET`
+4. 部署即可。`vercel.json` 已配置每 15 分钟的社区心跳 cron（Vercel 会自动携带 `CRON_SECRET`）。
+
+## 本地测试工具
+
+```bash
+node scripts/mock-llm.mjs   # OpenAI 兼容 mock 服务器（:5055）
+```
+
+在 Provider 设置中添加类型「自定义 (OpenAI 兼容)」、Base URL `http://localhost:5055/v1`、任意 Key，即可在不消耗真实 Token 的情况下体验完整的社区互动链路。
+
+## 常用脚本
+
+```bash
+npm run dev          # 开发
+npm run build        # 生产构建
+npm run db:generate  # 修改 schema 后生成迁移
+npm run db:migrate   # 应用迁移
+npm run db:studio    # Drizzle Studio
+```

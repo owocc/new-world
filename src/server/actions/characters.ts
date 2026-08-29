@@ -1,0 +1,168 @@
+'use server';
+
+import { and, eq } from 'drizzle-orm';
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+import { db } from '@/db';
+import { aiCharacters, aiRelationships } from '@/db/schema';
+import { requireUserId } from '@/lib/session';
+
+const characterSchema = z.object({
+  name: z.string().trim().min(1, '名字必填').max(30),
+  username: z
+    .string()
+    .trim()
+    .min(2, 'Username 至少 2 个字符')
+    .max(20)
+    .regex(/^[a-zA-Z0-9_]+$/, 'Username 只能包含字母、数字和下划线'),
+  bio: z.string().trim().max(200).default(''),
+  avatarUrl: z.string().trim().max(500).optional().nullable(),
+  avatarEmoji: z.string().trim().max(8).default('🙂'),
+  avatarColor: z.string().trim().max(20).default('violet'),
+  persona: z.string().trim().max(3000).default(''),
+  personality: z.string().trim().max(200).default(''),
+  interests: z.string().trim().max(200).default(''),
+  expressionStyle: z.string().trim().max(500).default(''),
+  relationshipToUser: z.string().trim().max(100).default('朋友'),
+  systemPrompt: z.string().trim().max(4000).optional().nullable(),
+  status: z.enum(['active', 'paused']).default('active'),
+  chattiness: z.coerce.number().min(0).max(1).default(0.5),
+  likeRate: z.coerce.number().min(0).max(1).default(0.5),
+  commentRate: z.coerce.number().min(0).max(1).default(0.4),
+  postRate: z.coerce.number().min(0).max(1).default(0.15),
+  dmRate: z.coerce.number().min(0).max(1).default(0.05),
+  providerId: z.string().trim().optional().nullable(),
+  modelId: z.string().trim().max(120).optional().nullable(),
+  temperature: z.coerce.number().min(0).max(2).optional().nullable(),
+  topP: z.coerce.number().min(0).max(1).optional().nullable(),
+  maxTokens: z.coerce.number().int().min(50).max(16000).optional().nullable(),
+});
+
+export type CharacterInput = z.input<typeof characterSchema>;
+
+export async function createCharacter(input: CharacterInput) {
+  const userId = await requireUserId();
+  const parsed = characterSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? '创建失败' };
+  }
+  const id = crypto.randomUUID();
+  try {
+    await db.insert(aiCharacters).values({
+      id,
+      userId,
+      ...parsed.data,
+      avatarUrl: parsed.data.avatarUrl || null,
+      systemPrompt: parsed.data.systemPrompt || null,
+      providerId: parsed.data.providerId || null,
+      modelId: parsed.data.modelId || null,
+    });
+  } catch {
+    return { error: 'Username 已被占用' };
+  }
+  revalidatePath('/characters');
+  return { ok: true, id };
+}
+
+export async function updateCharacter(id: string, input: CharacterInput) {
+  const userId = await requireUserId();
+  const parsed = characterSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? '保存失败' };
+  }
+  try {
+    await db
+      .update(aiCharacters)
+      .set({
+        ...parsed.data,
+        avatarUrl: parsed.data.avatarUrl || null,
+        systemPrompt: parsed.data.systemPrompt || null,
+        providerId: parsed.data.providerId || null,
+        modelId: parsed.data.modelId || null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(aiCharacters.id, id), eq(aiCharacters.userId, userId)));
+  } catch {
+    return { error: 'Username 已被占用' };
+  }
+  revalidatePath('/characters');
+  revalidatePath(`/characters/${id}`);
+  return { ok: true };
+}
+
+export async function setCharacterStatus(id: string, status: 'active' | 'paused') {
+  const userId = await requireUserId();
+  await db
+    .update(aiCharacters)
+    .set({ status, updatedAt: new Date() })
+    .where(and(eq(aiCharacters.id, id), eq(aiCharacters.userId, userId)));
+  revalidatePath('/characters');
+  return { ok: true };
+}
+
+export async function deleteCharacter(id: string) {
+  const userId = await requireUserId();
+  await db.delete(aiCharacters).where(and(eq(aiCharacters.id, id), eq(aiCharacters.userId, userId)));
+  revalidatePath('/characters');
+  return { ok: true };
+}
+
+const relationshipSchema = z.object({
+  fromCharacterId: z.string().min(1),
+  toCharacterId: z.string().min(1),
+  kind: z.string().trim().min(1, '关系类型必填').max(30),
+  note: z.string().trim().max(200).optional().nullable(),
+});
+
+export async function setRelationship(input: z.input<typeof relationshipSchema>) {
+  const userId = await requireUserId();
+  const parsed = relationshipSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? '保存失败' };
+  }
+  if (parsed.data.fromCharacterId === parsed.data.toCharacterId) {
+    return { error: '不能和自己建立关系' };
+  }
+
+  // verify both characters belong to the user
+  const chars = await db
+    .select({ id: aiCharacters.id })
+    .from(aiCharacters)
+    .where(eq(aiCharacters.userId, userId));
+  const ids = new Set(chars.map((c) => c.id));
+  if (!ids.has(parsed.data.fromCharacterId) || !ids.has(parsed.data.toCharacterId)) {
+    return { error: '角色不存在' };
+  }
+
+  await db
+    .insert(aiRelationships)
+    .values({
+      id: crypto.randomUUID(),
+      userId,
+      fromCharacterId: parsed.data.fromCharacterId,
+      toCharacterId: parsed.data.toCharacterId,
+      kind: parsed.data.kind,
+      note: parsed.data.note || null,
+    })
+    .onConflictDoUpdate({
+      target: [aiRelationships.fromCharacterId, aiRelationships.toCharacterId],
+      set: { kind: parsed.data.kind, note: parsed.data.note || null },
+    });
+  revalidatePath('/characters');
+  return { ok: true };
+}
+
+export async function deleteRelationship(fromCharacterId: string, toCharacterId: string) {
+  const userId = await requireUserId();
+  await db
+    .delete(aiRelationships)
+    .where(
+      and(
+        eq(aiRelationships.userId, userId),
+        eq(aiRelationships.fromCharacterId, fromCharacterId),
+        eq(aiRelationships.toCharacterId, toCharacterId),
+      ),
+    );
+  revalidatePath('/characters');
+  return { ok: true };
+}
