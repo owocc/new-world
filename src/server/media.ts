@@ -9,7 +9,7 @@ import {
   user,
   aiCharacters,
 } from '@/db/schema';
-import { scheduleMediaPerceptions } from '@/server/ai/vision';
+import { scheduleMediaPerceptions, processMediaAssetPerception, type ImagePerceptionRow } from '@/server/ai/vision';
 import { getFeedCover, setFeedCover } from '@/server/settings';
 
 export const ALLOWED_IMAGE_MIMES = [
@@ -361,6 +361,112 @@ export async function createMediaAssetRecord(args: {
     status: args.status ?? 'ready',
     purpose: args.purpose ?? 'attachment',
     createdAt: now,
+  };
+}
+
+export type UploadAndPerceiveResult = {
+  ok: boolean;
+  error?: string;
+  media?: MediaAssetView;
+  perception?: ImagePerceptionRow;
+};
+
+/**
+ * Unified Upload & AI Vision Perception Pipeline:
+ * 1. Validates image buffer, magic bytes, dimensions, and size limit.
+ * 2. Uploads binary data to Blob Storage (Vercel Blob / data URL in dev).
+ * 3. Creates the Media Asset record in database.
+ * 4. Awaits the dedicated Vision Interpreter to parse and describe the image.
+ * 5. ONLY returns success (ok: true) if AI vision perception succeeds!
+ */
+export async function uploadAndPerceiveMedia(args: {
+  userId: string;
+  buffer: Buffer;
+  originalFilename: string;
+  mimeType: string;
+  purpose?: MediaPurpose;
+  requireVisionPerception?: boolean;
+}): Promise<UploadAndPerceiveResult> {
+  const { userId, buffer, originalFilename, mimeType, purpose = 'attachment', requireVisionPerception = true } = args;
+
+  // 1. Validate file
+  const validation = validateMediaFile({
+    buffer,
+    mimeType,
+    originalFilename,
+    purpose,
+  });
+
+  if (!validation.valid) {
+    return { ok: false, error: validation.error };
+  }
+
+  // 2. Upload to storage
+  const ext = validation.verifiedMime.split('/')[1] || 'jpg';
+  const cleanName = sanitizeFilename(originalFilename);
+  const subFolder = purpose === 'avatar' ? 'avatars' : 'messages';
+  const pathname = `users/${userId}/${subFolder}/${Date.now()}-${cleanName}.${ext}`;
+
+  let uploadResult;
+  try {
+    uploadResult = await uploadToBlobStorage({
+      pathname,
+      buffer,
+      contentType: validation.verifiedMime,
+    });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `图片存储上传失败: ${errorMsg}` };
+  }
+
+  // 3. Create Media Asset Record
+  const asset = await createMediaAssetRecord({
+    userId,
+    mediaType: 'image',
+    blobUrl: uploadResult.url,
+    pathname: uploadResult.pathname,
+    downloadUrl: uploadResult.downloadUrl,
+    mimeType: validation.verifiedMime,
+    fileSize: buffer.length,
+    originalFilename,
+    width: validation.width,
+    height: validation.height,
+    purpose,
+    status: 'ready',
+  });
+
+  // 4. If AI Vision Perception is required (default for all image attachments)
+  if (requireVisionPerception && purpose !== 'avatar') {
+    const perception = await processMediaAssetPerception(userId, asset.id, { force: true });
+
+    if (!perception || perception.status !== 'ready' || !perception.summary) {
+      const errorDetail = perception?.errorMessage || '视觉感知模型未返回有效描述，图片理解失败';
+      return {
+        ok: false,
+        error: `AI 图片解析失败: ${errorDetail}`,
+      };
+    }
+
+    const mediaWithPerception: MediaAssetView = {
+      ...asset,
+      perception: {
+        status: perception.status,
+        summary: perception.summary,
+        perception: perception.perception,
+        ocrText: perception.ocrText,
+      },
+    };
+
+    return {
+      ok: true,
+      media: mediaWithPerception,
+      perception,
+    };
+  }
+
+  return {
+    ok: true,
+    media: asset,
   };
 }
 

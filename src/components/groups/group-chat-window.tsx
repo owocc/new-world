@@ -48,6 +48,12 @@ type PendingImage = {
   previewUrl: string;
   assetId?: string;
   blobUrl?: string;
+  perception?: {
+    status: string;
+    summary: string | null;
+    perception?: string | null;
+    ocrText: string | null;
+  } | null;
   status: 'uploading' | 'ready' | 'error';
   error?: string;
 };
@@ -226,11 +232,11 @@ export function GroupChatWindow({
         setPendingImages((prev) =>
           prev.map((item) =>
             item.id === tempId
-              ? { ...item, status: 'error', error: data.error || '上传失败' }
+              ? { ...item, status: 'error', error: data.error || '图片上传与解析失败' }
               : item,
           ),
         );
-        toast.error(data.error || '图片上传失败');
+        toast.error(data.error || '图片上传与解析失败');
         return;
       }
 
@@ -242,6 +248,7 @@ export function GroupChatWindow({
                 status: 'ready',
                 assetId: data.media.id,
                 blobUrl: data.media.blobUrl,
+                perception: data.media?.perception || data.perception || null,
               }
             : item,
         ),
@@ -303,6 +310,7 @@ export function GroupChatWindow({
         duration: null,
         status: 'ready' as const,
         purpose: 'attachment' as const,
+        perception: i.perception ?? null,
         createdAt: new Date(),
       }));
 

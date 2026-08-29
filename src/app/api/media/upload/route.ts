@@ -2,9 +2,7 @@ import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { getSession } from '@/lib/session';
 import {
   createMediaAssetRecord,
-  sanitizeFilename,
-  uploadToBlobStorage,
-  validateMediaFile,
+  uploadAndPerceiveMedia,
   type MediaPurpose,
 } from '@/server/media';
 
@@ -77,7 +75,7 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
-  // 2. Direct Multipart FormData Upload
+  // 2. Direct Multipart FormData Upload with Mandatory Vision Perception
   if (contentType.includes('multipart/form-data')) {
     try {
       const formData = await req.formData();
@@ -92,48 +90,26 @@ export async function POST(req: Request): Promise<Response> {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      // Validate File buffer and magic bytes
-      const validation = validateMediaFile({
+      const result = await uploadAndPerceiveMedia({
+        userId,
         buffer,
-        mimeType: file.type,
         originalFilename,
+        mimeType: file.type || 'image/jpeg',
         purpose,
+        requireVisionPerception: purpose === 'attachment',
       });
 
-      if (!validation.valid) {
-        return Response.json({ ok: false, error: validation.error }, { status: 400 });
+      if (!result.ok) {
+        return Response.json({ ok: false, error: result.error || '图片解析失败' }, { status: 422 });
       }
 
-      const ext = validation.verifiedMime.split('/')[1] || 'jpg';
-      const cleanName = sanitizeFilename(originalFilename);
-      const subFolder = purpose === 'avatar' ? 'avatars' : 'messages';
-      const pathname = `users/${userId}/${subFolder}/${Date.now()}-${cleanName}.${ext}`;
-
-      const uploadResult = await uploadToBlobStorage({
-        pathname,
-        buffer,
-        contentType: validation.verifiedMime,
+      return Response.json({
+        ok: true,
+        media: result.media,
+        perception: result.perception,
       });
-
-      const mediaAsset = await createMediaAssetRecord({
-        userId,
-        mediaType: 'image',
-        blobUrl: uploadResult.url,
-        pathname: uploadResult.pathname,
-        downloadUrl: uploadResult.downloadUrl,
-        mimeType: validation.verifiedMime,
-        fileSize: buffer.length,
-        originalFilename,
-        width: validation.width,
-        height: validation.height,
-        purpose,
-        // message attachments start as 'pending' until message creation succeeds
-        status: purpose === 'attachment' ? 'pending' : 'ready',
-      });
-
-      return Response.json({ ok: true, media: mediaAsset });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '上传失败，请重试';
+      const msg = err instanceof Error ? err.message : 'Upload failed';
       console.error('[media/upload] error:', err);
       return Response.json({ ok: false, error: msg }, { status: 500 });
     }

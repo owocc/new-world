@@ -195,13 +195,18 @@ type InitialMessage = {
   attachments?: MediaAssetView[];
   createdAt: Date;
 };
-
 type PendingImage = {
   id: string;
   file: File;
   previewUrl: string;
   assetId?: string;
   blobUrl?: string;
+  perception?: {
+    status: string;
+    summary: string | null;
+    perception?: string | null;
+    ocrText: string | null;
+  } | null;
   status: 'uploading' | 'ready' | 'error';
   error?: string;
 };
@@ -332,11 +337,11 @@ export function ChatWindow({
         setPendingImages((prev) =>
           prev.map((item) =>
             item.id === tempId
-              ? { ...item, status: 'error', error: data.error || '上传失败' }
+              ? { ...item, status: 'error', error: data.error || '图片上传与解析失败' }
               : item,
           ),
         );
-        toast.error(data.error || '图片上传失败');
+        toast.error(data.error || '图片上传与解析失败');
         return;
       }
 
@@ -348,6 +353,7 @@ export function ChatWindow({
                 status: 'ready',
                 assetId: data.media.id,
                 blobUrl: data.media.blobUrl,
+                perception: data.media.perception || data.perception || null,
               }
             : item,
         ),
@@ -418,9 +424,9 @@ export function ChatWindow({
         duration: null,
         status: 'ready' as const,
         purpose: 'attachment' as const,
+        perception: i.perception ?? null,
         createdAt: new Date(),
       }));
-
     const mediaAssetIds = readyAttachments.map((a) => a.id);
 
     if (!text.trim() && mediaAssetIds.length === 0) return;
