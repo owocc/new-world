@@ -7,7 +7,7 @@ import { characterSystemPrompt, chatMemoryBlock } from '@/server/ai/prompts';
 import { buildChatContext, maybeSummarizeConversation, extractMemories } from '@/server/ai/memory';
 import { getConversation, markConversationRead } from '@/server/chat';
 import { linkMediaToMessage, getMediaForMessages } from '@/server/media';
-import { waitForMediaPerceptions } from '@/server/ai/vision';
+import { waitForMediaPerceptions, formatAttachmentPromptBlock } from '@/server/ai/vision';
 import type { ModelMessage, UIMessage } from 'ai';
 
 export const maxDuration = 60;
@@ -63,10 +63,10 @@ export async function POST(req: Request) {
       content: text.trim(),
     });
 
-    // Link uploaded media assets and wait briefly for vision interpreter perception
+    // Link uploaded media assets and wait for vision interpreter perception to complete
     if (mediaAssetIds.length > 0) {
       await linkMediaToMessage(userId, userMsgId, mediaAssetIds);
-      await waitForMediaPerceptions(userId, mediaAssetIds, 3500);
+      await waitForMediaPerceptions(userId, mediaAssetIds, 25000);
     }
 
     await markConversationRead(userId, convId);
@@ -99,27 +99,9 @@ export async function POST(req: Request) {
           content: m.content || ' ',
         };
       }
-
-      const summaries = m.attachments
-        .map((a) => a.perception?.summary)
-        .filter((s): s is string => Boolean(s && s.trim()));
-
-      let imageNote = '';
-      if (summaries.length > 0) {
-        imageNote = summaries
-          .map((s, idx) => (summaries.length > 1 ? `[图片${idx + 1}内容: ${s}]` : `[图片内容: ${s}]`))
-          .join('\n');
-      } else {
-        const isProcessing = m.attachments.some(
-          (a) => a.perception?.status === 'processing' || a.perception?.status === 'pending',
-        );
-        imageNote = isProcessing
-          ? `[发送了 ${m.attachments.length} 张图片 (正在识别中...)]`
-          : `[发送了 ${m.attachments.length} 张图片]`;
-      }
-
+      const attachmentBlock = formatAttachmentPromptBlock(m.attachments);
       const userText = m.content.trim();
-      const fullText = userText && imageNote ? `${userText}\n${imageNote}` : userText || imageNote;
+      const fullText = userText && attachmentBlock ? `${userText}\n\n${attachmentBlock}` : userText || attachmentBlock;
 
       return {
         role: 'user',

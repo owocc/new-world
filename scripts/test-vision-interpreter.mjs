@@ -186,11 +186,12 @@ console.log('\n8. Testing Group Chat Perception & Character Isolation:');
 const charAId = crypto.randomUUID();
 const charBId = crypto.randomUUID();
 
+const uniqueSuffix = Date.now().toString(36);
 await db.insert(schema.aiCharacters).values({
   id: charAId,
   userId: testUser.id,
   name: 'Character Vivian',
-  username: 'vivian',
+  username: `vivian_${uniqueSuffix}`,
   status: 'active',
 });
 
@@ -198,7 +199,7 @@ await db.insert(schema.aiCharacters).values({
   id: charBId,
   userId: testUser.id,
   name: 'Character Marcus',
-  username: 'marcus',
+  username: `marcus_${uniqueSuffix}`,
   status: 'active',
 });
 
@@ -292,7 +293,7 @@ const ctxForA = {
 const promptBlockA = formatGroupChatContextBlock(ctxForA);
 console.log(' - Context Block for Character A (Reading unread message with image perception):');
 console.log(promptBlockA);
-if (!promptBlockA.includes('大家看我家猫猫！ [图片内容: 这是一张室内照片')) {
+if (!promptBlockA.includes('### 附件 - 图片') || !promptBlockA.includes('这是一张室内照片')) {
   throw new Error('Group chat context block for Character A missing perception');
 }
 

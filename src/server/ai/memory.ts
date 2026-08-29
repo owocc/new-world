@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { db } from '@/db';
 import { aiMemories, conversations, messages } from '@/db/schema';
 import { getMediaForMessages, type MediaAssetView } from '@/server/media';
+import { formatAttachmentPromptBlock } from './vision';
 import { runObject, runText } from './core';
-
 /** How many recent messages are kept verbatim in the model context. */
 const CONTEXT_WINDOW = 16;
 /** Once unsummarized messages exceed this, older ones get folded into the summary. */
@@ -99,20 +99,11 @@ export async function maybeSummarizeConversation(args: {
   const mediaMap = await getMediaForMessages(msgIds);
   const transcript = rows
     .map((m) => {
-      let text = m.content.trim();
+      const text = m.content.trim();
       const atts = mediaMap.get(m.id);
-      if (atts && atts.length > 0) {
-        const summaries = atts
-          .map((a) => a.perception?.summary)
-          .filter((s): s is string => Boolean(s && s.trim()));
-        if (summaries.length > 0) {
-          const note = summaries.map((s, idx) => (summaries.length > 1 ? `[图${idx + 1}: ${s}]` : `[图片: ${s}]`)).join(' ');
-          text = text ? `${text} ${note}` : note;
-        } else {
-          text = text ? `${text} [发送了图片]` : '[发送了图片]';
-        }
-      }
-      return `${m.role === 'user' ? '用户' : '我'}：${text}`;
+      const attachmentBlock = atts && atts.length > 0 ? formatAttachmentPromptBlock(atts) : '';
+      const combined = text && attachmentBlock ? `${text}\n${attachmentBlock}` : text || attachmentBlock;
+      return `${m.role === 'user' ? '用户' : '我'}：${combined}`;
     })
     .join('\n');
   const previous = conv.summary ? `之前的摘要：\n${conv.summary}\n\n` : '';
@@ -160,19 +151,10 @@ export async function extractMemories(args: {
   if (recent.length === 0) return;
   const transcript = recent
     .map((m) => {
-      let text = m.content.trim();
-      if (m.attachments && m.attachments.length > 0) {
-        const summaries = m.attachments
-          .map((a) => a.perception?.summary)
-          .filter((s): s is string => Boolean(s && s.trim()));
-        if (summaries.length > 0) {
-          const note = summaries.map((s, idx) => (summaries.length > 1 ? `[图${idx + 1}: ${s}]` : `[图片: ${s}]`)).join(' ');
-          text = text ? `${text} ${note}` : note;
-        } else {
-          text = text ? `${text} [发送了图片]` : '[发送了图片]';
-        }
-      }
-      return `${m.role === 'user' ? '用户' : '我'}：${text}`;
+      const text = m.content.trim();
+      const attachmentBlock = m.attachments && m.attachments.length > 0 ? formatAttachmentPromptBlock(m.attachments) : '';
+      const combined = text && attachmentBlock ? `${text}\n${attachmentBlock}` : text || attachmentBlock;
+      return `${m.role === 'user' ? '用户' : '我'}：${combined}`;
     })
     .join('\n');
 

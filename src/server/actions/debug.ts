@@ -16,6 +16,7 @@ import { requireUserId, getSession } from '@/lib/session';
 import { resolveModel, resolveVisionModel } from '@/server/ai/core';
 import { characterSystemPrompt, chatMemoryBlock } from '@/server/ai/prompts';
 import { getRecentMessages, getMemories } from '@/server/ai/memory';
+import { formatAttachmentPromptBlock } from '@/server/ai/vision';
 import { buildPerceptionContext } from '@/server/ai/group/perception';
 import {
   GROUP_COMMUNITY_RULES,
@@ -212,26 +213,9 @@ export async function getConversationDebugContext(
 
       // For user messages
       const attachments = m.attachments || [];
-      const summaries = attachments
-        .map((a) => a.perception?.summary)
-        .filter((s): s is string => Boolean(s && s.trim()));
-
-      let imageNote = '';
-      if (summaries.length > 0) {
-        imageNote = summaries
-          .map((s, i) => (summaries.length > 1 ? `[图片${i + 1}内容: ${s}]` : `[图片内容: ${s}]`))
-          .join('\n');
-      } else if (attachments.length > 0) {
-        const isProcessing = attachments.some(
-          (a) => a.perception?.status === 'processing' || a.perception?.status === 'pending',
-        );
-        imageNote = isProcessing
-          ? `[发送了 ${attachments.length} 张图片 (正在识别中...)]`
-          : `[发送了 ${attachments.length} 张图片]`;
-      }
-
+      const attachmentBlock = formatAttachmentPromptBlock(attachments);
       const userText = m.content.trim();
-      const finalPayloadText = userText && imageNote ? `${userText}\n${imageNote}` : userText || imageNote;
+      const finalPayloadText = userText && attachmentBlock ? `${userText}\n\n${attachmentBlock}` : userText || attachmentBlock;
       totalChars += finalPayloadText.length;
 
       return {

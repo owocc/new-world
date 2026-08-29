@@ -47,6 +47,7 @@ export type MediaAssetView = {
   perception?: {
     status: string;
     summary: string | null;
+    perception?: string | null;
     ocrText: string | null;
   } | null;
   createdAt: Date;
@@ -486,6 +487,7 @@ export async function getMediaForMessages(
         ? {
             status: r.perception.status,
             summary: r.perception.summary,
+            perception: r.perception.perception,
             ocrText: r.perception.ocrText,
           }
         : null,
@@ -540,6 +542,7 @@ export async function getMediaForGroupMessages(
         ? {
             status: r.perception.status,
             summary: r.perception.summary,
+            perception: r.perception.perception,
             ocrText: r.perception.ocrText,
           }
         : null,
@@ -590,6 +593,7 @@ export async function getMediaAsset(
       ? {
           status: row.perception.status,
           summary: row.perception.summary,
+          perception: row.perception.perception,
           ocrText: row.perception.ocrText,
         }
       : null,

@@ -1,9 +1,10 @@
 import { and, eq, inArray } from 'drizzle-orm';
+import { get } from '@vercel/blob';
 import { z } from 'zod';
 import { db } from '@/db';
 import { imagePerceptions, mediaAssets } from '@/db/schema';
-import { getModelPrice } from './providers';
 import { runVisionObject } from './core';
+import { getModelPrice } from './providers';
 
 /**
  * Structured Image Perception schema for Vision Interpreter.
@@ -68,18 +69,26 @@ async function resolveImageForVision(blobUrl: string, mimeType: string): Promise
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (token && blobUrl.includes('blob.vercel-storage.com')) {
     try {
-      const res = await fetch(blobUrl, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const blobResponse = await get(blobUrl, {
+        access: 'private',
+        token,
       });
-      if (res.ok) {
-        const arrayBuf = await res.arrayBuffer();
-        const base64 = Buffer.from(arrayBuf).toString('base64');
-        return `data:${mimeType || 'image/jpeg'};base64,${base64}`;
+      if (blobResponse && blobResponse.stream) {
+        const stream = blobResponse.stream;
+        const reader = stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) chunks.push(value);
+        }
+        const totalBuffer = Buffer.concat(chunks);
+        const base64 = totalBuffer.toString('base64');
+        const contentType = blobResponse.blob?.contentType || mimeType || 'image/jpeg';
+        return `data:${contentType};base64,${base64}`;
       }
     } catch (err) {
-      console.warn('[vision] private blob fetch failed, falling back to direct URL', err);
+      console.warn('[vision] @vercel/blob get failed, trying fallback fetch', err);
     }
   }
 
@@ -248,22 +257,21 @@ export async function getMediaPerceptions(mediaAssetIds: string[]): Promise<Map<
 }
 
 /**
- * Wait briefly for a media perception to finish (e.g. in real-time 1-on-1 chat).
- * Returns the perception if ready within timeoutMs, otherwise returns current state.
+ * Wait for media perceptions to finish (in real-time 1-on-1 chat or group attention).
+ * Directly awaits all in-flight or new perception jobs, ensuring the chat model
+ * receives the fully parsed image descriptions before responding.
  */
 export async function waitForMediaPerceptions(
   userId: string,
   mediaAssetIds: string[],
-  timeoutMs = 3500,
+  timeoutMs = 25000,
 ): Promise<Map<string, ImagePerceptionRow>> {
   if (mediaAssetIds.length === 0) return new Map();
   const startTime = Date.now();
-  // Ensure processing has started
-  for (const id of mediaAssetIds) {
-    processMediaAssetPerception(userId, id).catch((err) => {
-      console.error('[vision] async wait trigger error', id, err);
-    });
-  }
+
+  // Launch/await perception processing jobs concurrently
+  const promises = mediaAssetIds.map((id) => processMediaAssetPerception(userId, id));
+  await Promise.allSettled(promises);
 
   while (Date.now() - startTime < timeoutMs) {
     const current = await getMediaPerceptions(mediaAssetIds);
@@ -277,44 +285,110 @@ export async function waitForMediaPerceptions(
     }
 
     const { promise, resolve } = Promise.withResolvers<void>();
-    setTimeout(resolve, 250);
+    setTimeout(resolve, 300);
     await promise;
   }
   return getMediaPerceptions(mediaAssetIds);
 }
 
 /**
- * Format perception summaries into a context string for LLM injection.
+ * Format image attachments into a clear, structured prompt block for LLM chat context.
+ * Strictly queries perception by mediaAssetId and builds:
+ * ### 附件 - 图片
+ * - 画面内容：...
+ * - 场景环境：...
+ * - 画面细节：...
+ * - 可见文字：...
  */
-export function formatPerceptionNote(
-  attachments: { id: string }[],
-  perceptionsMap: Map<string, ImagePerceptionRow>,
+export function formatAttachmentPromptBlock(
+  attachments: Array<{
+    id: string;
+    originalFilename?: string | null;
+    perception?: {
+      status: string;
+      summary?: string | null;
+      perception?: string | null;
+      ocrText?: string | null;
+    } | null;
+  }>,
 ): string {
   if (!attachments || attachments.length === 0) return '';
 
-  const summaries: string[] = [];
-  let pendingCount = 0;
+  const blocks: string[] = [];
 
-  for (const att of attachments) {
-    const perception = perceptionsMap.get(att.id);
-    if (perception?.status === 'ready' && perception.summary) {
-      summaries.push(perception.summary);
-    } else if (perception?.status === 'processing' || perception?.status === 'pending') {
-      pendingCount++;
+  for (let i = 0; i < attachments.length; i++) {
+    const att = attachments[i];
+    const headerTitle = attachments.length > 1 ? `### 附件 - 图片 ${i + 1}` : `### 附件 - 图片`;
+
+    if (att.perception?.status === 'ready' && att.perception.summary) {
+      const lines: string[] = [headerTitle];
+      lines.push(`- 画面内容：${att.perception.summary}`);
+
+      if (att.perception.perception) {
+        try {
+          const parsed = JSON.parse(att.perception.perception);
+          if (parsed.scene) {
+            lines.push(`- 场景环境：${parsed.scene}`);
+          }
+          if (parsed.details && Array.isArray(parsed.details) && parsed.details.length > 0) {
+            lines.push(`- 画面细节：${parsed.details.join('；')}`);
+          }
+          if (parsed.ocrText) {
+            lines.push(`- 可见文字：${parsed.ocrText}`);
+          }
+        } catch {
+          // ignore
+        }
+      } else if (att.perception.ocrText) {
+        lines.push(`- 可见文字：${att.perception.ocrText}`);
+      }
+
+      blocks.push(lines.join('\n'));
+    } else if (att.perception?.status === 'processing' || att.perception?.status === 'pending') {
+      blocks.push(`${headerTitle} (解析中)\n- 状态：正在进行视觉识别与解析中...`);
+    } else {
+      const fname = att.originalFilename ? ` (${att.originalFilename})` : '';
+      blocks.push(`${headerTitle}${fname}\n- 状态：用户发送了图片，暂无详细视觉描述`);
     }
   }
 
-  if (summaries.length > 0) {
-    const parts = summaries.map((s, idx) => (summaries.length > 1 ? `[图${idx + 1}内容: ${s}]` : `[图片内容: ${s}]`));
-    if (pendingCount > 0) {
-      parts.push(`[另有 ${pendingCount} 张图片解析中...]`);
+  return blocks.join('\n\n');
+}
+
+/**
+ * Format perception summaries into a context string for LLM injection.
+ */
+export function formatPerceptionNote(
+  attachments: Array<{
+    id: string;
+    originalFilename?: string | null;
+    perception?: {
+      status: string;
+      summary?: string | null;
+      perception?: string | null;
+      ocrText?: string | null;
+    } | null;
+  }>,
+  perceptionsMap?: Map<string, ImagePerceptionRow>,
+): string {
+  if (!attachments || attachments.length === 0) return '';
+
+  // If perceptionsMap is provided, map it to the attachment perceptions
+  const enriched = attachments.map((att) => {
+    const p = perceptionsMap?.get(att.id);
+    if (p) {
+      return {
+        ...att,
+        perception: {
+          status: p.status,
+          summary: p.summary,
+          perception: p.perception,
+          ocrText: p.ocrText,
+        },
+      };
     }
-    return parts.join(' ');
-  }
+    return att;
+  });
 
-  if (pendingCount > 0) {
-    return `[发送了 ${attachments.length} 张图片 (解析中...)]`;
-  }
-
-  return `[发送了 ${attachments.length} 张图片]`;
+  return formatAttachmentPromptBlock(enriched);
 }
