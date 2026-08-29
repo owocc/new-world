@@ -1,14 +1,28 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import * as stylex from '@stylexjs/stylex';
+import { textSizeVars, colorVars } from '@astryxdesign/core/theme/tokens.stylex';
 import { resolveMediaUrl } from '@/lib/utils';
-import clsx from 'clsx';
+
+const styles = stylex.create({
+  placeholder: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colorVars['--color-neutral'],
+    color: colorVars['--color-text-secondary'],
+    fontSize: textSizeVars['--font-size-xs'],
+    userSelect: 'none',
+  },
+});
 
 export interface MediaImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   src?: string | null;
   alt?: string;
   fallbackSrc?: string;
   className?: string;
+  xstyle?: stylex.StyleXStyles;
 }
 
 /**
@@ -22,6 +36,7 @@ export function MediaImage({
   alt = '图片',
   fallbackSrc,
   className,
+  xstyle,
   onError,
   ...props
 }: MediaImageProps) {
@@ -36,12 +51,7 @@ export function MediaImage({
 
   if (!targetSrc || (hasError && !fallbackSrc)) {
     return (
-      <div
-        className={clsx(
-          'flex items-center justify-center bg-neutral text-secondary text-xs select-none',
-          className,
-        )}
-      >
+      <div {...stylex.props(styles.placeholder, xstyle)} className={className}>
         <span>暂无图片</span>
       </div>
     );
@@ -49,6 +59,7 @@ export function MediaImage({
 
   return (
     <img
+      {...stylex.props(xstyle)}
       src={targetSrc}
       alt={alt}
       className={className}

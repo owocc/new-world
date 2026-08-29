@@ -1,6 +1,13 @@
 'use client';
 
 import { useMemo } from 'react';
+import * as stylex from '@stylexjs/stylex';
+
+const styles = stylex.create({
+  root: {
+    overflowWrap: 'break-word',
+  },
+});
 
 function escapeHtml(s: string): string {
   return s
@@ -100,11 +107,17 @@ function renderMarkdown(src: string): string {
   return text;
 }
 
-export function Markdown({ content, className }: { content: string; className?: string }) {
+export function Markdown({
+  content,
+  xstyle,
+}: {
+  content: string;
+  xstyle?: stylex.StyleXStyles;
+}) {
   const html = useMemo(() => renderMarkdown(content), [content]);
   return (
     <div
-      className={`chat-md break-words ${className ?? ''}`}
+      {...stylex.props(styles.root, xstyle)}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

@@ -1,6 +1,9 @@
 const config = {
   plugins: {
-    "@tailwindcss/postcss": {},
+    '@stylexjs/postcss-plugin': {
+      include: ['src/**/*.{js,jsx,ts,tsx}'],
+      useCSSLayers: true,
+    },
   },
 };
 

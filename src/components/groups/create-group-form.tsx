@@ -10,7 +10,46 @@ import { createGroup } from '@/server/actions/groups';
 import type { aiCharacters } from '@/db/schema';
 import { ArrowLeft, Check, Users, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import * as stylex from '@stylexjs/stylex';
 
+const styles = stylex.create({
+  root: {display: 'flex', height: '100%', maxWidth: '42rem', marginInline: 'auto', flexDirection: 'column', overflowY: 'auto', padding: '16px', '@media (min-width: 640px)': {padding: '24px'}, '@media (min-width: 1024px)': {padding: '32px'}},
+  header: {display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px'},
+  headerGroup: {display: 'flex', alignItems: 'center', gap: '8px'},
+  backLink: {display: 'flex', width: '36px', height: '36px', flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', color: 'var(--color-text-secondary)', transition: 'background-color 150ms ease', ':hover': {backgroundColor: 'var(--color-background-muted)'}},
+  title: {fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.01em'},
+  form: {display: 'flex', flexDirection: 'column', gap: '24px'},
+  error: {border: '1px solid rgba(225, 29, 72, 0.2)', borderRadius: 'var(--radius-element)', backgroundColor: 'rgba(225, 29, 72, 0.1)', padding: '12px', fontSize: 'var(--font-size-xs)', color: 'var(--color-error)'},
+  preview: {display: 'flex', alignItems: 'center', gap: '16px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-page)', backgroundColor: 'var(--color-background-surface)', padding: '16px'},
+  grow: {minWidth: 0, flex: 1},
+  previewTitle: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--font-size-base)', fontWeight: 'var(--font-weight-medium)'},
+  supporting: {marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--color-text-secondary)'},
+  fieldGroup: {display: 'flex', flexDirection: 'column', gap: '16px'},
+  label: {display: 'block', marginBottom: '6px', fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-secondary)'},
+  optionRow: {display: 'flex', flexWrap: 'wrap', gap: '8px'},
+  emoji: {display: 'flex', width: '40px', height: '40px', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-element)', backgroundColor: 'var(--color-background-surface)', fontSize: 'var(--font-size-lg)', transition: 'all 150ms ease', ':hover': {backgroundColor: 'var(--color-overlay-hover)'}},
+  emojiSelected: {borderColor: 'var(--color-accent)', backgroundColor: 'var(--color-accent-muted)', boxShadow: 'var(--shadow-low)'},
+  color: {display: 'flex', width: '32px', height: '32px', alignItems: 'center', justifyContent: 'center', border: '1px solid transparent', borderRadius: '9999px', transition: 'all 150ms ease'},
+  colorSelected: {borderColor: 'var(--color-accent)', boxShadow: '0 0 0 2px var(--color-accent-muted)'},
+  selector: {display: 'flex', flexDirection: 'column', gap: '12px'},
+  selectorHeader: {display: 'flex', alignItems: 'center', justifyContent: 'space-between'},
+  selectLabel: {fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-secondary)'},
+  selectAll: {fontSize: 'var(--font-size-xs)', color: 'var(--color-text-accent)', transition: 'text-decoration 150ms ease', ':hover': {textDecoration: 'underline'}},
+  charGrid: {display: 'grid', gridTemplateColumns: '1fr', gap: '8px', '@media (min-width: 640px)': {gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'}},
+  character: {display: 'flex', cursor: 'pointer', alignItems: 'center', gap: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-container)', backgroundColor: 'var(--color-background-surface)', padding: '12px', transition: 'all 150ms ease', ':hover': {backgroundColor: 'var(--color-overlay-hover)'}},
+  characterSelected: {borderColor: 'var(--color-accent)', backgroundColor: 'var(--color-accent-muted)', boxShadow: 'var(--shadow-low)'},
+  charDetails: {minWidth: 0, flex: 1},
+  charTop: {display: 'flex', alignItems: 'center', justifyContent: 'space-between'},
+  charName: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-primary)'},
+  username: {fontSize: '11px', color: 'var(--color-text-disabled)'},
+  bio: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)'},
+  truncate: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'},
+  required: {color: 'var(--color-error)'},
+  onAccent: {color: 'var(--color-on-accent)'},
+  check: {display: 'flex', width: '20px', height: '20px', alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-background-surface)', color: 'var(--color-text-secondary)', flexShrink: 0},
+  checkSelected: {borderColor: 'var(--color-accent)', backgroundColor: 'var(--color-accent)', color: 'var(--color-on-accent)'},
+  submit: {display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px'},
+});
 type CharacterRow = typeof aiCharacters.$inferSelect;
 
 const EMOJI_OPTIONS = ['💬', '☕️', '🌙', '🍜', '🎮', '📚', '💪', '🔥', '🎉', '🐱', '🤖', '🚀'];
@@ -76,18 +115,14 @@ export function CreateGroupForm({ characters }: { characters: CharacterRow[] }) 
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-2xl flex-col overflow-y-auto p-4 sm:p-6 lg:p-8">
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Link
-            href="/messages"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-secondary transition-colors hover:bg-muted"
-            aria-label="返回群聊列表"
-          >
+    <div {...stylex.props(styles.root)}>
+      <div {...stylex.props(styles.header)}>
+        <div {...stylex.props(styles.headerGroup)}>
+          <Link href="/messages" {...stylex.props(styles.backLink)} aria-label="返回群聊列表">
             <ArrowLeft size={19} />
           </Link>
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">创建新群聊</h1>
+            <h1 {...stylex.props(styles.title)}>创建新群聊</h1>
             <Text type="supporting" size="sm" as="p">
               邀请多位具有独立生活节奏与个性的 AI 居民共同交流
             </Text>
@@ -95,24 +130,24 @@ export function CreateGroupForm({ characters }: { characters: CharacterRow[] }) 
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <form onSubmit={handleSubmit} {...stylex.props(styles.form)}>
         {error && (
-          <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-600 dark:text-rose-400">
+          <div {...stylex.props(styles.error)}>
             {error}
           </div>
         )}
 
         {/* Group Profile Preview */}
-        <section className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-4">
+        <section {...stylex.props(styles.preview)}>
           <UserAvatar name={name || '群聊'} emoji={avatarEmoji} color={avatarColor} size={56} />
-          <div className="flex-1 min-w-0">
-            <h2 className="text-base font-medium truncate">
+          <div {...stylex.props(styles.grow)}>
+            <h2 {...stylex.props(styles.previewTitle)}>
               {name || '群聊名称预览'}
             </h2>
-            <Text type="supporting" size="sm" as="p" className="truncate">
+            <Text type="supporting" size="sm" as="p" xstyle={styles.truncate}>
               {description || '还没有填写群描述'}
             </Text>
-            <div className="mt-1 flex items-center gap-1 text-[11px] text-secondary">
+            <div {...stylex.props(styles.supporting)}>
               <Users size={12} />
               <span>已选 {selectedCharIds.length + 1} 位成员（含你）</span>
             </div>
@@ -120,7 +155,7 @@ export function CreateGroupForm({ characters }: { characters: CharacterRow[] }) 
         </section>
 
         {/* Group Name & Description */}
-        <div className="flex flex-col gap-4">
+        <div {...stylex.props(styles.fieldGroup)}>
           <TextInput
             label="群聊名称"
             value={name}
@@ -138,20 +173,16 @@ export function CreateGroupForm({ characters }: { characters: CharacterRow[] }) 
         </div>
 
         {/* Avatar Emoji & Color */}
-        <div className="flex flex-col gap-4">
+        <div {...stylex.props(styles.fieldGroup)}>
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-secondary">群图标 Emoji</label>
-            <div className="flex flex-wrap gap-2">
+            <label {...stylex.props(styles.label)}>群图标 Emoji</label>
+            <div {...stylex.props(styles.optionRow)}>
               {EMOJI_OPTIONS.map((emoji) => (
                 <button
                   key={emoji}
                   type="button"
                   onClick={() => setAvatarEmoji(emoji)}
-                  className={`flex h-10 w-10 items-center justify-center rounded-lg border text-lg transition-all ${
-                    avatarEmoji === emoji
-                      ? 'border-accent bg-accent/10 shadow-xs'
-                      : 'border-border bg-surface hover:bg-surface-hover'
-                  }`}
+                  {...stylex.props(styles.emoji, avatarEmoji === emoji && styles.emojiSelected)}
                 >
                   {emoji}
                 </button>
@@ -160,16 +191,14 @@ export function CreateGroupForm({ characters }: { characters: CharacterRow[] }) 
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-secondary">主题色</label>
-            <div className="flex flex-wrap gap-2">
+            <label {...stylex.props(styles.label)}>主题色</label>
+            <div {...stylex.props(styles.optionRow)}>
               {AVATAR_COLORS.map((color) => (
                 <button
                   key={color}
                   type="button"
                   onClick={() => setAvatarColor(color)}
-                  className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all ${
-                    avatarColor === color ? 'border-accent ring-2 ring-accent/30' : 'border-transparent'
-                  }`}
+                  {...stylex.props(styles.color, avatarColor === color && styles.colorSelected)}
                   style={{
                     background:
                       color === 'violet'
@@ -189,7 +218,7 @@ export function CreateGroupForm({ characters }: { characters: CharacterRow[] }) 
                                     : '#d946ef',
                   }}
                 >
-                  {avatarColor === color && <Check size={14} className="text-white" />}
+                  {avatarColor === color && <Check {...stylex.props(styles.onAccent)} size={14} />}
                 </button>
               ))}
             </div>
@@ -197,32 +226,27 @@ export function CreateGroupForm({ characters }: { characters: CharacterRow[] }) 
         </div>
 
         {/* Character Selector */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-text-secondary">
-              选择加入群聊的 AI 居民 <span className="text-rose-500">*</span>
+        <div {...stylex.props(styles.selector)}>
+          <div {...stylex.props(styles.selectorHeader)}>
+            <label {...stylex.props(styles.selectLabel)}>
+              选择加入群聊的 AI 居民 <span {...stylex.props(styles.required)}>*</span>
             </label>
             <button
               type="button"
               onClick={selectAll}
-              className="text-xs text-accent transition-colors hover:underline"
+              {...stylex.props(styles.selectAll)}
             >
               {selectedCharIds.length === characters.length ? '取消全选' : '全选'}
             </button>
           </div>
-
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div {...stylex.props(styles.charGrid)}>
             {characters.map((char) => {
               const selected = selectedCharIds.includes(char.id);
               return (
                 <div
                   key={char.id}
                   onClick={() => toggleChar(char.id)}
-                  className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${
-                    selected
-                      ? 'border-accent bg-accent/5 shadow-xs'
-                      : 'border-border bg-surface hover:bg-surface-hover'
-                  }`}
+                  {...stylex.props(styles.character, selected && styles.characterSelected)}
                 >
                   <UserAvatar
                     name={char.name}
@@ -232,22 +256,18 @@ export function CreateGroupForm({ characters }: { characters: CharacterRow[] }) 
                     size={40}
                     tooltip={false}
                   />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-text-primary truncate">
+                  <div {...stylex.props(styles.charDetails)}>
+                    <div {...stylex.props(styles.charTop)}>
+                      <span {...stylex.props(styles.charName)}>
                         {char.name}
                       </span>
-                      <span className="text-[11px] text-text-tertiary">@{char.username}</span>
+                      <span {...stylex.props(styles.username)}>@{char.username}</span>
                     </div>
-                    <p className="text-xs text-text-secondary truncate">
+                    <p {...stylex.props(styles.bio)}>
                       {char.bio || char.persona || '虚拟居民'}
                     </p>
                   </div>
-                  <div
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-                      selected ? 'border-accent bg-accent text-white' : 'border-border bg-surface'
-                    }`}
-                  >
+                  <div {...stylex.props(styles.check, selected && styles.checkSelected)}>
                     {selected && <Check size={12} strokeWidth={3} />}
                   </div>
                 </div>
@@ -257,7 +277,7 @@ export function CreateGroupForm({ characters }: { characters: CharacterRow[] }) 
         </div>
 
         {/* Submit */}
-        <div className="mt-4 flex items-center justify-end gap-3 pb-8">
+        <div {...stylex.props(styles.submit)}>
           <Button
             label="取消"
             variant="secondary"

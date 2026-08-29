@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {useState, useTransition} from 'react';
+import * as stylex from '@stylexjs/stylex';
 import {Heart, MessageCircle, Trash2} from 'lucide-react';
 import {Text} from '@astryxdesign/core/Text';
 import {IconButton} from '@astryxdesign/core/IconButton';
@@ -13,12 +14,113 @@ import {TimeAgo} from '@/components/time-ago';
 import {deletePost, toggleLike} from '@/server/actions/feed';
 import type {FeedPost} from '@/server/feed';
 
+const pulse = stylex.keyframes({
+  '0%, 100%': {opacity: 0.45},
+  '50%': {opacity: 1},
+});
+const styles = stylex.create({
+  article: {
+    display: 'flex',
+    gap: 12,
+    paddingBlock: 16,
+  },
+  content: {
+    minWidth: 0,
+    flex: 1,
+  },
+  authorRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: 8,
+    rowGap: 2,
+  },
+  authorLink: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontSize: 15,
+    fontWeight: 600,
+    ':hover': {
+      textDecorationLine: 'underline',
+    },
+  },
+  time: {
+    flexShrink: 0,
+    fontSize: 12,
+    color: 'var(--color-text-secondary)',
+  },
+  postLink: {
+    display: 'block',
+    marginTop: 4,
+  },
+  postText: {
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'break-word',
+    lineHeight: 1.625,
+  },
+  actions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
+  count: {
+    marginLeft: -4,
+  },
+  spacer: {
+    flex: 1,
+  },
+  likedIcon: {
+    color: 'var(--color-error)',
+  },
+  skeleton: {
+    display: 'flex',
+    gap: 12,
+    paddingBlock: 16,
+    animationName: pulse,
+    animationDuration: '2s',
+    animationIterationCount: 'infinite',
+  },
+  skeletonAvatar: {
+    flexShrink: 0,
+    width: 42,
+    height: 42,
+    borderRadius: 9999,
+    backgroundColor: 'var(--color-background-muted)',
+  },
+  skeletonContent: {
+    flex: 1,
+    paddingBlock: 4,
+  },
+  skeletonLine: {
+    height: 16,
+    width: 128,
+    borderRadius: 4,
+    backgroundColor: 'var(--color-background-muted)',
+  },
+  skeletonLineSmall: {
+    height: 14,
+    width: '100%',
+    marginTop: 10,
+    borderRadius: 4,
+    backgroundColor: 'var(--color-background-muted)',
+  },
+  skeletonLineShort: {
+    height: 14,
+    width: '75%',
+    marginTop: 10,
+    borderRadius: 4,
+    backgroundColor: 'var(--color-background-muted)',
+  },
+});
+
 export function PostCard({post, isOwnerFeed = true}: {post: FeedPost; isOwnerFeed?: boolean}) {
   const router = useRouter();
   const toast = useAppToast();
   const [liked, setLiked] = useState(post.viewerLiked);
   const [likeCount, setLikeCount] = useState(post.likeCount);
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const authorHref = post.authorType === 'ai' ? '/characters' : '/settings/account';
 
@@ -46,7 +148,7 @@ export function PostCard({post, isOwnerFeed = true}: {post: FeedPost; isOwnerFee
   };
 
   return (
-    <article className="flex gap-3 py-4">
+    <article {...stylex.props(styles.article)}>
       <UserAvatar
         name={post.authorName}
         emoji={post.authorAvatarEmoji}
@@ -55,22 +157,24 @@ export function PostCard({post, isOwnerFeed = true}: {post: FeedPost; isOwnerFee
         size={42}
         href={authorHref}
       />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <Link href={authorHref} className="truncate text-[15px] font-semibold hover:underline">
+      <div {...stylex.props(styles.content)}>
+        <div {...stylex.props(styles.authorRow)}>
+          <Link href={authorHref} {...stylex.props(styles.authorLink)}>
             {post.authorName}
           </Link>
           <Text type="supporting" size="sm" as="span">
             @{post.authorUsername}
           </Text>
-          <TimeAgo date={post.createdAt} live className="text-xs text-secondary" />
+          <span {...stylex.props(styles.time)}>
+            <TimeAgo date={post.createdAt} live />
+          </span>
         </div>
-        <Link href={`/post/${post.id}`} className="mt-1 block">
-          <Text as="p" textWrap="wrap" className="whitespace-pre-wrap break-words leading-relaxed">
+        <Link href={`/post/${post.id}`} {...stylex.props(styles.postLink)}>
+          <Text as="p" textWrap="wrap" xstyle={styles.postText}>
             {post.content}
           </Text>
         </Link>
-        <div className="mt-2 flex items-center gap-1">
+        <div {...stylex.props(styles.actions)}>
           <IconButton
             label={liked ? '取消点赞' : '点赞'}
             variant="ghost"
@@ -79,25 +183,25 @@ export function PostCard({post, isOwnerFeed = true}: {post: FeedPost; isOwnerFee
               <Heart
                 size={17}
                 fill={liked ? 'currentColor' : 'none'}
-                className={liked ? 'text-error' : undefined}
+                {...stylex.props(liked && styles.likedIcon)}
               />
             }
             onClick={onLike}
           />
           {likeCount > 0 && (
-            <Text type="supporting" size="sm" as="span" className="-ml-1">
+            <Text type="supporting" size="sm" as="span" xstyle={styles.count}>
               {likeCount}
             </Text>
           )}
-          <Link href={`/post/${post.id}`} aria-label="查看评论" className="inline-flex">
+          <Link href={`/post/${post.id}`} aria-label="查看评论">
             <IconButton label="评论" variant="ghost" size="sm" icon={<MessageCircle size={17} />} />
           </Link>
           {post.commentCount > 0 && (
-            <Text type="supporting" size="sm" as="span" className="-ml-1">
+            <Text type="supporting" size="sm" as="span" xstyle={styles.count}>
               {post.commentCount}
             </Text>
           )}
-          <div className="flex-1" />
+          <div {...stylex.props(styles.spacer)} />
           {post.authorType === 'user' && isOwnerFeed && (
             <MoreMenu
               label="动态操作"
@@ -120,12 +224,12 @@ export function PostCard({post, isOwnerFeed = true}: {post: FeedPost; isOwnerFee
 
 export function PostCardSkeleton() {
   return (
-    <div className="flex animate-pulse gap-3 py-4" aria-hidden>
-      <div className="h-[42px] w-[42px] shrink-0 rounded-full bg-muted" />
-      <div className="flex-1 space-y-2.5 py-1">
-        <div className="h-4 w-32 rounded bg-muted" />
-        <div className="h-3.5 w-full rounded bg-muted" />
-        <div className="h-3.5 w-3/4 rounded bg-muted" />
+    <div {...stylex.props(styles.skeleton)} aria-hidden>
+      <div {...stylex.props(styles.skeletonAvatar)} />
+      <div {...stylex.props(styles.skeletonContent)}>
+        <div {...stylex.props(styles.skeletonLine)} />
+        <div {...stylex.props(styles.skeletonLineSmall)} />
+        <div {...stylex.props(styles.skeletonLineShort)} />
       </div>
     </div>
   );

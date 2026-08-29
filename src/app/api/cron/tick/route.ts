@@ -24,6 +24,7 @@ export async function GET(req: Request) {
       await maybePulse(u.id);
       await processDueEvents(u.id, 8);
       await tickGroupAttention(u.id, undefined, 8);
+      processed++;
     } catch (err) {
       console.error('[cron] failed for user', u.id, err);
     }

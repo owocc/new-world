@@ -2,6 +2,7 @@
 
 import {useRouter} from 'next/navigation';
 import {useState, useTransition} from 'react';
+import * as stylex from '@stylexjs/stylex';
 import {MessageCircle, PauseCircle, PlayCircle, Settings2, Trash2} from 'lucide-react';
 import {Card} from '@astryxdesign/core/Card';
 import {Text} from '@astryxdesign/core/Text';
@@ -17,6 +18,80 @@ import {UserAvatar} from '@/components/user-avatar';
 import {openConversation} from '@/server/actions/chat';
 import {deleteCharacter, setCharacterStatus} from '@/server/actions/characters';
 import type {aiCharacters} from '@/db/schema';
+
+const styles = stylex.create({
+  cardPending: {opacity: 0.6},
+  row: {display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-3)'},
+  minWidth: {minWidth: 0},
+  grow: {flex: 1},
+  rowCenter: {display: 'flex', alignItems: 'center', gap: 'var(--spacing-2)'},
+  title: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontWeight: 'var(--font-weight-semibold)',
+    ':hover': {'@media (hover: hover)': {textDecoration: 'underline'}},
+  },
+  bio: {
+    marginTop: 'var(--spacing-2)',
+    color: 'var(--color-text-secondary)',
+    display: '-webkit-box',
+    overflow: 'hidden',
+    WebkitBoxOrient: 'vertical',
+    WebkitLineClamp: 2,
+  },
+  tags: {
+    marginTop: '10px',
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 'var(--spacing-1-5)',
+  },
+  actions: {
+    marginTop: 'var(--spacing-3)',
+    borderTop: 'var(--border-width) solid var(--color-border)',
+    paddingTop: 'var(--spacing-3)',
+  },
+  section: {
+    borderRadius: 'var(--radius-container)',
+    border: 'var(--border-width) solid var(--color-border)',
+    padding: 'var(--spacing-4)',
+    '@media (min-width: 640px)': {padding: 'var(--spacing-5)'},
+  },
+  sectionTitle: {fontSize: 'var(--font-size-base)', fontWeight: 'var(--font-weight-semibold)'},
+  sectionDescription: {marginTop: '2px'},
+  relationshipList: {marginTop: 'var(--spacing-3)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-2)'},
+  relationshipEmpty: {paddingBlock: 'var(--spacing-4)', textAlign: 'center'},
+  relationshipRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--spacing-2)',
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'var(--color-background-muted)',
+    padding: '10px var(--spacing-3)',
+    fontSize: 'var(--font-size-sm)',
+  },
+  medium: {fontWeight: 'var(--font-weight-medium)'},
+  relationshipNote: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'},
+  relationshipDelete: {
+    border: 0,
+    borderRadius: 'var(--radius-full)',
+    padding: 'var(--spacing-1-5)',
+    color: 'var(--color-text-secondary)',
+    backgroundColor: 'transparent',
+    transition: 'color 175ms ease',
+    ':hover': {'@media (hover: hover)': {color: 'var(--color-error)'}},
+  },
+  form: {
+    marginTop: 'var(--spacing-4)',
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+    gap: 'var(--spacing-2)',
+    borderTop: 'var(--border-width) solid var(--color-border)',
+    paddingTop: 'var(--spacing-4)',
+    '@media (min-width: 640px)': {gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'},
+    '@media (min-width: 1024px)': {gridTemplateColumns: '1fr 1fr 140px 1fr auto', alignItems: 'start'},
+  },
+});
 
 export type CharacterListItem = typeof aiCharacters.$inferSelect & {
   modelLabel: string | null;
@@ -63,8 +138,8 @@ export function CharacterCard({
     .map((tag) => tag.trim());
 
   return (
-    <Card padding={4} className={pending ? 'opacity-60' : undefined}>
-      <div className="flex items-start gap-3">
+    <Card padding={4} xstyle={pending ? styles.cardPending : undefined}>
+      <div {...stylex.props(styles.row)}>
         <UserAvatar
           name={character.name}
           emoji={character.avatarEmoji}
@@ -73,9 +148,9 @@ export function CharacterCard({
           size={52}
           href={`/characters/${character.id}`}
         />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <a href={`/characters/${character.id}`} className="truncate font-semibold hover:underline">
+        <div {...stylex.props(styles.minWidth, styles.grow)}>
+          <div {...stylex.props(styles.rowCenter)}>
+            <a href={`/characters/${character.id}`} {...stylex.props(styles.title)}>
               {character.name}
             </a>
             <StatusDot
@@ -108,22 +183,22 @@ export function CharacterCard({
       </div>
 
       {character.bio && (
-        <Text as="p" size="sm" textWrap="wrap" className="mt-2 line-clamp-2 text-secondary">
+        <Text as="p" size="sm" textWrap="wrap" xstyle={styles.bio}>
           {character.bio}
         </Text>
       )}
 
       {personalityTags.length > 0 && (
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
+        <div {...stylex.props(styles.tags)}>
           {personalityTags.map((tag) => (
             <Token key={tag} label={tag} size="sm" />
           ))}
         </div>
       )}
 
-      <HStack gap={1} className="mt-3 border-t border-border pt-3">
+      <HStack gap={1} xstyle={styles.actions}>
         <Button label="私信" variant="ghost" size="sm" icon={<MessageCircle size={15} />} onClick={chat} />
-        <div className="flex-1" />
+        <div {...stylex.props(styles.grow)} />
         <Button
           label={active ? '暂停' : '启用'}
           variant="ghost"
@@ -148,25 +223,25 @@ export function RelationshipEditor({
   const nameOf = (id: string) => characters.find((c) => c.id === id)?.name ?? '未知';
 
   return (
-    <section className="rounded-container border border-border p-4 sm:p-5">
-      <h2 className="text-base font-semibold">居民之间的关系</h2>
-      <Text type="supporting" size="sm" as="p" className="mt-0.5">
+    <section {...stylex.props(styles.section)}>
+      <h2 {...stylex.props(styles.sectionTitle)}>居民之间的关系</h2>
+      <Text type="supporting" size="sm" as="p" xstyle={styles.sectionDescription}>
         关系会影响他们互相回复评论时的语气和意愿
       </Text>
 
-      <div className="mt-3 space-y-2">
+      <div {...stylex.props(styles.relationshipList)}>
         {relationships.length === 0 && (
-          <Text type="supporting" as="p" className="py-4 text-center">
+          <Text type="supporting" as="p" xstyle={styles.relationshipEmpty}>
             还没有设定任何关系
           </Text>
         )}
         {relationships.map((rel) => (
-          <div key={rel.id} className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2.5 text-sm">
-            <span className="font-medium">{nameOf(rel.fromCharacterId)}</span>
+          <div key={rel.id} {...stylex.props(styles.relationshipRow)}>
+            <span {...stylex.props(styles.medium)}>{nameOf(rel.fromCharacterId)}</span>
             <Token label={rel.kind} size="sm" color="orange" />
-            <span className="font-medium">{nameOf(rel.toCharacterId)}</span>
-            {rel.note && <Text type="supporting" size="sm" as="span" className="truncate">· {rel.note}</Text>}
-            <div className="flex-1" />
+            <span {...stylex.props(styles.medium)}>{nameOf(rel.toCharacterId)}</span>
+            {rel.note && <Text type="supporting" size="sm" as="span" xstyle={styles.relationshipNote}>· {rel.note}</Text>}
+            <div {...stylex.props(styles.grow)} />
             <button
               disabled={pending}
               onClick={() =>
@@ -176,7 +251,7 @@ export function RelationshipEditor({
                   router.refresh();
                 })
               }
-              className="rounded-full p-1.5 text-secondary transition-colors hover:text-error"
+              {...stylex.props(styles.relationshipDelete)}
               aria-label="删除关系"
             >
               <Trash2 size={15} />
@@ -229,7 +304,7 @@ function AddRelationship({
   };
 
   return (
-    <div className="mt-4 grid grid-cols-1 gap-2 border-t border-border pt-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_140px_1fr_auto] lg:items-start">
+    <div {...stylex.props(styles.form)}>
       <Selector
         label="发起方"
         isLabelHidden

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useTransition, useCallback } from 'react';
+import * as stylex from '@stylexjs/stylex';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { EmptyState } from '@astryxdesign/core/EmptyState';
@@ -17,8 +18,295 @@ import {
   type NotificationItem,
 } from '@/server/actions/feed';
 import type { FeedPost } from '@/server/feed';
-import { Camera, RotateCw, ArrowLeft } from 'lucide-react';
-import clsx from 'clsx';
+import { ArrowLeft, Camera, RotateCw } from 'lucide-react';
+
+const styles = stylex.create({
+  scroll: {
+    position: 'relative',
+    height: '100%',
+    minHeight: 0,
+    width: '100%',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    backgroundColor: 'var(--color-background-surface)',
+  },
+  hiddenInput: {
+    display: 'none',
+  },
+  header: {
+    position: 'sticky',
+    top: 0,
+    zIndex: 30,
+    display: 'flex',
+    height: 56,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingInline: 16,
+    transitionProperty: 'all',
+    transitionDuration: '200ms',
+    borderBottomWidth: 1,
+    '@media (min-width: 640px)': {
+      paddingInline: 24,
+    },
+  },
+  headerScrolled: {
+    borderBottomColor: 'var(--color-border)',
+    backgroundColor: 'color-mix(in srgb, var(--color-background-surface) 95%, transparent)',
+    backdropFilter: 'blur(12px)',
+    boxShadow: '0 1px 2px var(--color-shadow)',
+    color: 'var(--color-text-primary)',
+  },
+  headerTop: {
+    borderBottomColor: 'transparent',
+    backgroundColor: 'transparent',
+    color: 'var(--color-on-dark)',
+  },
+  backContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    minWidth: 70,
+  },
+  backLink: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 9999,
+    paddingBlock: 4,
+    paddingInline: 10,
+    fontSize: 12,
+    fontWeight: 500,
+    transitionProperty: 'all',
+    transitionDuration: '200ms',
+    ':active': {
+      transform: 'scale(0.95)',
+    },
+    '@media (hover: hover)': {
+      ':hover': {
+        color: 'var(--color-text-primary)',
+        backgroundColor: 'var(--color-background-muted)',
+      },
+    },
+  },
+  backLinkTop: {
+    color: 'rgb(255 255 255 / 90%)',
+    filter: 'drop-shadow(0 1.5px 3px rgb(0 0 0 / 70%))',
+    '@media (hover: hover)': {
+      ':hover': {
+        color: 'var(--color-on-dark)',
+        backgroundColor: 'rgb(255 255 255 / 20%)',
+      },
+    },
+  },
+  toolbar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    minWidth: 70,
+    '@media (min-width: 640px)': {
+      gap: 10,
+    },
+  },
+  toolbarButton: {
+    display: 'flex',
+    height: 36,
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 9999,
+    transitionProperty: 'all',
+    transitionDuration: '200ms',
+    ':active': {
+      transform: 'scale(0.95)',
+    },
+  },
+  toolbarButtonScrolled: {
+    color: 'var(--color-text-secondary)',
+    '@media (hover: hover)': {
+      ':hover': {
+        color: 'var(--color-text-primary)',
+        backgroundColor: 'var(--color-background-muted)',
+      },
+    },
+  },
+  toolbarButtonTop: {
+    color: 'rgb(255 255 255 / 90%)',
+    filter: 'drop-shadow(0 1.5px 3px rgb(0 0 0 / 70%))',
+    '@media (hover: hover)': {
+      ':hover': {
+        color: 'var(--color-on-dark)',
+        backgroundColor: 'rgb(255 255 255 / 20%)',
+      },
+    },
+  },
+  icon: {
+    transitionProperty: 'transform',
+    transitionDuration: '500ms',
+  },
+  iconRefreshing: {
+    transform: 'rotate(360deg)',
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: 600,
+    letterSpacing: '-0.025em',
+    transitionProperty: 'opacity',
+    transitionDuration: '200ms',
+    userSelect: 'none',
+  },
+  titleVisible: {
+    opacity: 1,
+  },
+  titleHidden: {
+    opacity: 0,
+    pointerEvents: 'none',
+  },
+  titleTop: {
+    color: 'var(--color-on-dark)',
+  },
+  cover: {
+    position: 'relative',
+    width: '100%',
+    height: 260,
+    maxHeight: 320,
+    marginTop: -56,
+    userSelect: 'none',
+    '@media (min-width: 640px)': {
+      height: 300,
+    },
+  },
+  coverArea: {
+    position: 'relative',
+    height: '100%',
+    width: '100%',
+    cursor: 'pointer',
+    overflow: 'hidden',
+    backgroundColor: 'var(--color-neutral)',
+  },
+  coverImage: {
+    height: '100%',
+    width: '100%',
+    objectFit: 'cover',
+    objectPosition: 'center',
+    transitionProperty: 'transform',
+    transitionDuration: '500ms',
+    ':hover': {
+      transform: 'scale(1.02)',
+    },
+  },
+  gradient: {
+    position: 'absolute',
+    inset: 0,
+    zIndex: 1,
+    pointerEvents: 'none',
+    background:
+      'linear-gradient(to bottom, rgb(0 0 0 / 65%) 0%, rgb(0 0 0 / 0%) 35%, rgb(0 0 0 / 0%) 60%, rgb(0 0 0 / 82%) 100%)',
+  },
+  coverHint: {
+    position: 'absolute',
+    bottom: 14,
+    left: 16,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    border: '1px solid rgb(255 255 255 / 15%)',
+    borderRadius: 9999,
+    backgroundColor: 'rgb(0 0 0 / 35%)',
+    paddingBlock: 4,
+    paddingInline: 12,
+    fontSize: 12,
+    fontWeight: 500,
+    color: 'rgb(255 255 255 / 90%)',
+    backdropFilter: 'blur(12px)',
+    opacity: 0,
+    transitionProperty: 'opacity',
+    transitionDuration: '200ms',
+  },
+  coverHintVisible: {
+    opacity: 1,
+  },
+  userInfo: {
+    position: 'absolute',
+    right: 24,
+    bottom: -24,
+    zIndex: 10,
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: 12,
+    pointerEvents: 'auto',
+    '@media (min-width: 640px)': {
+      right: 32,
+    },
+  },
+  userName: {
+    maxWidth: 200,
+    marginBottom: 28,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontSize: 16,
+    fontWeight: 700,
+    letterSpacing: '0.025em',
+    color: 'var(--color-on-dark)',
+    '@media (min-width: 640px)': {
+      fontSize: 18,
+    },
+  },
+  avatarLink: {
+    display: 'inline-flex',
+    borderRadius: 9999,
+    transitionProperty: 'transform',
+    transitionDuration: '200ms',
+    userSelect: 'none',
+    ':hover': {
+      transform: 'scale(1.05)',
+    },
+  },
+  posts: {
+    width: '100%',
+    maxWidth: 680,
+    marginInline: 'auto',
+    paddingTop: 48,
+    paddingRight: 16,
+    paddingBottom: 80,
+    paddingLeft: 16,
+    '@media (min-width: 640px)': {
+      paddingRight: 24,
+      paddingLeft: 24,
+    },
+  },
+  mineBanner: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 24,
+    borderRadius: 12,
+    backgroundColor: 'color-mix(in srgb, var(--color-background-muted) 70%, transparent)',
+    paddingBlock: 10,
+    paddingInline: 16,
+    fontSize: 14,
+    color: 'var(--color-text-secondary)',
+  },
+  mineBannerLabel: {
+    fontWeight: 500,
+  },
+  mineBannerLink: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: 'var(--color-text-accent)',
+    ':hover': {
+      textDecorationLine: 'underline',
+    },
+  },
+  emptyPosts: {
+    marginTop: 32,
+  },
+  postItemDivider: {
+    borderTop: '1px solid var(--color-border)',
+  },
+});
 
 export const DEFAULT_FEED_COVER =
   'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1200&auto=format&fit=crop';
@@ -54,6 +342,7 @@ export function FeedView({
   const [, startCoverTransition] = useTransition();
 
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isCoverHovered, setIsCoverHovered] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -129,14 +418,14 @@ export function FeedView({
     <div
       ref={scrollContainerRef}
       onScroll={handleScroll}
-      className="relative h-full min-h-0 w-full overflow-y-auto overflow-x-hidden bg-surface"
+      {...stylex.props(styles.scroll)}
     >
       {/* Hidden file input for cover upload */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
-        className="hidden"
+        {...stylex.props(styles.hiddenInput)}
         onChange={handleFileSelect}
       />
 
@@ -144,27 +433,17 @@ export function FeedView({
         Sticky Top Header:
         Fixed at the top of the scroll pane.
         When scrollY === 0: transparent with ghosty buttons over the cover.
-        When scrollY > 40: overlays bg-surface/95 backdrop-blur-md, title fades in, buttons adapt to surface theme.
+        When scrollY > 40: overlays the surface with a translucent blur, title fades in, buttons adapt to surface theme.
       */}
       <header
-        className={clsx(
-          'sticky top-0 z-30 flex h-14 w-full items-center justify-between px-4 sm:px-6 transition-all duration-200',
-          isScrolled
-            ? 'border-b border-border bg-surface/95 backdrop-blur-md shadow-xs text-primary'
-            : 'border-b border-transparent bg-transparent text-white',
-        )}
+        {...stylex.props(styles.header, isScrolled ? styles.headerScrolled : styles.headerTop)}
       >
         {/* Left: Back button when viewing my moments */}
-        <div className="flex items-center min-w-[70px]">
+        <div {...stylex.props(styles.backContainer)}>
           {isMine && (
             <Link
               href="/feed"
-              className={clsx(
-                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all duration-200 active:scale-95',
-                isScrolled
-                  ? 'text-secondary hover:text-primary hover:bg-muted'
-                  : 'text-white/90 hover:text-white hover:bg-white/20 drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.7)]',
-              )}
+              {...stylex.props(styles.backLink, isScrolled ? undefined : styles.backLinkTop)}
             >
               <ArrowLeft size={14} />
               <span>全部</span>
@@ -173,20 +452,16 @@ export function FeedView({
         </div>
         {/* Center: Title (Only visible when scrolled down or when in mine mode) */}
         <div
-          className={clsx(
-            'text-base font-semibold tracking-tight transition-opacity duration-200 select-none',
-            isScrolled
-              ? 'opacity-100 text-primary'
-              : isMine
-                ? 'opacity-100 text-white'
-                : 'opacity-0 pointer-events-none',
+          {...stylex.props(
+            styles.title,
+            isScrolled || isMine ? styles.titleVisible : styles.titleHidden,
+            !isScrolled && styles.titleTop,
           )}
         >
           {isMine ? '我的朋友圈' : '朋友圈'}
         </div>
-
         {/* Right: Action Buttons Toolbar (Ghosty Style) */}
-        <div className="flex items-center justify-end gap-2 sm:gap-2.5 min-w-[70px]">
+        <div {...stylex.props(styles.toolbar)}>
           {/* 1. Refresh Button */}
           <button
             type="button"
@@ -194,38 +469,32 @@ export function FeedView({
             disabled={isRefreshing}
             title="刷新动态与居民心跳"
             aria-label="刷新动态"
-            className={clsx(
-              'flex h-9 w-9 items-center justify-center rounded-full transition-all duration-200 active:scale-95 disabled:opacity-50',
-              isScrolled
-                ? 'text-secondary hover:text-primary hover:bg-muted'
-                : 'text-white/90 hover:text-white hover:bg-white/20 drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.7)]',
+            {...stylex.props(
+              styles.toolbarButton,
+              isScrolled ? styles.toolbarButtonScrolled : styles.toolbarButtonTop,
             )}
           >
             <RotateCw
               size={17}
               strokeWidth={2}
-              className={clsx('transition-transform duration-500', isRefreshing && 'animate-spin')}
+              {...stylex.props(styles.icon, isRefreshing && styles.iconRefreshing)}
             />
           </button>
-
           {/* 2. Moments Notifications Popover (朋友圈专用通知) */}
           <FeedNotificationsPopover
             initialNotifications={initialNotifications}
             initialUnreadCount={initialUnreadCount}
             scrolled={isScrolled}
           />
-
           {/* 3. Send / Camera Button (收纳发送按钮) */}
           <button
             type="button"
             onClick={() => setComposerOpen(true)}
             title="发布朋友圈动态"
             aria-label="发布动态"
-            className={clsx(
-              'flex h-9 w-9 items-center justify-center rounded-full transition-all duration-200 active:scale-95',
-              isScrolled
-                ? 'text-secondary hover:text-primary hover:bg-muted'
-                : 'text-white/90 hover:text-white hover:bg-white/20 drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.7)]',
+            {...stylex.props(
+              styles.toolbarButton,
+              isScrolled ? styles.toolbarButtonScrolled : styles.toolbarButtonTop,
             )}
           >
             <Camera size={17} strokeWidth={2} />
@@ -235,78 +504,54 @@ export function FeedView({
 
       {/* 
         Cover Banner Container:
-        Negative top margin `-mt-14` pulls the cover all the way up behind the transparent header.
+        Negative top spacing pulls the cover all the way up behind the transparent header.
         Strict height constraint (280px-320px) guarantees proper proportion.
       */}
-      <div className="-mt-14 relative w-full h-[260px] sm:h-[300px] max-h-[320px] select-none">
+      <div {...stylex.props(styles.cover)}>
         {/* Cover Image Area - clicking directly opens image cropper */}
         <div
           onClick={() => fileInputRef.current?.click()}
-          className="group relative h-full w-full cursor-pointer overflow-hidden bg-neutral"
+          onMouseEnter={() => setIsCoverHovered(true)}
+          onMouseLeave={() => setIsCoverHovered(false)}
+          {...stylex.props(styles.coverArea)}
           title="点击更换朋友圈背景"
         >
           <MediaImage
             src={displayCover}
             alt="朋友圈背景图"
             fallbackSrc={DEFAULT_FEED_COVER}
-            className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.02]"
+            {...stylex.props(styles.coverImage)}
           />
-          {/* Top & Bottom gradient overlay: top shaded for controls, middle transparent, bottom shaded for username */}
-          <div
-            className="pointer-events-none absolute inset-0 z-1"
-            style={{
-              background:
-                'linear-gradient(to bottom, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0) 35%, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.82) 100%)',
-            }}
-          />
-          <div className="absolute bottom-3.5 left-4 flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-md opacity-0 transition-opacity duration-200 group-hover:opacity-100 border border-white/15">
+          <div {...stylex.props(styles.gradient)} />
+          <div {...stylex.props(styles.coverHint, isCoverHovered && styles.coverHintVisible)}>
             <Camera size={13} />
             <span>更换背景</span>
           </div>
         </div>
-
-        {/* 
-          Bottom-Right User Info & Avatar:
-          Positioned on the far right of the cover, overlapping into the post feed below.
-          Pure circular avatar with zero outer square background!
-        */}
-        <div className="absolute -bottom-6 right-6 sm:right-8 z-10 flex items-end gap-3 pointer-events-auto">
-          {/* User Name without text shadow */}
-          <span className="mb-7 max-w-[200px] truncate text-base sm:text-lg font-bold text-white tracking-wide">
-            {userName}
-          </span>
-
-          {/* User Avatar - click to navigate to My Moments */}
+        <div {...stylex.props(styles.userInfo)}>
+          <span {...stylex.props(styles.userName)}>{userName}</span>
           <Link
             href={isMine ? '/feed' : '/feed?filter=mine'}
             title={isMine ? '点击返回全部朋友圈' : '点击查看我的朋友圈'}
-            className="inline-flex rounded-full transition-transform duration-200 hover:scale-105 select-none"
+            {...stylex.props(styles.avatarLink)}
           >
             <UserAvatar name={userName} url={userImage} size={68} />
           </Link>
         </div>
       </div>
-
-      {/* 
-        Feed Posts Container:
-        Spacing below cover ensures overlapping avatar doesn't collide with the first post.
-      */}
-      <div className="mx-auto w-full max-w-[680px] px-4 sm:px-6 pt-12 pb-20">
-        {/* Mine mode indicator banner */}
+      <div {...stylex.props(styles.posts)}>
         {isMine && (
-          <div className="mb-6 flex items-center justify-between rounded-xl bg-muted/70 px-4 py-2.5 text-sm text-secondary">
-            <span className="font-medium">我的朋友圈（仅显示自己发布的动态）</span>
-            <Link
-              href="/feed"
-              className="text-xs font-semibold text-accent hover:underline"
-            >
+          <div {...stylex.props(styles.mineBanner)}>
+            <span {...stylex.props(styles.mineBannerLabel)}>
+              我的朋友圈（仅显示自己发布的动态）
+            </span>
+            <Link href="/feed" {...stylex.props(styles.mineBannerLink)}>
               查看全部动态 →
             </Link>
           </div>
         )}
-
         {posts.length === 0 ? (
-          <div className="mt-8">
+          <div {...stylex.props(styles.emptyPosts)}>
             <EmptyState
               title={isMine ? '你还没有发布过动态' : '朋友圈还静悄悄的'}
               description={
@@ -317,9 +562,11 @@ export function FeedView({
             />
           </div>
         ) : (
-          <div className="divide-y divide-border">
-            {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
+          <div>
+            {posts.map((post, index) => (
+              <div key={post.id} {...stylex.props(index > 0 && styles.postItemDivider)}>
+                <PostCard post={post} />
+              </div>
             ))}
           </div>
         )}

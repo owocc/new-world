@@ -21,7 +21,23 @@ import {
   updateProvider,
 } from '@/server/actions/settings';
 import {PROVIDER_LABELS, PROVIDER_TYPES, type ProviderType} from '@/lib/providers-shared';
+import * as stylex from '@stylexjs/stylex';
 
+const styles = stylex.create({
+  header: {display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--color-border)', paddingBottom: '12px'},
+  backLink: {display: 'flex', width: '32px', height: '32px', flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', color: 'var(--color-text-secondary)', '@media (min-width: 1024px)': {display: 'none'}, ':hover': {backgroundColor: 'var(--color-background-muted)'}},
+  title: {fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.01em'},
+  subtitle: {fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)'},
+  toolbar: {display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px'},
+  formGrid: {display: 'grid', gap: '12px', '@media (min-width: 640px)': {gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px'}},
+  buttonRow: {display: 'flex', gap: '8px'},
+  item: {display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px'},
+  grow: {flex: 1},
+  actions: {display: 'flex', alignItems: 'center', gap: '4px'},
+  providerName: {fontWeight: 'var(--font-weight-semibold)'},
+  disabled: {opacity: 0.6},
+  editGrid: {display: 'grid', gap: '12px', borderTop: '1px solid var(--color-border)', paddingTop: '12px', '@media (min-width: 640px)': {gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', alignItems: 'end'}},
+});
 export type ProviderRow = {
   id: string;
   name: string;
@@ -39,20 +55,16 @@ export function ProviderSettings({providers}: {providers: ProviderRow[]}) {
 
   return (
     <VStack gap={5}>
-      <div className="flex items-center gap-2 border-b border-border pb-3">
-        <Link
-          href="/settings"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary hover:bg-muted lg:hidden"
-          aria-label="返回设置菜单"
-        >
+      <div {...stylex.props(styles.header)}>
+        <Link href="/settings" {...stylex.props(styles.backLink)} aria-label="返回设置菜单">
           <ArrowLeft size={18} />
         </Link>
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">AI 服务商配置</h1>
-          <p className="text-xs text-secondary">接入 OpenAI、Anthropic、DeepSeek 等大模型服务商</p>
+          <h1 {...stylex.props(styles.title)}>AI 服务商配置</h1>
+          <p {...stylex.props(styles.subtitle)}>接入 OpenAI、Anthropic、DeepSeek 等大模型服务商</p>
         </div>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div {...stylex.props(styles.toolbar)}>
         <Button
           label={showForm ? '收起' : '新增'}
           variant={showForm ? 'secondary' : 'primary'}
@@ -111,7 +123,7 @@ function ProviderForm({onDone}: {onDone: () => void}) {
   return (
     <Card padding={4}>
       <VStack gap={4}>
-        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+        <div {...stylex.props(styles.formGrid)}>
           <TextInput label="名称" value={name} onChange={setName} placeholder="例如 我的 OpenAI" htmlName="provider-name" />
           <Selector
             label="类型"
@@ -129,7 +141,7 @@ function ProviderForm({onDone}: {onDone: () => void}) {
             htmlName="provider-url"
           />
         </div>
-        <div className="flex gap-2">
+        <div {...stylex.props(styles.buttonRow)}>
           <Button label={saving ? '保存中…' : '添加'} variant="primary" onClick={submit} isDisabled={saving} isLoading={saving} />
           <Button label="取消" variant="ghost" onClick={onDone} />
         </div>
@@ -157,11 +169,11 @@ function ProviderItem({provider}: {provider: ProviderRow}) {
   };
 
   return (
-    <Card padding={4} className={provider.enabled ? undefined : 'opacity-60'}>
+    <Card padding={4} xstyle={provider.enabled ? undefined : styles.disabled}>
       <VStack gap={3}>
-        <div className="flex flex-wrap items-center gap-2">
+        <div {...stylex.props(styles.item)}>
           <StatusDot variant={provider.enabled ? 'success' : 'neutral'} label={provider.enabled ? '启用' : '禁用'} />
-          <span className="font-semibold">{provider.name}</span>
+          <span {...stylex.props(styles.providerName)}>{provider.name}</span>
           <Badge variant="neutral" label={PROVIDER_LABELS[provider.providerType as ProviderType] ?? provider.providerType} />
           {provider.isDefault && (
             <Badge
@@ -170,8 +182,8 @@ function ProviderItem({provider}: {provider: ProviderRow}) {
               label="默认"
             />
           )}
-          <div className="flex-1" />
-          <div className="flex items-center gap-1">
+          <div {...stylex.props(styles.grow)} />
+          <div {...stylex.props(styles.actions)}>
             {!provider.isDefault && (
               <Button
                 label="设为默认"
@@ -216,7 +228,7 @@ function ProviderItem({provider}: {provider: ProviderRow}) {
         </Text>
 
         {editing && (
-          <div className="grid gap-3 border-t border-border pt-3 sm:grid-cols-3 sm:items-end">
+          <div {...stylex.props(styles.editGrid)}>
             <TextInput label="名称" isLabelHidden value={name} onChange={setName} placeholder="名称" htmlName="edit-name" />
             <TextInput
               label="新 API Key"
@@ -227,7 +239,7 @@ function ProviderItem({provider}: {provider: ProviderRow}) {
               placeholder="新 API Key（留空保持不变）"
               htmlName="edit-key"
             />
-            <div className="flex gap-2">
+            <div {...stylex.props(styles.buttonRow)}>
               <TextInput label="Base URL" isLabelHidden value={baseUrl} onChange={setBaseUrl} placeholder="Base URL" htmlName="edit-url" />
               <Button label="保存" isIconOnly variant="primary" icon={<Check size={15} />} onClick={save} isDisabled={saving} isLoading={saving} />
             </div>

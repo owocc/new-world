@@ -3,6 +3,8 @@
 import { useState, useTransition, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import * as stylex from '@stylexjs/stylex';
+import { colorVars, radiusVars, shadowVars } from '@astryxdesign/core/theme/tokens.stylex';
 import { Popover } from '@astryxdesign/core/Popover';
 import { Button } from '@astryxdesign/core/Button';
 import { Badge } from '@astryxdesign/core/Badge';
@@ -17,7 +19,195 @@ import {
   type NotificationItem,
 } from '@/server/actions/feed';
 import { Bell, CheckCheck, ArrowRight, MessageCircle, MessageSquare, Heart, Sparkles } from 'lucide-react';
-import clsx from 'clsx';
+
+const styles = stylex.create({
+  panel: {
+    width: 360,
+    maxWidth: 'calc(100vw - 32px)',
+    '@media (min-width: 640px)': {
+      width: 380,
+    },
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottom: '1px solid',
+    borderBottomColor: colorVars['--color-border'],
+    paddingBlock: 12,
+    paddingInline: 16,
+    backgroundColor: colorVars['--color-background-surface'],
+  },
+  headerGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    columnGap: 8,
+  },
+  headerText: {
+    color: colorVars['--color-text-primary'],
+    fontWeight: 600,
+  },
+  body: {
+    maxHeight: 380,
+    overflowY: 'auto',
+    overscrollBehavior: 'contain',
+  },
+  empty: {
+    paddingBlock: 32,
+    paddingInline: 16,
+    textAlign: 'center',
+  },
+  list: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  item: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    columnGap: 12,
+    padding: 14,
+    borderBottom: '1px solid',
+    borderBottomColor: colorVars['--color-border'],
+    transitionProperty: 'background-color',
+    transitionDuration: '175ms',
+    ':hover': {
+      backgroundColor: 'color-mix(in srgb, var(--color-background-muted) 70%, transparent)',
+    },
+  },
+  itemRead: {
+    backgroundColor: colorVars['--color-background-surface'],
+  },
+  itemUnread: {
+    backgroundColor: 'color-mix(in srgb, var(--color-background-surface) 70%, var(--color-background-muted))',
+  },
+  avatarWrap: {
+    position: 'relative',
+    flexShrink: 0,
+    paddingTop: 2,
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    height: 10,
+    width: 10,
+    border: '2px solid',
+    borderColor: colorVars['--color-background-surface'],
+    borderRadius: radiusVars['--radius-full'],
+    backgroundColor: colorVars['--color-accent'],
+  },
+  itemContent: {
+    minWidth: 0,
+    flex: 1,
+  },
+  itemRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: 4,
+  },
+  itemNameGroup: {
+    display: 'flex',
+    minWidth: 0,
+    alignItems: 'center',
+    columnGap: 6,
+  },
+  itemName: {
+    overflow: 'hidden',
+    color: colorVars['--color-text-primary'],
+    fontSize: 12,
+    fontWeight: 600,
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  time: {
+    flexShrink: 0,
+    color: colorVars['--color-text-secondary'],
+    fontSize: 11,
+  },
+  actionText: {
+    marginTop: 2,
+    color: colorVars['--color-text-secondary'],
+    fontSize: 12,
+    transitionProperty: 'color',
+    transitionDuration: '175ms',
+    ':hover': {
+      color: colorVars['--color-text-primary'],
+    },
+  },
+  content: {
+    display: '-webkit-box',
+    marginTop: 4,
+    overflow: 'hidden',
+    borderRadius: radiusVars['--radius-inner'],
+    backgroundColor: 'color-mix(in srgb, var(--color-background-muted) 50%, transparent)',
+    paddingBlock: 4,
+    paddingInline: 8,
+    color: colorVars['--color-text-secondary'],
+    fontSize: 12,
+    WebkitLineClamp: 2,
+    lineHeight: 1.625,
+    WebkitBoxOrient: 'vertical',
+  },
+  iconDm: {
+    color: colorVars['--color-text-accent'],
+  },
+  iconInfo: {
+    color: colorVars['--color-icon-blue'],
+  },
+  iconDanger: {
+    color: colorVars['--color-error'],
+    fill: 'color-mix(in srgb, var(--color-error) 20%, transparent)',
+  },
+  iconWarning: {
+    color: colorVars['--color-warning'],
+  },
+  footer: {
+    borderTop: '1px solid',
+    borderTopColor: colorVars['--color-border'],
+    backgroundColor: colorVars['--color-background-surface'],
+    padding: 8,
+  },
+  notificationButton: {
+    position: 'relative',
+    display: 'flex',
+    height: 32,
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radiusVars['--radius-element'],
+    color: colorVars['--color-text-secondary'],
+    transitionProperty: 'background-color, color',
+    transitionDuration: '175ms',
+    ':hover': {
+      color: colorVars['--color-text-primary'],
+      backgroundColor: colorVars['--color-background-muted'],
+    },
+    ':focus-visible': {
+      outline: '2px solid',
+      outlineColor: colorVars['--color-accent'],
+      outlineOffset: 3,
+    },
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    display: 'flex',
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radiusVars['--radius-full'],
+    backgroundColor: colorVars['--color-error'],
+    paddingInline: 4,
+    color: colorVars['--color-on-error'],
+    fontSize: 10,
+    fontWeight: 700,
+    lineHeight: 1,
+    boxShadow: shadowVars['--shadow-low'],
+  },
+});
 
 function getNotificationHref(item: NotificationItem): string {
   if (item.conversationId) return `/messages/${item.conversationId}`;
@@ -41,13 +231,13 @@ function getNotificationActionLabel(type: string): string {
 function getNotificationIcon(type: string) {
   switch (type) {
     case 'dm':
-      return <MessageCircle size={12} className="text-accent" />;
+      return <MessageCircle size={12} {...stylex.props(styles.iconDm)} />;
     case 'comment':
-      return <MessageSquare size={12} className="text-info" />;
+      return <MessageSquare size={12} {...stylex.props(styles.iconInfo)} />;
     case 'like':
-      return <Heart size={12} className="text-danger" />;
+      return <Heart size={12} {...stylex.props(styles.iconDanger)} />;
     default:
-      return <Sparkles size={12} className="text-warning" />;
+      return <Sparkles size={12} {...stylex.props(styles.iconWarning)} />;
   }
 }
 
@@ -112,11 +302,11 @@ export function NotificationPopover({
   );
 
   const popoverContent = (
-    <div className="w-[360px] sm:w-[380px] max-w-[calc(100vw-32px)]">
+    <div {...stylex.props(styles.panel)}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3 bg-surface">
-        <div className="flex items-center gap-2">
-          <Text as="span" size="sm" className="font-semibold text-primary">
+      <div {...stylex.props(styles.header)}>
+        <div {...stylex.props(styles.headerGroup)}>
+          <Text as="span" size="sm" xstyle={styles.headerText}>
             通知
           </Text>
           {unreadCount > 0 && (
@@ -136,17 +326,17 @@ export function NotificationPopover({
       </div>
 
       {/* Body List */}
-      <div className="max-h-[380px] overflow-y-auto overscroll-contain">
+      <div {...stylex.props(styles.body)}>
         {notifications.length === 0 ? (
-          <div className="py-8 px-4 text-center">
+          <div {...stylex.props(styles.empty)}>
             <EmptyState
-              icon={<Bell size={32} strokeWidth={1.5} className="text-secondary" />}
+              icon={<Bell size={32} strokeWidth={1.5} {...stylex.props(styles.iconInfo)} />}
               title="暂无新通知"
               description="AI 居民们的动态和私信会在此提醒你"
             />
           </div>
         ) : (
-          <div className="divide-y divide-border">
+          <div {...stylex.props(styles.list)}>
             {notifications.map((item) => {
               const href = getNotificationHref(item);
               return (
@@ -154,12 +344,9 @@ export function NotificationPopover({
                   key={item.id}
                   href={href}
                   onClick={() => handleItemClick(item)}
-                  className={clsx(
-                    'group flex items-start gap-3 p-3.5 transition-colors hover:bg-muted/70',
-                    !item.read ? 'bg-surface-elevated/70' : 'bg-surface',
-                  )}
+                  {...stylex.props(styles.item, item.read ? styles.itemRead : styles.itemUnread)}
                 >
-                  <div className="relative shrink-0 pt-0.5">
+                  <div {...stylex.props(styles.avatarWrap)}>
                     <UserAvatar
                       name={item.characterName ?? '系统'}
                       emoji={item.characterEmoji ?? '✨'}
@@ -167,35 +354,26 @@ export function NotificationPopover({
                       url={item.characterAvatarUrl}
                       size={36}
                     />
-                    {!item.read && (
-                      <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-surface" />
-                    )}
+                    {!item.read && <span {...stylex.props(styles.unreadDot)} />}
                   </div>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="truncate text-xs font-semibold text-primary">
+                  <div {...stylex.props(styles.itemContent)}>
+                    <div {...stylex.props(styles.itemRow)}>
+                      <div {...stylex.props(styles.itemNameGroup)}>
+                        <span {...stylex.props(styles.itemName)}>
                           {item.characterName ?? '系统'}
                         </span>
-                        <span className="shrink-0">{getNotificationIcon(item.type)}</span>
+                        <span>{getNotificationIcon(item.type)}</span>
                       </div>
-                      <TimeAgo
-                        date={item.createdAt}
-                        className="shrink-0 text-[11px] text-secondary"
-                      />
+                      <TimeAgo date={item.createdAt} xstyle={styles.time} />
                     </div>
 
-                    <Text
-                      type="supporting"
-                      as="p"
-                      className="mt-0.5 group-hover:text-primary transition-colors text-xs"
-                    >
+                    <Text type="supporting" as="p" xstyle={styles.actionText}>
                       {getNotificationActionLabel(item.type)}
                     </Text>
 
                     {item.content && (
-                      <div className="mt-1 rounded-md bg-muted/50 px-2 py-1 text-xs text-secondary line-clamp-2 leading-relaxed">
+                      <div {...stylex.props(styles.content)}>
                         {item.content}
                       </div>
                     )}
@@ -208,7 +386,7 @@ export function NotificationPopover({
       </div>
 
       {/* Footer */}
-      <div className="border-t border-border bg-surface p-2">
+      <div {...stylex.props(styles.footer)}>
         <Button
           as={Link}
           href="/notifications"
@@ -234,13 +412,13 @@ export function NotificationPopover({
     >
       <button
         type="button"
-        className="relative flex h-8 w-8 items-center justify-center rounded-lg text-secondary transition-colors hover:bg-muted hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+        {...stylex.props(styles.notificationButton)}
         aria-label={unreadCount > 0 ? `${unreadCount} 条未读通知` : '通知'}
         title="通知"
       >
         <Bell size={18} />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white shadow-xs">
+          <span {...stylex.props(styles.notificationBadge)}>
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}

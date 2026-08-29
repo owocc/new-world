@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useCallback } from 'react';
+import * as stylex from '@stylexjs/stylex';
 import { Dialog } from '@astryxdesign/core/Dialog';
 import { Layout } from '@astryxdesign/core/Layout';
 import { LayoutHeader } from '@astryxdesign/core/Layout';
@@ -12,6 +13,37 @@ import { Button } from '@astryxdesign/core/Button';
 import { useAppToast } from '@/lib/toast';
 import { UserAvatar } from '@/components/user-avatar';
 import { createPost } from '@/server/actions/feed';
+
+const styles = stylex.create({
+  trigger: {
+    display: 'inline-flex',
+    cursor: 'pointer',
+  },
+  defaultTrigger: {
+    display: 'flex',
+    width: '100%',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 'var(--radius-container)',
+    paddingInline: 8,
+    paddingBlock: 12,
+    textAlign: 'left',
+    transitionProperty: 'background-color',
+    transitionDuration: '125ms',
+    ':hover': {
+      backgroundColor: 'var(--color-background-muted)',
+    },
+  },
+  placeholder: {
+    fontSize: 15,
+    color: 'var(--color-text-placeholder)',
+  },
+  heading: {
+    fontSize: 18,
+    fontWeight: 600,
+    color: 'var(--color-text-primary)',
+  },
+});
 
 export interface ComposerProps {
   userName: string;
@@ -69,17 +101,13 @@ export function Composer({
   return (
     <>
       {trigger ? (
-        <span onClick={() => setOpen(true)} className="inline-flex cursor-pointer">
+        <span onClick={() => setOpen(true)} {...stylex.props(styles.trigger)}>
           {trigger}
         </span>
       ) : !hideDefaultTrigger ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex w-full items-center gap-3 rounded-container px-2 py-3 text-left transition-colors hover:bg-muted"
-        >
+        <button type="button" onClick={() => setOpen(true)} {...stylex.props(styles.defaultTrigger)}>
           <UserAvatar name={userName} url={userImage} size={40} />
-          <span className="text-[15px] text-placeholder">现在在想什么，{userName}？</span>
+          <span {...stylex.props(styles.placeholder)}>现在在想什么，{userName}？</span>
         </button>
       ) : null}
 
@@ -88,7 +116,7 @@ export function Composer({
           height="auto"
           header={
             <LayoutHeader hasDivider>
-              <h2 className="text-lg font-semibold text-primary">发布朋友圈</h2>
+              <h2 {...stylex.props(styles.heading)}>发布朋友圈</h2>
             </LayoutHeader>
           }
           content={

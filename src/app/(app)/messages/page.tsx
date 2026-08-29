@@ -1,9 +1,21 @@
-import {EmptyState} from '@astryxdesign/core/EmptyState';
+import * as stylex from '@stylexjs/stylex';
 import {MessageCircle} from 'lucide-react';
+import {EmptyState} from '@astryxdesign/core/EmptyState';
 
+const styles = stylex.create({
+  root: {
+    display: 'none',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    '@media (min-width: 1024px)': {
+      display: 'flex',
+    },
+  },
+});
 export default function MessagesIndexPage() {
   return (
-    <div className="hidden h-full items-center justify-center lg:flex">
+    <div {...stylex.props(styles.root)}>
       <EmptyState
         icon={<MessageCircle size={40} strokeWidth={1.5} />}
         title="选择一个对话"

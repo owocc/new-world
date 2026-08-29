@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition, useMemo, useCallback } from 'react';
+import * as stylex from '@stylexjs/stylex';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
@@ -18,14 +19,149 @@ import {
 import {
   Bell,
   CheckCheck,
-  MessageCircle,
-  MessageSquare,
-  Heart,
-  Sparkles,
   ChevronRight,
-  Filter,
 } from 'lucide-react';
-import clsx from 'clsx';
+
+const styles = stylex.create({
+  root: {
+    width: '100%',
+    maxWidth: 720,
+    marginInline: 'auto',
+    paddingTop: 16,
+    paddingRight: 16,
+    paddingBottom: 48,
+    paddingLeft: 16,
+  },
+  header: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 20,
+  },
+  titleGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 700,
+    letterSpacing: '-0.025em',
+    color: 'var(--color-text-primary)',
+  },
+  filter: {
+    marginBottom: 16,
+  },
+  empty: {
+    marginBlock: 32,
+    border: '1px solid var(--color-border)',
+    borderRadius: 12,
+    backgroundColor: 'var(--color-background-surface)',
+    padding: 32,
+    textAlign: 'center',
+  },
+  emptyIcon: {
+    color: 'var(--color-text-secondary)',
+  },
+  list: {
+    overflow: 'hidden',
+    border: '1px solid var(--color-border)',
+    borderRadius: 12,
+    backgroundColor: 'var(--color-background-surface)',
+    boxShadow: '0 1px 2px var(--color-shadow)',
+  },
+  item: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 14,
+    padding: 16,
+    transitionProperty: 'background-color',
+    transitionDuration: '125ms',
+    ':hover': {
+      backgroundColor: 'color-mix(in srgb, var(--color-background-muted) 70%, transparent)',
+    },
+  },
+  unreadItem: {
+    backgroundColor: 'color-mix(in srgb, var(--color-background-muted) 70%, var(--color-background-surface))',
+  },
+  itemDivider: {
+    borderTop: '1px solid var(--color-border)',
+  },
+  avatarWrap: {
+    position: 'relative',
+    flexShrink: 0,
+    paddingTop: 2,
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 12,
+    height: 12,
+    border: '2px solid var(--color-background-surface)',
+    borderRadius: 9999,
+    backgroundColor: 'var(--color-accent)',
+  },
+  itemContent: {
+    minWidth: 0,
+    flex: 1,
+  },
+  itemHeader: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  character: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  characterName: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: 'var(--color-text-primary)',
+  },
+  time: {
+    flexShrink: 0,
+    fontSize: 12,
+    color: 'var(--color-text-secondary)',
+  },
+  action: {
+    marginTop: 4,
+    color: 'var(--color-text-secondary)',
+    transitionProperty: 'color',
+    transitionDuration: '125ms',
+  },
+  actionHover: {
+    color: 'var(--color-text-primary)',
+  },
+  notificationContent: {
+    display: '-webkit-box',
+    overflow: 'hidden',
+    marginTop: 8,
+    borderRadius: 8,
+    backgroundColor: 'color-mix(in srgb, var(--color-background-muted) 60%, transparent)',
+    paddingBlock: 8,
+    paddingInline: 12,
+    fontSize: 14,
+    lineHeight: 1.625,
+    color: 'var(--color-text-secondary)',
+    WebkitBoxOrient: 'vertical',
+    WebkitLineClamp: 3,
+  },
+  chevron: {
+    alignSelf: 'center',
+    flexShrink: 0,
+    marginLeft: 4,
+    color: 'color-mix(in srgb, var(--color-text-secondary) 50%, transparent)',
+    transitionProperty: 'transform, color',
+    transitionDuration: '125ms',
+  },
+});
 
 function getNotificationHref(item: NotificationItem): string {
   if (item.conversationId) return `/messages/${item.conversationId}`;
@@ -111,18 +247,17 @@ export function NotificationsView({
   );
 
   return (
-    <div className="mx-auto w-full max-w-[720px] px-4 pb-12 pt-4">
+    <div {...stylex.props(styles.root)}>
       {/* Page Header */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-xl font-bold tracking-tight text-primary">通知</h1>
+      <div {...stylex.props(styles.header)}>
+        <div {...stylex.props(styles.titleGroup)}>
+          <h1 {...stylex.props(styles.title)}>通知</h1>
           {unreadCount > 0 ? (
             <Badge variant="orange" label={`${unreadCount} 条未读`} />
           ) : (
             <Badge variant="neutral" label="已全部已读" />
           )}
         </div>
-
         {unreadCount > 0 && (
           <Button
             size="sm"
@@ -135,8 +270,7 @@ export function NotificationsView({
         )}
       </div>
 
-      {/* Filter Tabs */}
-      <div className="mb-4">
+      <div {...stylex.props(styles.filter)}>
         <SegmentedControl
           label="通知类型筛选"
           value={filter}
@@ -154,11 +288,10 @@ export function NotificationsView({
         </SegmentedControl>
       </div>
 
-      {/* Notifications List */}
       {filteredNotifications.length === 0 ? (
-        <div className="my-8 rounded-xl border border-border bg-surface p-8 text-center">
+        <div {...stylex.props(styles.empty)}>
           <EmptyState
-            icon={<Bell size={40} strokeWidth={1.5} className="text-secondary" />}
+            icon={<Bell size={40} strokeWidth={1.5} {...stylex.props(styles.emptyIcon)} />}
             title={filter === 'unread' ? '没有未读通知' : '暂无相关通知'}
             description={
               filter === 'unread'
@@ -168,20 +301,17 @@ export function NotificationsView({
           />
         </div>
       ) : (
-        <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface shadow-2xs">
-          {filteredNotifications.map((item) => {
+        <div {...stylex.props(styles.list)}>
+          {filteredNotifications.map((item, index) => {
             const href = getNotificationHref(item);
             return (
               <Link
                 key={item.id}
                 href={href}
                 onClick={() => handleItemClick(item)}
-                className={clsx(
-                  'group flex items-start gap-3.5 p-4 transition-colors hover:bg-muted/70',
-                  !item.read && 'bg-surface-elevated/70',
-                )}
+                {...stylex.props(styles.item, !item.read && styles.unreadItem, index > 0 && styles.itemDivider)}
               >
-                <div className="relative shrink-0 pt-0.5">
+                <div {...stylex.props(styles.avatarWrap)}>
                   <UserAvatar
                     name={item.characterName ?? '系统'}
                     emoji={item.characterEmoji ?? '✨'}
@@ -189,41 +319,28 @@ export function NotificationsView({
                     url={item.characterAvatarUrl}
                     size={42}
                   />
-                  {!item.read && (
-                    <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-accent ring-2 ring-surface" />
-                  )}
+                  {!item.read && <span {...stylex.props(styles.unreadDot)} />}
                 </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center justify-between gap-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-primary text-sm">
+                <div {...stylex.props(styles.itemContent)}>
+                  <div {...stylex.props(styles.itemHeader)}>
+                    <div {...stylex.props(styles.character)}>
+                      <span {...stylex.props(styles.characterName)}>
                         {item.characterName ?? '系统'}
                       </span>
                       {getNotificationTypeBadge(item.type)}
                     </div>
-                    <TimeAgo date={item.createdAt} className="shrink-0 text-xs text-secondary" />
+                    <span {...stylex.props(styles.time)}>
+                      <TimeAgo date={item.createdAt} />
+                    </span>
                   </div>
-
-                  <Text
-                    as="p"
-                    size="sm"
-                    className="mt-1 text-secondary group-hover:text-primary transition-colors"
-                  >
+                  <Text as="p" size="sm" xstyle={styles.action}>
                     {getNotificationActionLabel(item.type)}
                   </Text>
-
                   {item.content && (
-                    <div className="mt-2 rounded-lg bg-muted/60 px-3 py-2 text-sm text-secondary leading-relaxed line-clamp-3">
-                      {item.content}
-                    </div>
+                    <div {...stylex.props(styles.notificationContent)}>{item.content}</div>
                   )}
                 </div>
-
-                <ChevronRight
-                  size={16}
-                  className="shrink-0 text-secondary/50 transition-transform group-hover:translate-x-0.5 group-hover:text-primary self-center ml-1"
-                />
+                <ChevronRight size={16} {...stylex.props(styles.chevron)} />
               </Link>
             );
           })}

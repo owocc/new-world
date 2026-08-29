@@ -1,3 +1,5 @@
+import * as stylex from '@stylexjs/stylex';
+import {colorVars, spacingVars, textSizeVars} from '@astryxdesign/core/theme/tokens.stylex';
 import Link from 'next/link';
 import {notFound} from 'next/navigation';
 import {and, eq} from 'drizzle-orm';
@@ -6,6 +8,43 @@ import {db} from '@/db';
 import {aiCharacters, providerConfigs} from '@/db/schema';
 import {CharacterDetail} from '@/components/character-detail';
 import {requireUserId} from '@/lib/session';
+
+const styles = stylex.create({
+  root: {
+    width: '100%',
+    height: '100%',
+    minHeight: 0,
+    overflowY: 'auto',
+    padding: spacingVars['--spacing-4'],
+    '@media (min-width: 640px)': {
+      padding: spacingVars['--spacing-6'],
+    },
+    '@media (min-width: 1024px)': {
+      padding: spacingVars['--spacing-8'],
+    },
+  },
+  content: {
+    width: '100%',
+    maxWidth: '47.5rem',
+    marginInline: 'auto',
+    paddingBottom: spacingVars['--spacing-12'],
+  },
+  backLink: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: spacingVars['--spacing-1-5'],
+    marginBottom: spacingVars['--spacing-4'],
+    color: colorVars['--color-text-secondary'],
+    fontSize: textSizeVars['--font-size-base'],
+    transitionProperty: 'color',
+    transitionDuration: '175ms',
+    '@media (hover: hover)': {
+      ':hover': {
+        color: colorVars['--color-text-primary'],
+      },
+    },
+  },
+});
 
 export const dynamic = 'force-dynamic';
 
@@ -30,12 +69,9 @@ export default async function CharacterDetailPage({
     .where(eq(providerConfigs.userId, userId));
 
   return (
-    <div className="h-full min-h-0 w-full overflow-y-auto p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto w-full max-w-[760px] pb-12">
-        <Link
-          href="/characters"
-          className="mb-4 inline-flex items-center gap-1.5 text-sm text-secondary transition-colors hover:text-primary"
-        >
+    <div {...stylex.props(styles.root)}>
+      <div {...stylex.props(styles.content)}>
+        <Link href="/characters" {...stylex.props(styles.backLink)}>
           <ArrowLeft size={16} />
           返回联系人
         </Link>

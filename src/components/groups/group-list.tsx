@@ -9,7 +9,24 @@ import { UserAvatar } from '@/components/user-avatar';
 import { TimeAgo } from '@/components/time-ago';
 import type { GroupView } from '@/server/groups';
 import { Plus } from 'lucide-react';
+import * as stylex from '@stylexjs/stylex';
 
+const styles = stylex.create({
+  root: {display: 'flex', height: '100%', flexDirection: 'column'},
+  hiddenMobile: {'@media (max-width: 1023px)': {display: 'none'}},
+  header: {display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingInline: '16px', paddingTop: '16px', paddingBottom: '12px'},
+  title: {fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.01em'},
+  empty: {paddingInline: '24px', paddingBlock: '40px', textAlign: 'center'},
+  nav: {flex: 1, overflowY: 'auto'},
+  link: {display: 'flex', alignItems: 'center', gap: '12px', marginInline: '8px', marginBottom: '2px', borderRadius: 'var(--radius-container)', paddingInline: '10px', paddingBlock: '10px', color: 'var(--color-text-secondary)', transition: 'background-color 150ms ease, color 150ms ease', ':hover': {backgroundColor: 'var(--color-overlay-hover)', color: 'var(--color-text-primary)'}},
+  activeLink: {backgroundColor: 'var(--color-neutral)', color: 'var(--color-text-primary)', fontWeight: 'var(--font-weight-medium)', boxShadow: 'var(--shadow-low)'},
+  content: {minWidth: 0, flex: 1},
+  topRow: {display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px'},
+  name: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '15px', fontWeight: 'var(--font-weight-medium)'},
+  time: {flexShrink: 0, fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)'},
+  bottomRow: {display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: '2px'},
+  preview: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px', color: 'var(--color-text-secondary)'},
+});
 export function GroupList({
   groups,
 }: {
@@ -20,23 +37,23 @@ export function GroupList({
   const activeId = pathname.startsWith('/groups/') ? pathname.split('/')[2] : undefined;
 
   return (
-    <div className={`flex h-full flex-col ${hiddenOnMobile ? 'hidden lg:flex' : 'flex'}`}>
+    <div {...stylex.props(styles.root, hiddenOnMobile && styles.hiddenMobile)}>
       {/* Header — identical to ConversationList */}
-      <div className="flex items-center justify-between px-4 pb-3 pt-4">
-        <h1 className="text-xl font-semibold tracking-tight">群聊</h1>
+      <div {...stylex.props(styles.header)}>
+        <h1 {...stylex.props(styles.title)}>群聊</h1>
         <Link href="/groups/new">
           <Button label="新建" variant="ghost" size="sm" icon={<Plus size={15} />} />
         </Link>
       </div>
 
       {groups.length === 0 ? (
-        <div className="px-6 py-10 text-center">
+        <div {...stylex.props(styles.empty)}>
           <Text type="supporting" as="p">
             还没有群聊，点击右上角新建一个吧
           </Text>
         </div>
       ) : (
-        <nav className="flex-1 overflow-y-auto" aria-label="群聊列表">
+        <nav {...stylex.props(styles.nav)} aria-label="群聊列表">
           {groups.map((g) => {
             const isActive = activeId === g.id;
             return (
@@ -44,11 +61,7 @@ export function GroupList({
                 key={g.id}
                 href={`/groups/${g.id}`}
                 aria-current={isActive ? 'page' : undefined}
-                className={`mx-2 mb-0.5 flex items-center gap-3 rounded-xl px-2.5 py-2.5 transition-colors ${
-                  isActive
-                    ? 'bg-neutral text-primary font-medium shadow-xs'
-                    : 'text-secondary hover:bg-overlay-hover hover:text-primary'
-                }`}
+                {...stylex.props(styles.link, isActive && styles.activeLink)}
               >
                 <UserAvatar
                   name={g.name}
@@ -57,19 +70,19 @@ export function GroupList({
                   url={g.avatarUrl}
                   size={46}
                 />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="truncate text-[15px] font-medium">{g.name}</span>
+                <div {...stylex.props(styles.content)}>
+                  <div {...stylex.props(styles.topRow)}>
+                    <span {...stylex.props(styles.name)}>{g.name}</span>
                     {g.lastMessageAt && (
                       <TimeAgo
                         date={g.lastMessageAt}
                         short
-                        className="shrink-0 text-xs text-secondary"
+                        xstyle={styles.time}
                       />
                     )}
                   </div>
-                  <div className="mt-0.5 flex items-center justify-between gap-2">
-                    <span className="truncate text-[13px] text-secondary">
+                  <div {...stylex.props(styles.bottomRow)}>
+                    <span {...stylex.props(styles.preview)}>
                       {g.lastMessagePreview ?? `${g.memberCount} 位成员`}
                     </span>
                     {g.unreadCount > 0 && (

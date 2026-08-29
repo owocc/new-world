@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import * as stylex from '@stylexjs/stylex';
+import { colorVars, radiusVars, shadowVars } from '@astryxdesign/core/theme/tokens.stylex';
 import { DropdownMenu } from '@astryxdesign/core/DropdownMenu';
 import { UserAvatar } from '@/components/user-avatar';
 import {
@@ -19,16 +21,153 @@ import { useThemeMode } from '@/components/providers';
 import { NotificationPopover } from '@/components/notification-popover';
 import type { NotificationItem } from '@/server/actions/feed';
 
+const styles = stylex.create({
+  shell: {
+    display: 'flex',
+    height: '100vh',
+    width: '100vw',
+    overflow: 'hidden',
+    backgroundColor: colorVars['--color-background-body'],
+  },
+  rail: {
+    display: 'flex',
+    width: 64,
+    flexShrink: 0,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBlock: 14,
+    userSelect: 'none',
+  },
+  top: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    rowGap: 16,
+  },
+  logo: {
+    display: 'flex',
+    height: 40,
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radiusVars['--radius-container'],
+    backgroundColor: colorVars['--color-accent'],
+    color: colorVars['--color-on-accent'],
+    boxShadow: shadowVars['--shadow-low'],
+    transitionProperty: 'transform',
+    transitionDuration: '175ms',
+    ':hover': {
+      transform: 'scale(1.05)',
+    },
+  },
+  navGroup: {
+    display: 'flex',
+    marginTop: 8,
+    flexDirection: 'column',
+    alignItems: 'center',
+    rowGap: 8,
+  },
+  navItem: {
+    position: 'relative',
+    display: 'flex',
+    height: 44,
+    width: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radiusVars['--radius-page'],
+    transitionProperty: 'background-color, color, box-shadow',
+    transitionDuration: '175ms',
+  },
+  navSelected: {
+    backgroundColor: colorVars['--color-background-surface'],
+    color: colorVars['--color-text-accent'],
+    boxShadow: shadowVars['--shadow-low'],
+  },
+  navIdle: {
+    color: colorVars['--color-text-secondary'],
+    ':hover': {
+      backgroundColor: colorVars['--color-background-muted'],
+      color: colorVars['--color-text-primary'],
+    },
+  },
+  bottom: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    rowGap: 12,
+  },
+  settings: {
+    display: 'flex',
+    height: 40,
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radiusVars['--radius-page'],
+    transitionProperty: 'background-color, color, box-shadow',
+    transitionDuration: '175ms',
+  },
+  settingsActive: {
+    backgroundColor: colorVars['--color-background-surface'],
+    color: colorVars['--color-text-accent'],
+    boxShadow: shadowVars['--shadow-low'],
+  },
+  settingsIdle: {
+    color: colorVars['--color-text-secondary'],
+    ':hover': {
+      backgroundColor: colorVars['--color-background-muted'],
+      color: colorVars['--color-text-primary'],
+    },
+  },
+  unreadBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    display: 'flex',
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radiusVars['--radius-full'],
+    backgroundColor: colorVars['--color-accent'],
+    paddingInline: 4,
+    color: colorVars['--color-on-accent'],
+    fontSize: 10,
+    fontWeight: 700,
+    boxShadow: shadowVars['--shadow-low'],
+  },
+  main: {
+    display: 'flex',
+    minHeight: 0,
+    minWidth: 0,
+    flex: 1,
+    padding: 12,
+    paddingLeft: 0,
+  },
+  card: {
+    display: 'flex',
+    height: '100%',
+    minHeight: 0,
+    width: '100%',
+    flex: 1,
+    overflow: 'hidden',
+    border: '1px solid',
+    borderColor: colorVars['--color-border'],
+    borderRadius: radiusVars['--radius-page'],
+    backgroundColor: colorVars['--color-background-surface'],
+    boxShadow: shadowVars['--shadow-low'],
+  },
+});
+
 export type ShellUser = {
   name: string;
   email: string;
   image: string | null;
 };
-
 function UnreadBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white shadow-xs">
+    <span {...stylex.props(styles.unreadBadge)}>
       {count > 99 ? '99+' : count}
     </span>
   );
@@ -79,27 +218,19 @@ export function AppNav({
   ];
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-body">
-      {/* 
-        Column 1: Main Icon Rail 
-        Only icon buttons, fixed width (w-16 / 64px), matching WeChat/messenger style
-      */}
-      <nav
-        className="flex w-16 shrink-0 flex-col items-center justify-between py-3.5 select-none"
-        aria-label="主导航"
-      >
-        {/* Top: App Logo + Navigation Icons */}
-        <div className="flex flex-col items-center gap-4">
+    <div {...stylex.props(styles.shell)}>
+      <nav {...stylex.props(styles.rail)} aria-label="主导航">
+        <div {...stylex.props(styles.top)}>
           <Link
             href="/feed"
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-on-accent shadow-xs transition-transform hover:scale-105"
+            {...stylex.props(styles.logo)}
             title="我的世界"
           >
             <Heart size={20} fill="currentColor" strokeWidth={0} />
           </Link>
 
           {/* Navigation Items */}
-          <div className="mt-2 flex flex-col items-center gap-2">
+          <div {...stylex.props(styles.navGroup)}>
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               return (
@@ -107,11 +238,7 @@ export function AppNav({
                   key={item.href}
                   href={item.href}
                   title={item.label}
-                  className={`group relative flex h-11 w-11 items-center justify-center rounded-2xl transition-all ${
-                    item.selected
-                      ? 'bg-surface text-accent shadow-xs'
-                      : 'text-secondary hover:bg-muted hover:text-primary'
-                  }`}
+                  {...stylex.props(styles.navItem, item.selected ? styles.navSelected : styles.navIdle)}
                 >
                   <Icon size={22} strokeWidth={item.selected ? 2.2 : 1.8} />
                   {item.badge ? <UnreadBadge count={item.badge} /> : null}
@@ -122,7 +249,7 @@ export function AppNav({
         </div>
 
         {/* Bottom: Settings, Theme & User Avatar */}
-        <div className="flex flex-col items-center gap-3">
+        <div {...stylex.props(styles.bottom)}>
           <NotificationPopover
             initialNotifications={initialNotifications}
             initialUnreadCount={unreadNotifications}
@@ -131,13 +258,14 @@ export function AppNav({
           <Link
             href="/settings"
             title="系统设置"
-            className={`flex h-10 w-10 items-center justify-center rounded-2xl transition-all ${
+            {...stylex.props(
+              styles.settings,
               isActive(pathname, '/settings') ||
-              isActive(pathname, '/usage') ||
-              isActive(pathname, '/notifications')
-                ? 'bg-surface text-accent shadow-xs'
-                : 'text-secondary hover:bg-muted hover:text-primary'
-            }`}
+                isActive(pathname, '/usage') ||
+                isActive(pathname, '/notifications')
+                ? styles.settingsActive
+                : styles.settingsIdle,
+            )}
           >
             <Settings size={20} />
           </Link>
@@ -189,12 +317,9 @@ export function AppNav({
         </div>
       </nav>
 
-      {/* 
-        Main Area:
-        Outer blank padding (p-3 pl-0) + Inner Card (四周圆角 + 描边 + bg-surface + overflow-hidden)
-      */}
-      <main className="flex min-h-0 min-w-0 flex-1 p-3 pl-0">
-        <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden rounded-2xl border border-border bg-surface shadow-xs">
+      {/* Main Area */}
+      <main {...stylex.props(styles.main)}>
+        <div {...stylex.props(styles.card)}>
           {children}
         </div>
       </main>

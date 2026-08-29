@@ -2,10 +2,103 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import * as stylex from '@stylexjs/stylex';
+import { colorVars, radiusVars, shadowVars } from '@astryxdesign/core/theme/tokens.stylex';
 import { Download, X, ZoomIn, ZoomOut } from 'lucide-react';
-import { Button } from '@astryxdesign/core/Button';
 import { resolveMediaUrl } from '@/lib/utils';
-import type { MediaAssetView } from '@/server/media';
+
+const styles = stylex.create({
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 50,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backdropFilter: 'blur(4px)',
+    transitionProperty: 'opacity',
+    transitionDuration: '175ms',
+  },
+  toolbar: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    left: 0,
+    zIndex: 10,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    color: colorVars['--color-on-dark'],
+    backgroundImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent)',
+  },
+  filename: {
+    maxWidth: 448,
+    overflow: 'hidden',
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 14,
+    fontWeight: 500,
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  dimensions: {
+    marginLeft: 8,
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+  },
+  toolbarActions: {
+    display: 'flex',
+    alignItems: 'center',
+    columnGap: 8,
+  },
+  action: {
+    display: 'flex',
+    height: 36,
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radiusVars['--radius-full'],
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: colorVars['--color-on-dark'],
+    transitionProperty: 'background-color',
+    transitionDuration: '175ms',
+    ':hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    },
+  },
+  imageContainer: {
+    display: 'flex',
+    height: '100%',
+    width: '100%',
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'auto',
+    padding: 16,
+    cursor: 'zoom-out',
+    '@media (min-width: 768px)': {
+      padding: 40,
+    },
+  },
+  image: {
+    maxHeight: '85vh',
+    maxWidth: '90vw',
+    borderRadius: radiusVars['--radius-element'],
+    objectFit: 'contain',
+    boxShadow: shadowVars['--shadow-high'],
+    transitionProperty: 'transform',
+    transitionDuration: '175ms',
+    userSelect: 'none',
+    cursor: 'zoom-in',
+  },
+  imageZoomed: {
+    maxWidth: 'none',
+    transform: 'scale(1.25)',
+    cursor: 'zoom-out',
+  },
+});
 
 export function MediaLightbox({
   media,
@@ -36,27 +129,27 @@ export function MediaLightbox({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+      {...stylex.props(styles.overlay)}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       {/* Top action bar */}
-      <div className="absolute top-0 inset-x-0 flex items-center justify-between p-4 text-white z-10 bg-gradient-to-b from-black/60 to-transparent">
-        <div className="text-sm font-medium truncate max-w-md text-white/90">
+      <div {...stylex.props(styles.toolbar)}>
+        <div {...stylex.props(styles.filename)}>
           {media.originalFilename || '图片预览'}
           {media.width && media.height ? (
-            <span className="text-xs text-white/60 ml-2">
+            <span {...stylex.props(styles.dimensions)}>
               ({media.width} × {media.height})
             </span>
           ) : null}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div {...stylex.props(styles.toolbarActions)}>
           <button
             type="button"
             onClick={() => setZoomed(!zoomed)}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            {...stylex.props(styles.action)}
             title={zoomed ? '适应屏幕' : '放大'}
           >
             {zoomed ? <ZoomOut size={18} /> : <ZoomIn size={18} />}
@@ -66,7 +159,7 @@ export function MediaLightbox({
             target="_blank"
             rel="noopener noreferrer"
             download={media.originalFilename || 'image'}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            {...stylex.props(styles.action)}
             title="下载原图"
           >
             <Download size={18} />
@@ -74,7 +167,7 @@ export function MediaLightbox({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            {...stylex.props(styles.action)}
             title="关闭 (Esc)"
           >
             <X size={20} />
@@ -84,7 +177,7 @@ export function MediaLightbox({
 
       {/* Main Image Container */}
       <div
-        className="flex-1 w-full h-full flex items-center justify-center p-4 md:p-10 overflow-auto cursor-zoom-out"
+        {...stylex.props(styles.imageContainer)}
         onClick={onClose}
       >
         <img
@@ -94,11 +187,7 @@ export function MediaLightbox({
             e.stopPropagation();
             setZoomed(!zoomed);
           }}
-          className={`transition-transform duration-200 select-none rounded-lg shadow-2xl ${
-            zoomed
-              ? 'max-w-none scale-125 cursor-zoom-out'
-              : 'max-h-[85vh] max-w-[90vw] object-contain cursor-zoom-in'
-          }`}
+          {...stylex.props(styles.image, zoomed && styles.imageZoomed)}
         />
       </div>
     </div>,

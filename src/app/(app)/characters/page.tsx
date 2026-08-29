@@ -1,14 +1,62 @@
+import * as stylex from '@stylexjs/stylex';
+import {fontWeightVars, spacingVars, textSizeVars} from '@astryxdesign/core/theme/tokens.stylex';
 import Link from 'next/link';
 import {eq} from 'drizzle-orm';
-import {Plus} from 'lucide-react';
+import {Plus, Users} from 'lucide-react';
 import {db} from '@/db';
 import {aiCharacters, aiRelationships, providerConfigs} from '@/db/schema';
 import {Button} from '@astryxdesign/core/Button';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {Divider} from '@astryxdesign/core/Divider';
-import {Users} from 'lucide-react';
 import {CharacterCard, RelationshipEditor, type CharacterListItem} from '@/components/character-card';
 import {requireUserId} from '@/lib/session';
+
+const styles = stylex.create({
+  root: {
+    width: '100%',
+    height: '100%',
+    minHeight: 0,
+    overflowY: 'auto',
+    padding: spacingVars['--spacing-4'],
+    '@media (min-width: 640px)': {
+      padding: spacingVars['--spacing-6'],
+    },
+    '@media (min-width: 1024px)': {
+      padding: spacingVars['--spacing-8'],
+    },
+  },
+  content: {
+    width: '100%',
+    maxWidth: '60rem',
+    marginInline: 'auto',
+    paddingBottom: spacingVars['--spacing-12'],
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  heading: {
+    fontSize: textSizeVars['--font-size-xl'],
+    fontWeight: fontWeightVars['--font-weight-semibold'],
+    letterSpacing: '-0.025em',
+  },
+  empty: {
+    paddingBlock: spacingVars['--spacing-10'],
+  },
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr)',
+    gap: spacingVars['--spacing-3'],
+    marginTop: spacingVars['--spacing-4'],
+    '@media (min-width: 640px)': {
+      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    },
+  },
+  divider: {
+    marginBlock: spacingVars['--spacing-6'],
+  },
+});
 
 export const metadata = {title: '联系人'};
 export const dynamic = 'force-dynamic';
@@ -35,17 +83,17 @@ export default async function CharactersPage() {
   items.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
   return (
-    <div className="h-full min-h-0 w-full overflow-y-auto p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto w-full max-w-[960px] pb-12">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold tracking-tight">联系人</h1>
+    <div {...stylex.props(styles.root)}>
+      <div {...stylex.props(styles.content)}>
+        <div {...stylex.props(styles.header)}>
+          <h1 {...stylex.props(styles.heading)}>联系人</h1>
           <Link href="/characters/new">
             <Button label="新增居民" variant="primary" size="sm" icon={<Plus size={15} />} />
           </Link>
         </div>
 
         {items.length === 0 ? (
-          <div className="py-10">
+          <div {...stylex.props(styles.empty)}>
             <EmptyState
               icon={<Users size={40} strokeWidth={1.5} />}
               title="还没有联系人"
@@ -58,7 +106,7 @@ export default async function CharactersPage() {
             />
           </div>
         ) : (
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div {...stylex.props(styles.grid)}>
             {items.map((c) => (
               <CharacterCard key={c.id} character={c} />
             ))}
@@ -67,7 +115,7 @@ export default async function CharactersPage() {
 
         {items.length > 0 && (
           <>
-            <Divider className="my-6" />
+            <Divider xstyle={styles.divider} />
             <RelationshipEditor
               characters={items.map((c) => ({
                 id: c.id,

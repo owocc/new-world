@@ -2,11 +2,162 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import * as stylex from '@stylexjs/stylex';
+import { colorVars, radiusVars, shadowVars } from '@astryxdesign/core/theme/tokens.stylex';
 import Cropper from 'react-easy-crop';
 import type { Area, Point } from 'react-easy-crop';
 import { Button } from '@astryxdesign/core/Button';
 import { Slider } from '@astryxdesign/core/Slider';
 import { ArrowLeft, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+
+const styles = stylex.create({
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 50,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backdropFilter: 'blur(4px)',
+  },
+  card: {
+    position: 'relative',
+    display: 'flex',
+    width: '100%',
+    maxWidth: 480,
+    flexDirection: 'column',
+    overflow: 'hidden',
+    border: '1px solid',
+    borderColor: colorVars['--color-border'],
+    borderRadius: radiusVars['--radius-chat'],
+    backgroundColor: colorVars['--color-background-surface'],
+    boxShadow: shadowVars['--shadow-high'],
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBlock: 14,
+    paddingInline: 16,
+    borderBottom: '1px solid',
+    borderBottomColor: colorVars['--color-border'],
+    backgroundColor: colorVars['--color-background-surface'],
+    userSelect: 'none',
+    '@media (min-width: 640px)': {
+      paddingInline: 20,
+    },
+  },
+  headerGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    columnGap: 12,
+  },
+  closeButton: {
+    display: 'flex',
+    height: 32,
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radiusVars['--radius-full'],
+    color: colorVars['--color-text-primary'],
+    transitionProperty: 'background-color, color',
+    transitionDuration: '175ms',
+    ':hover': {
+      backgroundColor: colorVars['--color-background-muted'],
+    },
+  },
+  title: {
+    color: colorVars['--color-text-primary'],
+    fontSize: 16,
+    fontWeight: 600,
+    lineHeight: 1,
+  },
+  viewport: {
+    position: 'relative',
+    display: 'flex',
+    height: 310,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    padding: 16,
+    backgroundColor: 'color-mix(in srgb, var(--color-background-muted) 20%, transparent)',
+    userSelect: 'none',
+    '@media (min-width: 640px)': {
+      height: 340,
+      padding: 24,
+    },
+  },
+  cropContainer: {
+    position: 'relative',
+    height: '100%',
+    width: '100%',
+    overflow: 'hidden',
+    borderRadius: radiusVars['--radius-container'],
+    boxShadow: shadowVars['--shadow-high'],
+  },
+  cropArea: {
+    border: '2px solid #38bdf8 !important',
+    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.55) !important',
+  },
+  footer: {
+    display: 'flex',
+    alignItems: 'center',
+    columnGap: 12,
+    paddingBlock: 14,
+    paddingInline: 20,
+    borderTop: '1px solid',
+    borderTopColor: colorVars['--color-border'],
+    backgroundColor: colorVars['--color-background-surface'],
+    userSelect: 'none',
+  },
+  zoomButton: {
+    padding: 4,
+    color: colorVars['--color-text-secondary'],
+    borderRadius: radiusVars['--radius-inner'],
+    transitionProperty: 'background-color, color',
+    transitionDuration: '175ms',
+    ':hover': {
+      color: colorVars['--color-text-primary'],
+      backgroundColor: colorVars['--color-background-muted'],
+    },
+  },
+  slider: {
+    flex: 1,
+  },
+  divider: {
+    display: 'none',
+    height: 16,
+    width: 1,
+    marginLeft: 4,
+    marginRight: 2,
+    backgroundColor: colorVars['--color-border'],
+    '@media (min-width: 640px)': {
+      display: 'block',
+    },
+  },
+  resetButton: {
+    display: 'none',
+    alignItems: 'center',
+    columnGap: 4,
+    paddingBlock: 4,
+    paddingInline: 8,
+    borderRadius: radiusVars['--radius-element'],
+    color: colorVars['--color-text-secondary'],
+    fontSize: 12,
+    transitionProperty: 'background-color, color',
+    transitionDuration: '175ms',
+    ':hover': {
+      color: colorVars['--color-text-primary'],
+      backgroundColor: colorVars['--color-background-muted'],
+    },
+    '@media (min-width: 640px)': {
+      display: 'flex',
+    },
+  },
+});
 
 export type PixelCrop = Area;
 
@@ -171,30 +322,27 @@ export function MediaCropModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+      {...stylex.props(styles.overlay)}
       onClick={(e) => {
         if (e.target === e.currentTarget && !processing) onClose();
       }}
     >
       {/* Self-contained Twitter/X Style Card Container */}
-      <div
-        className="relative flex flex-col w-full max-w-[480px] overflow-hidden rounded-3xl border border-border bg-surface shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div {...stylex.props(styles.card)} onClick={(e) => e.stopPropagation()}>
         {/* Top Header: Back/Close button, Title, Apply button */}
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-border bg-surface select-none">
-          <div className="flex items-center gap-3">
+        <div {...stylex.props(styles.header)}>
+          <div {...stylex.props(styles.headerGroup)}>
             <button
               type="button"
               disabled={processing}
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-primary hover:bg-muted transition-colors"
+              {...stylex.props(styles.closeButton)}
               title="返回 (Esc)"
               aria-label="返回"
             >
               <ArrowLeft size={18} />
             </button>
-            <h3 className="text-base font-semibold text-primary leading-none">{title}</h3>
+            <h3 {...stylex.props(styles.title)}>{title}</h3>
           </div>
 
           <Button
@@ -208,12 +356,9 @@ export function MediaCropModal({
         </div>
 
         {/* Center: Crop Viewport with comfortable Outer Padding (留白) */}
-        <div className="relative w-full h-[310px] sm:h-[340px] bg-muted/20 p-4 sm:p-6 flex items-center justify-center select-none overflow-hidden">
+        <div {...stylex.props(styles.viewport)}>
           {/* Inner Cropper Container */}
-          <div
-            className="relative w-full h-full rounded-2xl overflow-hidden shadow-inner"
-            style={{ position: 'relative' }}
-          >
+          <div {...stylex.props(styles.cropContainer)}>
             <Cropper
               image={imageSrc}
               crop={crop}
@@ -229,23 +374,23 @@ export function MediaCropModal({
               onZoomChange={onZoomChange}
               onCropComplete={onCropCompleteCallback}
               classes={{
-                cropAreaClassName: '!border-2 !border-sky-400 !shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]',
+                cropAreaClassName: stylex.props(styles.cropArea).className,
               }}
             />
           </div>
         </div>
 
         {/* Bottom Bar: Clean Zoom Slider + Quick Reset */}
-        <div className="flex items-center gap-3 px-5 py-3.5 bg-surface border-t border-border select-none">
+        <div {...stylex.props(styles.footer)}>
           <button
             type="button"
             onClick={() => setZoom((z) => Math.max(1, z - 0.2))}
-            className="p-1 text-secondary hover:text-primary transition-colors rounded hover:bg-muted"
+            {...stylex.props(styles.zoomButton)}
             title="缩小"
           >
             <ZoomOut size={18} />
           </button>
-          <div className="flex-1">
+          <div {...stylex.props(styles.slider)}>
             <Slider
               label="缩放"
               isLabelHidden
@@ -264,13 +409,13 @@ export function MediaCropModal({
           <button
             type="button"
             onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
-            className="p-1 text-secondary hover:text-primary transition-colors rounded hover:bg-muted"
+            {...stylex.props(styles.zoomButton)}
             title="放大"
           >
             <ZoomIn size={18} />
           </button>
 
-          <div className="h-4 w-px bg-border ml-1 mr-0.5 hidden sm:block" />
+          <div {...stylex.props(styles.divider)} />
 
           <button
             type="button"
@@ -279,7 +424,7 @@ export function MediaCropModal({
               setCrop({ x: 0, y: 0 });
               setZoom(1);
             }}
-            className="hidden sm:flex items-center gap-1 text-xs text-secondary hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-muted"
+            {...stylex.props(styles.resetButton)}
             title="重置位置"
           >
             <RotateCcw size={14} />

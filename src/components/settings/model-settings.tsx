@@ -15,8 +15,17 @@ import {proportional, pixel} from '@astryxdesign/core/Table';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {VStack} from '@astryxdesign/core/Stack';
 import {useAppToast} from '@/lib/toast';
-import {deleteModel, saveModel} from '@/server/actions/settings';
+import {saveModel, deleteModel} from '@/server/actions/settings';
+import * as stylex from '@stylexjs/stylex';
 
+const styles = stylex.create({
+  header: {display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--color-border)', paddingBottom: '12px'},
+  backLink: {display: 'flex', width: '32px', height: '32px', flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', color: 'var(--color-text-secondary)', '@media (min-width: 1024px)': {display: 'none'}, ':hover': {backgroundColor: 'var(--color-background-muted)'}},
+  title: {fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.01em'},
+  subtitle: {fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)'},
+  formGrid: {display: 'grid', gridTemplateColumns: '1fr', gap: '12px', '@media (min-width: 640px)': {gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'}, '@media (min-width: 1024px)': {gridTemplateColumns: '1fr 1fr 1fr 1fr auto', alignItems: 'end'}},
+  deleteButton: {borderRadius: '9999px', padding: '6px', color: 'var(--color-text-secondary)', transition: 'color 150ms ease', ':hover': {color: 'var(--color-error)'}},
+});
 export type ModelRow = {
   id: string;
   providerId: string;
@@ -43,6 +52,7 @@ export function ModelSettings({
   const [inPrice, setInPrice] = useState<number | null>(0);
   const [outPrice, setOutPrice] = useState<number | null>(0);
   const [saving, setSaving] = useState(false);
+  const rows: TableRow[] = models;
 
   if (providers.length === 0) {
     return (
@@ -71,25 +81,16 @@ export function ModelSettings({
       return;
     }
     toast.success('模型已保存');
-    setModelId('');
-    router.refresh();
   };
-
-  const rows: TableRow[] = models.map((m) => ({...m}));
-
   return (
     <VStack gap={5}>
-      <div className="flex items-center gap-2 border-b border-border pb-3">
-        <Link
-          href="/settings"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary hover:bg-muted lg:hidden"
-          aria-label="返回设置菜单"
-        >
+      <div {...stylex.props(styles.header)}>
+        <Link href="/settings" {...stylex.props(styles.backLink)} aria-label="返回设置菜单">
           <ArrowLeft size={18} />
         </Link>
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">模型与价格</h1>
-          <p className="text-xs text-secondary">配置各 Provider 下可用的模型标识及 Token 计费价格</p>
+          <h1 {...stylex.props(styles.title)}>模型与价格</h1>
+          <p {...stylex.props(styles.subtitle)}>配置各 Provider 下可用的模型标识及 Token 计费价格</p>
         </div>
       </div>
       <Text type="supporting" size="sm" as="p">
@@ -97,7 +98,7 @@ export function ModelSettings({
       </Text>
 
       <Card padding={4}>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] lg:items-end">
+        <div {...stylex.props(styles.formGrid)}>
           <Selector
             label="Provider"
             isLabelHidden
@@ -160,7 +161,6 @@ export function ModelSettings({
             {
               key: 'actions',
               header: '',
-              width: pixel(56),
               renderCell: (row) => (
                 <button
                   onClick={async () => {
@@ -168,7 +168,7 @@ export function ModelSettings({
                     toast.success('已删除');
                     router.refresh();
                   }}
-                  className="rounded-full p-1.5 text-secondary transition-colors hover:text-error"
+                  {...stylex.props(styles.deleteButton)}
                   aria-label={`删除 ${row.modelId}`}
                 >
                   <Trash2 size={15} />

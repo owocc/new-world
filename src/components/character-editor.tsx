@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import * as stylex from '@stylexjs/stylex';
 import { Camera, Loader2, Save, Trash2, Upload } from 'lucide-react';
 import { Button } from '@astryxdesign/core/Button';
 import { TextInput } from '@astryxdesign/core/TextInput';
@@ -19,6 +20,82 @@ import { nativeAttrs } from '@/lib/native-attrs';
 import { useAppToast } from '@/lib/toast';
 import {UserAvatar, AVATAR_COLORS} from '@/components/user-avatar';
 import {createCharacter, updateCharacter, type CharacterInput} from '@/server/actions/characters';
+
+const spin = stylex.keyframes({
+  from: {transform: 'rotate(0deg)'},
+  to: {transform: 'rotate(360deg)'},
+});
+
+const styles = stylex.create({
+  emojiList: {display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-1-5)'},
+  emojiButton: {
+    display: 'flex',
+    width: '40px',
+    height: '40px',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: 0,
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'transparent',
+    fontSize: 'var(--font-size-xl)',
+    transition: 'all 175ms ease',
+    ':hover': {'@media (hover: hover)': {backgroundColor: 'var(--color-background-muted)'}},
+  },
+  emojiSelected: {
+    backgroundColor: 'var(--color-background-muted)',
+    boxShadow: '0 0 0 2px var(--color-accent)',
+  },
+  colorList: {display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-2)'},
+  colorButton: {
+    border: 0,
+    borderRadius: 'var(--radius-full)',
+    padding: 0,
+    backgroundColor: 'transparent',
+    transition: 'all 175ms ease',
+  },
+  colorSelected: {
+    boxShadow: '0 0 0 2px var(--color-accent), 0 0 0 4px var(--color-background-body)',
+  },
+  identityPreview: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--spacing-4)',
+    border: 'var(--border-width) solid var(--color-border)',
+    borderRadius: '16px',
+    backgroundColor: 'var(--color-background-surface)',
+    padding: 'var(--spacing-3)',
+  },
+  avatarContainer: {position: 'relative'},
+  avatarOverlay: {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: 0,
+    borderRadius: 'var(--radius-full)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    color: 'white',
+    opacity: 0,
+    transition: 'opacity 175ms ease',
+    ':hover': {'@media (hover: hover)': {opacity: 1}},
+    ':focus-visible': {opacity: 1},
+  },
+  avatarOverlayVisible: {opacity: 1},
+  hidden: {display: 'none'},
+  previewDetails: {minWidth: 0, flex: 1},
+  previewName: {fontSize: 'var(--font-size-lg)', fontWeight: 'var(--font-weight-semibold)'},
+  previewUsername: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    color: 'var(--color-text-secondary)',
+    fontSize: 'var(--font-size-sm)',
+  },
+  spinner: {animationName: spin, animationDuration: '1s', animationTimingFunction: 'linear', animationIterationCount: 'infinite'},
+  previewActions: {display: 'flex', alignItems: 'center', gap: 'var(--spacing-2)', marginTop: '6px'},
+  fieldLabel: {marginBottom: '6px', fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)'},
+});
 
 export type CharacterFormValues = {
   name: string;
@@ -53,18 +130,14 @@ export const EMOJI_CHOICES = [
 function EmojiPicker({value, onChange}: {value: string; onChange: (v: string) => void}) {
   return (
     <div>
-      <div className="flex flex-wrap gap-1.5">
+      <div {...stylex.props(styles.emojiList)}>
         {EMOJI_CHOICES.map((e) => (
           <button
             key={e}
             type="button"
             aria-pressed={value === e}
             onClick={() => onChange(e)}
-            className={`flex h-10 w-10 items-center justify-center rounded-xl text-xl transition-all ${
-              value === e
-                ? 'bg-muted ring-2 ring-accent'
-                : 'hover:bg-muted'
-            }`}
+            {...stylex.props(styles.emojiButton, value === e && styles.emojiSelected)}
           >
             {e}
           </button>
@@ -76,7 +149,7 @@ function EmojiPicker({value, onChange}: {value: string; onChange: (v: string) =>
 
 function ColorPicker({value, onChange}: {value: string; onChange: (v: string) => void}) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div {...stylex.props(styles.colorList)}>
       {AVATAR_COLORS.map((c) => (
         <button
           key={c}
@@ -84,9 +157,7 @@ function ColorPicker({value, onChange}: {value: string; onChange: (v: string) =>
           aria-label={`头像配色 ${c}`}
           aria-pressed={value === c}
           onClick={() => onChange(c)}
-          className={`rounded-full transition-all ${
-            value === c ? 'ring-2 ring-accent ring-offset-2 ring-offset-body' : ''
-          }`}
+          {...stylex.props(styles.colorButton, value === c && styles.colorSelected)}
         >
           <UserAvatar name="·" emoji="·" color={c} size={36} tooltip={false} />
         </button>
@@ -226,8 +297,8 @@ export function CharacterEditor({
   return (
     <VStack gap={4}>
       {/* identity preview with avatar upload */}
-      <div className="flex items-center gap-4 p-3 rounded-2xl bg-surface border border-border">
-        <div className="relative group">
+      <div {...stylex.props(styles.identityPreview)}>
+        <div {...stylex.props(styles.avatarContainer)}>
           <UserAvatar
             name={values.name || '?'}
             emoji={values.avatarEmoji}
@@ -239,11 +310,11 @@ export function CharacterEditor({
             type="button"
             disabled={uploadingAvatar}
             onClick={() => fileInputRef.current?.click()}
-            className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-100"
+            {...stylex.props(styles.avatarOverlay, uploadingAvatar && styles.avatarOverlayVisible)}
             title="点击更换头像"
           >
             {uploadingAvatar ? (
-              <Loader2 className="animate-spin" size={20} />
+              <Loader2 {...stylex.props(styles.spinner)} size={20} />
             ) : (
               <Camera size={20} />
             )}
@@ -252,19 +323,19 @@ export function CharacterEditor({
             ref={fileInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
-            className="hidden"
+            {...stylex.props(styles.hidden)}
             onChange={handleAvatarFileSelect}
           />
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-lg font-semibold">{values.name || '新居民'}</div>
-          <div className="truncate text-sm text-secondary">@{values.username || 'username'}</div>
-          <div className="flex items-center gap-2 mt-1.5">
+        <div {...stylex.props(styles.previewDetails)}>
+          <div {...stylex.props(styles.previewName)}>{values.name || '新居民'}</div>
+          <div {...stylex.props(styles.previewUsername)}>@{values.username || 'username'}</div>
+          <div {...stylex.props(styles.previewActions)}>
             <Button
               label={uploadingAvatar ? '上传中…' : '上传头像'}
               size="sm"
               variant="secondary"
-              icon={uploadingAvatar ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />}
+              icon={uploadingAvatar ? <Loader2 {...stylex.props(styles.spinner)} size={14} /> : <Upload size={14} />}
               isDisabled={uploadingAvatar}
               onClick={() => fileInputRef.current?.click()}
             />
@@ -301,11 +372,11 @@ export function CharacterEditor({
           />
           <TextInput label="简介" isOptional value={values.bio} onChange={(v) => set('bio', v)} {...nativeAttrs({maxLength: 200})} placeholder="一句话介绍" htmlName="bio" />
           <div>
-            <div className="mb-1.5 text-sm font-medium">头像 Emoji</div>
+            <div {...stylex.props(styles.fieldLabel)}>头像 Emoji</div>
             <EmojiPicker value={values.avatarEmoji} onChange={(v) => set('avatarEmoji', v)} />
           </div>
           <div>
-            <div className="mb-1.5 text-sm font-medium">头像渐变色</div>
+            <div {...stylex.props(styles.fieldLabel)}>头像渐变色</div>
             <ColorPicker value={values.avatarColor} onChange={(v) => set('avatarColor', v)} />
           </div>
           <TextInput

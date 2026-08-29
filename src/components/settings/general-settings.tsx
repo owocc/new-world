@@ -15,8 +15,18 @@ import {VStack} from '@astryxdesign/core/Stack';
 import {useAppToast} from '@/lib/toast';
 import {nativeAttrs} from '@/lib/native-attrs';
 import {saveCommunityConfig, saveDefaultAIConfig, updateProfile} from '@/server/actions/settings';
-import type {CommunityConfig, DefaultAIConfig} from '@/server/settings';
+import type {DefaultAIConfig, CommunityConfig} from '@/server/settings';
+import * as stylex from '@stylexjs/stylex';
 
+const styles = stylex.create({
+  header: {display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--color-border)', paddingBottom: '12px'},
+  backLink: {display: 'flex', width: '32px', height: '32px', flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', color: 'var(--color-text-secondary)', '@media (min-width: 1024px)': {display: 'none'}, ':hover': {backgroundColor: 'var(--color-background-muted)'}},
+  title: {fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.01em'},
+  subtitle: {fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)'},
+  sectionTitle: {fontSize: 'var(--font-size-base)', fontWeight: 'var(--font-weight-semibold)'},
+  tripleGrid: {display: 'grid', gridTemplateColumns: '1fr', gap: '12px', '@media (min-width: 640px)': {gridTemplateColumns: 'repeat(3, minmax(0, 1fr))'}},
+  doubleGrid: {display: 'grid', gridTemplateColumns: '1fr', gap: '12px', '@media (min-width: 640px)': {gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'}},
+});
 export function GeneralSettings({
   profile,
   defaultAI,
@@ -79,23 +89,19 @@ export function GeneralSettings({
 
   return (
     <VStack gap={6}>
-      <div className="flex items-center gap-2 border-b border-border pb-3">
-        <Link
-          href="/settings"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary hover:bg-muted lg:hidden"
-          aria-label="返回设置菜单"
-        >
+      <div {...stylex.props(styles.header)}>
+        <Link href="/settings" {...stylex.props(styles.backLink)} aria-label="返回设置菜单">
           <ArrowLeft size={18} />
         </Link>
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">通用设置</h1>
-          <p className="text-xs text-secondary">管理个人基础资料与默认社区规则</p>
+          <h1 {...stylex.props(styles.title)}>通用设置</h1>
+          <p {...stylex.props(styles.subtitle)}>管理个人基础资料与默认社区规则</p>
         </div>
       </div>
       <Section variant="transparent" padding={0}>
         <VStack gap={4}>
           <VStack gap={0.5}>
-            <h2 className="text-base font-semibold">个人资料</h2>
+            <h2 {...stylex.props(styles.sectionTitle)}>个人资料</h2>
           </VStack>
           <TextInput label="昵称" value={name} onChange={setName} {...nativeAttrs({maxLength: 50})} htmlName="profile-name" />
           <TextInput label="个性签名" isOptional value={bio} onChange={setBio} {...nativeAttrs({maxLength: 200})} htmlName="profile-bio" />
@@ -108,7 +114,7 @@ export function GeneralSettings({
       <Section variant="transparent" padding={0}>
         <VStack gap={4}>
           <VStack gap={0.5}>
-            <h2 className="text-base font-semibold">默认 AI 配置</h2>
+            <h2 {...stylex.props(styles.sectionTitle)}>默认 AI 配置</h2>
             <Text type="supporting" size="sm" as="p">
               未单独配置模型的 AI 居民会使用这里的设置。也可以在每个居民详情页覆盖。
             </Text>
@@ -137,7 +143,7 @@ export function GeneralSettings({
                 ))}
               </datalist>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div {...stylex.props(styles.tripleGrid)}>
               <NumberInput
                 label="Temperature"
                 value={ai.temperature}
@@ -175,7 +181,7 @@ export function GeneralSettings({
       <Section variant="transparent" padding={0}>
         <VStack gap={4}>
           <VStack gap={0.5}>
-            <h2 className="text-base font-semibold">AI 社区行为</h2>
+            <h2 {...stylex.props(styles.sectionTitle)}>AI 社区行为</h2>
             <Text type="supporting" size="sm" as="p">
               控制 AI 居民自主活动的整体节奏，防止 Token 过度消耗。
             </Text>
@@ -188,7 +194,7 @@ export function GeneralSettings({
             value={communityCfg.enabled}
             onChange={(checked) => saveCommunity({...communityCfg, enabled: checked})}
           />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div {...stylex.props(styles.doubleGrid)}>
             <NumberInput
               label="社区心跳间隔（分钟）"
               value={communityCfg.pulseIntervalMinutes}

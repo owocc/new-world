@@ -26,7 +26,60 @@ import {
   Check,
   Edit2,
 } from 'lucide-react';
+import * as stylex from '@stylexjs/stylex';
 
+const styles = stylex.create({
+  overlay: {position: 'fixed', inset: 0, zIndex: 50, display: 'flex', justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(2px)'},
+  drawer: {display: 'flex', width: '100%', height: '100%', maxWidth: '28rem', flexDirection: 'column', borderInlineStart: '1px solid var(--color-border)', backgroundColor: 'var(--color-background-surface)', boxShadow: 'var(--shadow-high)'},
+  header: {display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--color-border)', paddingInline: '20px', paddingBlock: '16px'},
+  headerTitle: {display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-text-primary)'},
+  close: {display: 'flex', width: '32px', height: '32px', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-element)', color: 'var(--color-text-secondary)', transition: 'background-color 150ms ease, color 150ms ease', ':hover': {backgroundColor: 'var(--color-overlay-hover)', color: 'var(--color-text-primary)'}},
+  tabs: {display: 'flex', borderBottom: '1px solid var(--color-border)', paddingInline: '20px', fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-medium)'},
+  tab: {borderBottom: '2px solid transparent', paddingInline: '12px', paddingBlock: '10px', color: 'var(--color-text-secondary)', transition: 'color 150ms ease', ':hover': {color: 'var(--color-text-primary)'}},
+  tabActive: {borderBottomColor: 'var(--color-accent)', color: 'var(--color-text-accent)'},
+  content: {flex: 1, overflowY: 'auto', padding: '20px'},
+  column5: {display: 'flex', flexDirection: 'column', gap: '20px'},
+  miniCard: {display: 'flex', alignItems: 'center', gap: '16px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-page)', backgroundColor: 'var(--color-background-surface)', padding: '16px'},
+  grow: {minWidth: 0, flex: 1},
+  title: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--font-size-base)', fontWeight: 'var(--font-weight-semibold)'},
+  lineClamp: {display: '-webkit-box', overflow: 'hidden', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2},
+  memberSection: {display: 'flex', flexDirection: 'column', gap: '8px'},
+  memberHeading: {display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-secondary)'},
+  invite: {display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-text-accent)', ':hover': {textDecoration: 'underline'}},
+  memberList: {display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-page)', backgroundColor: 'var(--color-background-surface)'},
+  member: {display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', transition: 'background-color 150ms ease', ':hover': {backgroundColor: 'var(--color-overlay-hover)'}},
+  memberInfo: {display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0},
+  memberDetails: {minWidth: 0, flex: 1},
+  memberTop: {display: 'flex', alignItems: 'center', gap: '6px'},
+  memberName: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-primary)'},
+  badgeOwner: {borderRadius: 'var(--radius-inner)', backgroundColor: 'var(--color-accent-muted)', paddingInline: '4px', paddingBlock: '2px', fontSize: '10px', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-accent)'},
+  badgeAi: {borderRadius: 'var(--radius-inner)', backgroundColor: 'var(--color-background-muted)', paddingInline: '4px', paddingBlock: '2px', fontSize: '10px', color: 'var(--color-text-disabled)'},
+  memberBio: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '11px', color: 'var(--color-text-secondary)'},
+  remove: {display: 'flex', width: '28px', height: '28px', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-element)', color: 'var(--color-text-disabled)', transition: 'background-color 150ms ease, color 150ms ease', ':hover': {backgroundColor: 'var(--color-error-muted)', color: 'var(--color-error)'}},
+  leave: {paddingTop: '16px'},
+  danger: {color: 'var(--color-error)'},
+  addColumn: {display: 'flex', flexDirection: 'column', gap: '16px'},
+  supporting: {fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)'},
+  noItems: {paddingBlock: '32px', textAlign: 'center', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-disabled)'},
+  available: {display: 'flex', flexDirection: 'column', gap: '8px'},
+  availableItem: {display: 'flex', cursor: 'pointer', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-container)', backgroundColor: 'var(--color-background-surface)', padding: '12px', transition: 'all 150ms ease', ':hover': {backgroundColor: 'var(--color-overlay-hover)'}},
+  availableSelected: {borderColor: 'var(--color-accent)', backgroundColor: 'var(--color-accent-muted)'},
+  availableName: {display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-primary)'},
+  availableBio: {display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)'},
+  check: {display: 'flex', width: '20px', height: '20px', flexShrink: 0, alignItems: 'center', justifyContent: 'center', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-inner)', backgroundColor: 'var(--color-background-surface)'},
+  checkSelected: {borderColor: 'var(--color-accent)', backgroundColor: 'var(--color-accent)', color: 'var(--color-on-accent)'},
+  editForm: {display: 'flex', flexDirection: 'column', gap: '16px'},
+  label: {display: 'block', marginBottom: '6px', fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-secondary)'},
+  optionRow: {display: 'flex', flexWrap: 'wrap', gap: '8px'},
+  emoji: {display: 'flex', width: '36px', height: '36px', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-element)', backgroundColor: 'var(--color-background-surface)', fontSize: 'var(--font-size-base)', transition: 'all 150ms ease', ':hover': {backgroundColor: 'var(--color-overlay-hover)'}},
+  emojiActive: {borderColor: 'var(--color-accent)', backgroundColor: 'var(--color-accent-muted)'},
+  color: {display: 'flex', width: '28px', height: '28px', alignItems: 'center', justifyContent: 'center', border: '1px solid transparent', borderRadius: '9999px', transition: 'all 150ms ease'},
+  colorActive: {borderColor: 'var(--color-accent)', boxShadow: '0 0 0 2px var(--color-accent-muted)'},
+  formActions: {display: 'flex', gap: '8px', marginTop: '16px'},
+  flexButton: {flex: 1},
+  onAccent: {color: 'var(--color-on-accent)'},
+  addButton: {marginTop: '16px', width: '100%'},
+});
 type CharacterRow = typeof aiCharacters.$inferSelect;
 type GroupRow = typeof groups.$inferSelect;
 
@@ -102,62 +155,38 @@ export function GroupInfoDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs">
-      <div className="flex h-full w-full max-w-md flex-col border-l border-border bg-surface shadow-2xl animate-in slide-in-from-right duration-200">
+    <div {...stylex.props(styles.overlay)}>
+      <div {...stylex.props(styles.drawer)}>
         {/* Drawer Header */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+        <div {...stylex.props(styles.header)}>
+          <div {...stylex.props(styles.headerTitle)}>
             <Users size={18} />
             <span>群聊资料与成员</span>
           </div>
-          <button
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-colors"
-          >
+          <button onClick={onClose} {...stylex.props(styles.close)}>
             <X size={18} />
           </button>
         </div>
 
         {/* Drawer Tabs */}
-        <div className="flex border-b border-border px-5 text-xs font-medium">
-          <button
-            onClick={() => setActiveTab('members')}
-            className={`border-b-2 px-3 py-2.5 transition-colors ${
-              activeTab === 'members'
-                ? 'border-accent text-accent'
-                : 'border-transparent text-text-secondary hover:text-text-primary'
-            }`}
-          >
+        <div {...stylex.props(styles.tabs)}>
+          <button onClick={() => setActiveTab('members')} {...stylex.props(styles.tab, activeTab === 'members' && styles.tabActive)}>
             群成员 ({members.length})
           </button>
-          <button
-            onClick={() => setActiveTab('add')}
-            className={`border-b-2 px-3 py-2.5 transition-colors ${
-              activeTab === 'add'
-                ? 'border-accent text-accent'
-                : 'border-transparent text-text-secondary hover:text-text-primary'
-            }`}
-          >
+          <button onClick={() => setActiveTab('add')} {...stylex.props(styles.tab, activeTab === 'add' && styles.tabActive)}>
             添加居民
           </button>
-          <button
-            onClick={() => setActiveTab('edit')}
-            className={`border-b-2 px-3 py-2.5 transition-colors ${
-              activeTab === 'edit'
-                ? 'border-accent text-accent'
-                : 'border-transparent text-text-secondary hover:text-text-primary'
-            }`}
-          >
+          <button onClick={() => setActiveTab('edit')} {...stylex.props(styles.tab, activeTab === 'edit' && styles.tabActive)}>
             群聊设置
           </button>
         </div>
 
         {/* Drawer Content */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <div {...stylex.props(styles.content)}>
           {activeTab === 'members' && (
-            <div className="flex flex-col gap-5">
+            <div {...stylex.props(styles.column5)}>
               {/* Group Mini Card */}
-              <div className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-4">
+              <div {...stylex.props(styles.miniCard)}>
                 <UserAvatar
                   name={group.name}
                   emoji={group.avatarEmoji}
@@ -165,38 +194,38 @@ export function GroupInfoDrawer({
                   url={group.avatarUrl}
                   size={52}
                 />
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-semibold truncate">
+                <div {...stylex.props(styles.grow)}>
+                  <h3 {...stylex.props(styles.title)}>
                     {group.name}
                   </h3>
-                  <Text type="supporting" size="sm" as="p" className="line-clamp-2">
+                  <Text type="supporting" size="sm" as="p" xstyle={styles.lineClamp}>
                     {group.description || '暂无群描述'}
                   </Text>
                 </div>
               </div>
 
               {/* Members List */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between text-xs font-medium text-text-secondary">
+              <div {...stylex.props(styles.memberSection)}>
+                <div {...stylex.props(styles.memberHeading)}>
                   <span>全部成员 ({members.length})</span>
                   <button
                     onClick={() => setActiveTab('add')}
-                    className="flex items-center gap-1 text-accent hover:underline"
+                    {...stylex.props(styles.invite)}
                   >
                     <UserPlus size={13} />
                     <span>邀请更多</span>
                   </button>
                 </div>
 
-                <div className="flex flex-col divide-y divide-border rounded-2xl border border-border bg-surface overflow-hidden">
+                <div {...stylex.props(styles.memberList)}>
                   {members.map((m) => {
                     const isUser = m.memberType === 'user';
                     return (
                       <div
                         key={m.id}
-                        className="flex items-center justify-between p-3 transition-colors hover:bg-surface-hover"
+                        {...stylex.props(styles.member)}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div {...stylex.props(styles.memberInfo)}>
                           <UserAvatar
                             name={m.name}
                             emoji={m.avatarEmoji}
@@ -204,22 +233,22 @@ export function GroupInfoDrawer({
                             url={m.avatarUrl}
                             size={36}
                           />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-sm font-medium text-text-primary truncate">
+                          <div {...stylex.props(styles.memberDetails)}>
+                            <div {...stylex.props(styles.memberTop)}>
+                              <span {...stylex.props(styles.memberName)}>
                                 {m.name}
                               </span>
                               {isUser ? (
-                                <span className="rounded-sm bg-accent/10 px-1 py-0.5 text-[10px] font-medium text-accent">
+                                <span {...stylex.props(styles.badgeOwner)}>
                                   群主
                                 </span>
                               ) : (
-                                <span className="rounded-sm bg-surface-raised px-1 py-0.5 text-[10px] text-text-tertiary">
+                                <span {...stylex.props(styles.badgeAi)}>
                                   AI 居民
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-text-secondary truncate">
+                            <p {...stylex.props(styles.memberBio)}>
                               @{m.username} · {m.bio || '无简介'}
                             </p>
                           </div>
@@ -229,7 +258,7 @@ export function GroupInfoDrawer({
                           <button
                             onClick={() => handleRemoveMember(m.characterId!)}
                             title="移出群聊"
-                            className="flex h-7 w-7 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-rose-500/10 hover:text-rose-600"
+                            {...stylex.props(styles.remove)}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -241,11 +270,11 @@ export function GroupInfoDrawer({
               </div>
 
               {/* Leave Button */}
-              <div className="pt-4">
+              <div {...stylex.props(styles.leave)}>
                 <Button
                   label="退出该群聊"
                   variant="secondary"
-                  className="w-full text-rose-600 dark:text-rose-400"
+                  xstyle={styles.danger}
                   icon={<LogOut size={14} />}
                   onClick={handleLeaveGroup}
                 />
@@ -254,17 +283,17 @@ export function GroupInfoDrawer({
           )}
 
           {activeTab === 'add' && (
-            <div className="flex flex-col gap-4">
-              <div className="text-xs text-text-secondary">
+            <div {...stylex.props(styles.addColumn)}>
+              <div {...stylex.props(styles.supporting)}>
                 选择尚未加入该群的社区居民：
               </div>
 
               {availableToAdd.length === 0 ? (
-                <div className="py-8 text-center text-xs text-text-tertiary">
+                <div {...stylex.props(styles.noItems)}>
                   所有现存 AI 居民都已在群内
                 </div>
               ) : (
-                <div className="flex flex-col gap-2">
+                <div {...stylex.props(styles.available)}>
                   {availableToAdd.map((char) => {
                     const selected = selectedToAdd.includes(char.id);
                     return (
@@ -277,13 +306,9 @@ export function GroupInfoDrawer({
                               : [...prev, char.id],
                           )
                         }
-                        className={`flex cursor-pointer items-center justify-between rounded-xl border p-3 transition-all ${
-                          selected
-                            ? 'border-accent bg-accent/5'
-                            : 'border-border bg-surface hover:bg-surface-hover'
-                        }`}
+                        {...stylex.props(styles.availableItem, selected && styles.availableSelected)}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div {...stylex.props(styles.memberInfo)}>
                           <UserAvatar
                             name={char.name}
                             emoji={char.avatarEmoji}
@@ -291,22 +316,16 @@ export function GroupInfoDrawer({
                             url={char.avatarUrl}
                             size={36}
                           />
-                          <div className="min-w-0">
-                            <span className="text-sm font-medium text-text-primary truncate block">
+                          <div {...stylex.props(styles.grow)}>
+                            <span {...stylex.props(styles.availableName)}>
                               {char.name}
                             </span>
-                            <span className="text-xs text-text-secondary truncate block">
+                            <span {...stylex.props(styles.availableBio)}>
                               {char.bio || char.persona || 'AI 居民'}
                             </span>
                           </div>
                         </div>
-                        <div
-                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
-                            selected
-                              ? 'border-accent bg-accent text-white'
-                              : 'border-border bg-surface'
-                          }`}
-                        >
+                        <div {...stylex.props(styles.check, selected && styles.checkSelected)}>
                           {selected && <Check size={12} strokeWidth={3} />}
                         </div>
                       </div>
@@ -319,15 +338,14 @@ export function GroupInfoDrawer({
                     isDisabled={selectedToAdd.length === 0 || adding}
                     isLoading={adding}
                     onClick={handleAddMembers}
-                    className="mt-4 w-full"
+                    xstyle={styles.addButton}
                   />
                 </div>
               )}
             </div>
           )}
-
           {activeTab === 'edit' && (
-            <form onSubmit={handleSaveProfile} className="flex flex-col gap-4">
+            <form onSubmit={handleSaveProfile} {...stylex.props(styles.editForm)}>
               <TextInput
                 label="群聊名称"
                 value={name}
@@ -342,20 +360,16 @@ export function GroupInfoDrawer({
               />
 
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-text-secondary">
+                <label {...stylex.props(styles.label)}>
                   群图标 Emoji
                 </label>
-                <div className="flex flex-wrap gap-2">
+                <div {...stylex.props(styles.optionRow)}>
                   {['💬', '☕️', '🌙', '🍜', '🎮', '📚', '💪', '🔥', '🎉', '🐱'].map((emoji) => (
                     <button
                       key={emoji}
                       type="button"
                       onClick={() => setAvatarEmoji(emoji)}
-                      className={`flex h-9 w-9 items-center justify-center rounded-lg border text-base transition-all ${
-                        avatarEmoji === emoji
-                          ? 'border-accent bg-accent/10'
-                          : 'border-border bg-surface hover:bg-surface-hover'
-                      }`}
+                      {...stylex.props(styles.emoji, avatarEmoji === emoji && styles.emojiActive)}
                     >
                       {emoji}
                     </button>
@@ -364,16 +378,14 @@ export function GroupInfoDrawer({
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-text-secondary">主题色</label>
-                <div className="flex flex-wrap gap-2">
+                <label {...stylex.props(styles.label)}>主题色</label>
+                <div {...stylex.props(styles.optionRow)}>
                   {AVATAR_COLORS.map((color) => (
                     <button
                       key={color}
                       type="button"
                       onClick={() => setAvatarColor(color)}
-                      className={`flex h-7 w-7 items-center justify-center rounded-full border transition-all ${
-                        avatarColor === color ? 'border-accent ring-2 ring-accent/30' : 'border-transparent'
-                      }`}
+                      {...stylex.props(styles.color, avatarColor === color && styles.colorActive)}
                       style={{
                         background:
                           color === 'violet'
@@ -393,19 +405,19 @@ export function GroupInfoDrawer({
                                         : '#d946ef',
                       }}
                     >
-                      {avatarColor === color && <Check size={12} className="text-white" />}
+                      {avatarColor === color && <Check {...stylex.props(styles.onAccent)} size={12} />}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="mt-4 flex gap-2">
+              <div {...stylex.props(styles.formActions)}>
                 <Button
                   label="取消"
                   variant="secondary"
                   type="button"
                   onClick={() => setActiveTab('members')}
-                  className="flex-1"
+                  xstyle={styles.flexButton}
                 />
                 <Button
                   label={saving ? '保存中...' : '保存更改'}
@@ -413,7 +425,7 @@ export function GroupInfoDrawer({
                   type="submit"
                   isDisabled={saving}
                   isLoading={saving}
-                  className="flex-1"
+                  xstyle={styles.flexButton}
                 />
               </div>
             </form>

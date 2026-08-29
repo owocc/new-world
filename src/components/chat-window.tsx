@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import * as stylex from '@stylexjs/stylex';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import Link from 'next/link';
@@ -22,6 +23,167 @@ import { resolveMediaUrl } from '@/lib/utils';
 import { markRead } from '@/server/actions/chat';
 import type { aiCharacters } from '@/db/schema';
 import type { MediaAssetView } from '@/server/media';
+
+const spin = stylex.keyframes({
+  from: {transform: 'rotate(0deg)'},
+  to: {transform: 'rotate(360deg)'},
+});
+const bounce = stylex.keyframes({
+  '0%, 100%': {transform: 'translateY(-25%)', animationTimingFunction: 'cubic-bezier(0.8, 0, 1, 1)'},
+  '50%': {transform: 'translateY(0)', animationTimingFunction: 'cubic-bezier(0, 0, 0.2, 1)'},
+});
+
+const styles = stylex.create({
+  root: {display: 'flex', height: '100%', minHeight: 0, flexDirection: 'column'},
+  header: {
+    display: 'flex',
+    height: '56px',
+    flexShrink: 0,
+    alignItems: 'center',
+    gap: 'var(--spacing-2)',
+    borderBottom: 'var(--border-width) solid var(--color-border)',
+    backgroundColor: 'var(--color-background-surface)',
+    paddingInline: 'var(--spacing-2)',
+    '@media (min-width: 640px)': {paddingInline: 'var(--spacing-4)'},
+  },
+  mobileBack: {
+    display: 'flex',
+    width: '36px',
+    height: '36px',
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 'var(--radius-full)',
+    color: 'var(--color-text-secondary)',
+    transition: 'color 175ms ease, background-color 175ms ease',
+    ':hover': {'@media (hover: hover)': {backgroundColor: 'var(--color-background-muted)'}},
+    '@media (min-width: 1024px)': {display: 'none'},
+  },
+  headerInfo: {minWidth: 0, flex: 1, overflow: 'hidden'},
+  headerName: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '15px', fontWeight: 'var(--font-weight-semibold)', lineHeight: 1.25},
+  shrink: {flexShrink: 0},
+  headerBio: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'},
+  scrollArea: {minHeight: 0, flex: 1, overflowY: 'auto', overscrollBehavior: 'contain'},
+  messagesInner: {
+    width: '100%',
+    padding: 'var(--spacing-4)',
+    '@media (min-width: 640px)': {paddingInline: 'var(--spacing-6)'},
+  },
+  emptyState: {
+    display: 'flex',
+    minHeight: '50vh',
+    height: '100%',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 'var(--spacing-3)',
+    textAlign: 'center',
+  },
+  spinner: {
+    animationName: spin,
+    animationDuration: '1s',
+    animationTimingFunction: 'linear',
+    animationIterationCount: 'infinite',
+  },
+  emptyName: {fontSize: 'var(--font-size-lg)', fontWeight: 'var(--font-weight-semibold)'},
+  emptyBio: {maxWidth: '20rem'},
+  attachmentSingle: {maxWidth: '340px', marginBottom: 'var(--spacing-2)'},
+  attachmentGrid: {
+    display: 'grid',
+    maxWidth: '380px',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: 'var(--spacing-1-5)',
+    marginBottom: 'var(--spacing-2)',
+  },
+  attachmentImage: {
+    width: '100%',
+    height: 'auto',
+    maxHeight: '280px',
+    objectFit: 'cover',
+    transition: 'transform 200ms ease',
+    ':hover': {'@media (hover: hover)': {transform: 'scale(1.02)'}},
+  },
+  userMessage: {whiteSpace: 'pre-wrap', overflowWrap: 'break-word'},
+  assistantMarkdown: {fontSize: '15px'},
+  typing: {display: 'flex', alignItems: 'center', gap: '6px', paddingBlock: '4px', paddingInline: '2px'},
+  typingDot: {
+    width: '6px',
+    height: '6px',
+    borderRadius: 'var(--radius-full)',
+    backgroundColor: 'var(--color-text-secondary)',
+    animationName: bounce,
+    animationDuration: '1s',
+    animationTimingFunction: 'cubic-bezier(0.8, 0, 0.2, 1)',
+    animationIterationCount: 'infinite',
+  },
+  footer: {
+    flexShrink: 0,
+    borderTop: 'var(--border-width) solid var(--color-border)',
+    backgroundColor: 'var(--color-background-surface)',
+    paddingInline: 'var(--spacing-4)',
+    paddingTop: 'var(--spacing-3)',
+    paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+    '@media (min-width: 640px)': {paddingInline: 'var(--spacing-6)'},
+  },
+  fullWidth: {width: '100%'},
+  hidden: {display: 'none'},
+  drawerList: {display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--spacing-2)', paddingBlock: 'var(--spacing-1)'},
+  pendingItem: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--spacing-2)',
+    border: 'var(--border-width) solid var(--color-border)',
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'var(--color-background-surface)',
+    padding: '6px 8px 6px 6px',
+    fontSize: 'var(--font-size-xs)',
+  },
+  thumbnail: {
+    position: 'relative',
+    display: 'flex',
+    width: '48px',
+    height: '48px',
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: 'var(--radius-element)',
+    backgroundColor: 'var(--color-background-muted)',
+  },
+  thumbnailImage: {width: '100%', height: '100%', objectFit: 'cover'},
+  uploadOverlay: {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    color: 'white',
+  },
+  errorOverlay: {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'color-mix(in srgb, var(--color-error) 70%, transparent)',
+    color: 'white',
+  },
+  fileInfo: {maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'},
+  fileName: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 'var(--font-weight-medium)'},
+  fileStatus: {color: 'var(--color-text-secondary)', fontSize: '11px'},
+  iconButton: {
+    border: 0,
+    borderRadius: 'var(--radius-full)',
+    backgroundColor: 'transparent',
+    padding: 'var(--spacing-1)',
+    color: 'var(--color-text-secondary)',
+    ':hover': {'@media (hover: hover)': {color: 'var(--color-text-primary)', backgroundColor: 'var(--color-background-muted)'}},
+  },
+  iconButtonError: {':hover': {'@media (hover: hover)': {color: 'var(--color-error)', backgroundColor: 'var(--color-background-muted)'}}},
+  footerActions: {display: 'flex', alignItems: 'center', gap: '6px'},
+});
 
 type CharacterRow = typeof aiCharacters.$inferSelect;
 
@@ -266,7 +428,7 @@ export function ChatWindow({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div {...stylex.props(styles.root)}>
       {/* Lightbox Modal */}
       <MediaLightbox
         media={activeLightboxMedia}
@@ -274,10 +436,10 @@ export function ChatWindow({
       />
 
       {/* header — friend first */}
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-4 bg-surface">
+      <header {...stylex.props(styles.header)}>
         <Link
           href="/messages"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-secondary transition-colors hover:bg-muted lg:hidden"
+          {...stylex.props(styles.mobileBack)}
           aria-label="返回会话列表"
         >
           <ArrowLeft size={19} />
@@ -289,24 +451,24 @@ export function ChatWindow({
           url={character.avatarUrl}
           size={36}
         />
-        <div className="min-w-0 flex-1 overflow-hidden">
-          <div className="truncate text-[15px] font-semibold leading-tight">{character.name}</div>
+        <div {...stylex.props(styles.headerInfo)}>
+          <div {...stylex.props(styles.headerName)}>{character.name}</div>
           {character.bio && (
-            <Text type="supporting" size="sm" as="div" className="truncate">
+            <Text type="supporting" size="sm" as="div" xstyle={styles.headerBio}>
               {character.bio}
             </Text>
           )}
         </div>
-        <Link href={`/characters/${character.id}`} className="shrink-0">
+        <Link href={`/characters/${character.id}`} {...stylex.props(styles.shrink)}>
           <Button label="查看资料" variant="ghost" size="sm" />
         </Link>
       </header>
 
       {/* messages */}
-      <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className="w-full px-4 py-4 sm:px-6">
+      <div ref={scrollRef} onScroll={onScroll} {...stylex.props(styles.scrollArea)}>
+        <div {...stylex.props(styles.messagesInner)}>
           {messages.length === 0 ? (
-            <div className="flex h-full min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
+            <div {...stylex.props(styles.emptyState)}>
               <UserAvatar
                 name={character.name}
                 emoji={character.avatarEmoji}
@@ -314,8 +476,8 @@ export function ChatWindow({
                 url={character.avatarUrl}
                 size={72}
               />
-              <div className="text-lg font-semibold">{character.name}</div>
-              <Text type="supporting" as="p" className="max-w-xs">
+              <div {...stylex.props(styles.emptyName)}>{character.name}</div>
+              <Text type="supporting" as="p" xstyle={styles.emptyBio}>
                 {character.bio}
               </Text>
               <Text type="supporting" size="sm" as="p">
@@ -343,11 +505,7 @@ export function ChatWindow({
                       {/* Image attachments display */}
                       {attachments.length > 0 && (
                         <div
-                          className={`mb-2 ${
-                            attachments.length === 1
-                              ? 'max-w-[340px]'
-                              : 'grid grid-cols-2 gap-1.5 max-w-[380px]'
-                          }`}
+                          {...stylex.props(attachments.length === 1 ? styles.attachmentSingle : styles.attachmentGrid)}
                         >
                           {attachments.map((att) => (
                             <div
@@ -364,7 +522,7 @@ export function ChatWindow({
                               <img
                                 src={resolveMediaUrl(att.blobUrl) || att.blobUrl}
                                 alt={att.originalFilename || '图片'}
-                                className="w-full h-auto max-h-[280px] object-cover transition-transform duration-200 group-hover/img:scale-[1.02]"
+                                {...stylex.props(styles.attachmentImage)}
                                 loading="lazy"
                               />
                             </div>
@@ -375,9 +533,9 @@ export function ChatWindow({
                       {/* Message text */}
                       {text && text.trim() ? (
                         isUser ? (
-                          <p className="whitespace-pre-wrap break-words">{text}</p>
+                          <p {...stylex.props(styles.userMessage)}>{text}</p>
                         ) : (
-                          <Markdown className="text-[15px]">{text}</Markdown>
+                          <Markdown xstyle={styles.assistantMarkdown}>{text}</Markdown>
                         )
                       ) : null}
                     </ChatMessageBubble>
@@ -388,11 +546,11 @@ export function ChatWindow({
               {status === 'submitted' && (
                 <ChatMessage sender="assistant" avatar={avatar}>
                   <ChatMessageBubble variant="filled">
-                    <span className="flex items-center gap-1.5 py-1 px-0.5" aria-label="正在输入">
+                    <span {...stylex.props(styles.typing)} aria-label="正在输入">
                       {[0, 1, 2].map((i) => (
                         <span
                           key={i}
-                          className="h-1.5 w-1.5 animate-bounce rounded-full bg-secondary"
+                          {...stylex.props(styles.typingDot)}
                           style={{ animationDelay: `${i * 0.15}s` }}
                         />
                       ))}
@@ -406,15 +564,15 @@ export function ChatWindow({
       </div>
 
       {/* composer */}
-      <footer className="shrink-0 border-t border-border bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
-        <div className="w-full">
+      <footer {...stylex.props(styles.footer)}>
+        <div {...stylex.props(styles.fullWidth)}>
           {/* Hidden File Picker */}
           <input
             ref={fileInputRef}
             type="file"
             multiple
             accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
-            className="hidden"
+            {...stylex.props(styles.hidden)}
             onChange={handleFileSelect}
           />
 
@@ -433,33 +591,33 @@ export function ChatWindow({
             drawer={
               pendingImages.length > 0 ? (
                 <ChatComposerDrawer count={pendingImages.length}>
-                  <div className="flex flex-wrap items-center gap-2 py-1">
+                  <div {...stylex.props(styles.drawerList)}>
                     {pendingImages.map((img) => (
                       <div
                         key={img.id}
-                        className="relative group flex items-center gap-2 p-1.5 pr-2 rounded-xl bg-surface border border-border text-xs"
+                        {...stylex.props(styles.pendingItem)}
                       >
-                        <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                        <div {...stylex.props(styles.thumbnail)}>
                           <img
                             src={img.previewUrl}
                             alt="preview"
-                            className="h-full w-full object-cover"
+                            {...stylex.props(styles.thumbnailImage)}
                           />
                           {img.status === 'uploading' && (
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white">
-                              <Loader2 className="animate-spin" size={16} />
+                            <div {...stylex.props(styles.uploadOverlay)}>
+                              <Loader2 {...stylex.props(styles.spinner)} size={16} />
                             </div>
                           )}
                           {img.status === 'error' && (
-                            <div className="absolute inset-0 bg-error/70 flex items-center justify-center text-white">
+                            <div {...stylex.props(styles.errorOverlay)}>
                               <X size={16} />
                             </div>
                           )}
                         </div>
 
-                        <div className="max-w-[120px] truncate">
-                          <div className="font-medium truncate">{img.file.name}</div>
-                          <div className="text-[11px] text-secondary">
+                        <div {...stylex.props(styles.fileInfo)}>
+                          <div {...stylex.props(styles.fileName)}>{img.file.name}</div>
+                          <div {...stylex.props(styles.fileStatus)}>
                             {img.status === 'uploading'
                               ? '上传中…'
                               : img.status === 'error'
@@ -472,7 +630,7 @@ export function ChatWindow({
                           <button
                             type="button"
                             onClick={() => retryUpload(img)}
-                            className="p-1 rounded-full text-secondary hover:text-primary hover:bg-muted"
+                            {...stylex.props(styles.iconButton)}
                             title="重试"
                           >
                             <RefreshCw size={14} />
@@ -482,7 +640,7 @@ export function ChatWindow({
                         <button
                           type="button"
                           onClick={() => removePendingImage(img.id)}
-                          className="p-1 rounded-full text-secondary hover:text-error hover:bg-muted"
+                          {...stylex.props(styles.iconButton, styles.iconButtonError)}
                           title="移除"
                         >
                           <X size={14} />
@@ -494,7 +652,7 @@ export function ChatWindow({
               ) : undefined
             }
             footerActions={
-              <div className="flex items-center gap-1.5">
+              <div {...stylex.props(styles.footerActions)}>
                 <Button
                   label="图片"
                   variant="ghost"

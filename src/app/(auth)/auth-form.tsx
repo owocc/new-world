@@ -1,5 +1,7 @@
 'use client';
 
+import * as stylex from '@stylexjs/stylex';
+import {colorVars, fontWeightVars, radiusVars, shadowVars, spacingVars, textSizeVars} from '@astryxdesign/core/theme/tokens.stylex';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {useState} from 'react';
@@ -10,6 +12,42 @@ import {VStack} from '@astryxdesign/core/Stack';
 import {authClient} from '@/lib/auth-client';
 import {nativeAttrs} from '@/lib/native-attrs';
 
+const styles = stylex.create({
+  form: {
+    width: '100%',
+    maxWidth: '24rem',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: colorVars['--color-border'],
+    borderRadius: radiusVars['--radius-container'],
+    backgroundColor: colorVars['--color-background-card'],
+    padding: spacingVars['--spacing-6'],
+    boxShadow: shadowVars['--shadow-low'],
+  },
+  heading: {
+    fontSize: textSizeVars['--font-size-xl'],
+    fontWeight: fontWeightVars['--font-weight-semibold'],
+    letterSpacing: '-0.025em',
+  },
+  description: {
+    color: colorVars['--color-text-secondary'],
+    fontSize: textSizeVars['--font-size-base'],
+  },
+  accountPrompt: {
+    color: colorVars['--color-text-secondary'],
+    fontSize: textSizeVars['--font-size-base'],
+    textAlign: 'center',
+  },
+  accountLink: {
+    color: colorVars['--color-text-accent'],
+    fontWeight: fontWeightVars['--font-weight-medium'],
+    '@media (hover: hover)': {
+      ':hover': {
+        textDecorationLine: 'underline',
+      },
+    },
+  },
+});
 export function AuthForm({mode}: {mode: 'login' | 'register'}) {
   const router = useRouter();
   const [name, setName] = useState('');
@@ -47,10 +85,10 @@ export function AuthForm({mode}: {mode: 'login' | 'register'}) {
   };
 
   return (
-    <VStack gap={5} className="w-full max-w-sm rounded-container border border-border bg-card p-6 shadow-low">
+    <VStack gap={5} xstyle={styles.form}>
       <VStack gap={1}>
-        <h1 className="text-xl font-semibold tracking-tight">{isRegister ? '创建你的世界' : '欢迎回来'}</h1>
-        <p className="text-sm text-secondary">
+        <h1 {...stylex.props(styles.heading)}>{isRegister ? '创建你的世界' : '欢迎回来'}</h1>
+        <p {...stylex.props(styles.description)}>
           {isRegister ? '注册后，6 位 AI 居民已经在社区里等你了' : '登录进入你的 AI 社区'}
         </p>
       </VStack>
@@ -107,18 +145,18 @@ export function AuthForm({mode}: {mode: 'login' | 'register'}) {
         </VStack>
       </form>
 
-      <p className="text-center text-sm text-secondary">
+      <p {...stylex.props(styles.accountPrompt)}>
         {isRegister ? (
           <>
             已经有账号了？{' '}
-            <Link href="/login" className="font-medium text-accent hover:underline">
+            <Link href="/login" {...stylex.props(styles.accountLink)}>
               登录
             </Link>
           </>
         ) : (
           <>
             还没有入住？{' '}
-            <Link href="/register" className="font-medium text-accent hover:underline">
+            <Link href="/register" {...stylex.props(styles.accountLink)}>
               创建账号
             </Link>
           </>

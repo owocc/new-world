@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import * as stylex from '@stylexjs/stylex';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@astryxdesign/core/Button';
@@ -13,6 +14,74 @@ import type { UnifiedChatItem } from '@/server/unified-chat';
 import type { aiCharacters } from '@/db/schema';
 import { Plus } from 'lucide-react';
 
+const styles = stylex.create({
+  root: {display: 'flex', height: '100%', flexDirection: 'column'},
+  hiddenMobile: {display: 'none', '@media (min-width: 640px)': {display: 'flex'}},
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingInline: 'var(--spacing-4)',
+    paddingTop: 'var(--spacing-4)',
+    paddingBottom: 'var(--spacing-2)',
+  },
+  heading: {fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.025em'},
+  contacts: {paddingInline: 'var(--spacing-3)', paddingTop: 'var(--spacing-1)', paddingBottom: 'var(--spacing-2)'},
+  contactLabel: {paddingInline: 'var(--spacing-1)', paddingBottom: 'var(--spacing-1)'},
+  contactList: {display: 'flex', gap: 'var(--spacing-2)', overflowX: 'auto', paddingBottom: 'var(--spacing-1)'},
+  contact: {
+    display: 'flex',
+    width: '56px',
+    flexShrink: 0,
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 'var(--spacing-1)',
+    border: 0,
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'transparent',
+    padding: 'var(--spacing-1)',
+    transition: 'background-color 175ms ease',
+    ':hover': {'@media (hover: hover)': {backgroundColor: 'var(--color-background-muted)'}},
+  },
+  contactName: {
+    width: '100%',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    textAlign: 'center',
+    color: 'var(--color-text-secondary)',
+    fontSize: '11px',
+  },
+  empty: {paddingInline: 'var(--spacing-6)', paddingBlock: 'var(--spacing-10)', textAlign: 'center'},
+  nav: {flex: 1, overflowY: 'auto'},
+  chatLink: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--spacing-3)',
+    marginInline: 'var(--spacing-2)',
+    marginBottom: '2px',
+    borderRadius: 'var(--radius-container)',
+    padding: '10px',
+    transition: 'color 175ms ease, background-color 175ms ease',
+  },
+  chatActive: {
+    backgroundColor: 'var(--color-neutral)',
+    color: 'var(--color-text-primary)',
+    fontWeight: 'var(--font-weight-medium)',
+    boxShadow: 'var(--shadow-low)',
+  },
+  chatInactive: {
+    color: 'var(--color-text-secondary)',
+    ':hover': {'@media (hover: hover)': {backgroundColor: 'var(--color-overlay-hover)', color: 'var(--color-text-primary)'}},
+  },
+  chatInfo: {minWidth: 0, flex: 1},
+  chatHeader: {display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--spacing-2)'},
+  chatName: {display: 'flex', minWidth: 0, alignItems: 'center', gap: '6px'},
+  chatNameText: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '15px', fontWeight: 'var(--font-weight-medium)'},
+  time: {flexShrink: 0, color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs)'},
+  previewRow: {display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--spacing-2)', marginTop: '2px'},
+  preview: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--color-text-secondary)', fontSize: '13px'},
+});
 type CharacterRow = typeof aiCharacters.$inferSelect;
 
 export function ConversationList({
@@ -45,10 +114,10 @@ export function ConversationList({
   });
 
   return (
-    <div className={`flex h-full flex-col ${hiddenOnMobile ? 'hidden lg:flex' : 'flex'}`}>
+    <div {...stylex.props(styles.root, hiddenOnMobile && styles.hiddenMobile)}>
       {/* Header — 聊天 + 新建 */}
-      <div className="flex items-center justify-between px-4 pb-2 pt-4">
-        <h1 className="text-xl font-semibold tracking-tight">聊天</h1>
+      <div {...stylex.props(styles.header)}>
+        <h1 {...stylex.props(styles.heading)}>聊天</h1>
         <Link href="/groups/new">
           <Button label="新建" variant="ghost" size="sm" icon={<Plus size={15} />} />
         </Link>
@@ -56,17 +125,17 @@ export function ConversationList({
 
       {/* Quick contacts for unstarted DMs */}
       {contacts.length > 0 && !search && (
-        <div className="px-3 pb-2 pt-1">
-          <Text type="supporting" size="sm" as="div" className="px-1 pb-1">
+        <div {...stylex.props(styles.contacts)}>
+          <Text type="supporting" size="sm" as="div" xstyle={styles.contactLabel}>
             快捷私信
           </Text>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div {...stylex.props(styles.contactList)}>
             {contacts.map((c) => (
               <button
                 key={c.id}
                 type="button"
                 onClick={() => startChat(c.id)}
-                className="flex w-14 shrink-0 flex-col items-center gap-1 rounded-xl p-1 transition-colors hover:bg-muted"
+                {...stylex.props(styles.contact)}
               >
                 <UserAvatar
                   name={c.name}
@@ -76,9 +145,7 @@ export function ConversationList({
                   size={40}
                   tooltip={false}
                 />
-                <span className="w-full truncate text-center text-[11px] text-secondary">
-                  {c.name}
-                </span>
+                <span {...stylex.props(styles.contactName)}>{c.name}</span>
               </button>
             ))}
           </div>
@@ -87,13 +154,13 @@ export function ConversationList({
 
       {/* Conversation List */}
       {chats.length === 0 ? (
-        <div className="px-6 py-10 text-center">
+        <div {...stylex.props(styles.empty)}>
           <Text type="supporting" as="p">
             还没有聊天会话，点击右上角新建群聊或从居民列表中开始对话吧
           </Text>
         </div>
       ) : (
-        <nav className="flex-1 overflow-y-auto" aria-label="聊天会话列表">
+        <nav {...stylex.props(styles.nav)} aria-label="聊天会话列表">
           {filteredChats.map((chat) => {
             const isActive =
               pathname === chat.href ||
@@ -106,11 +173,7 @@ export function ConversationList({
                 key={`${chat.kind}-${chat.id}`}
                 href={chat.href}
                 aria-current={isActive ? 'page' : undefined}
-                className={`mx-2 mb-0.5 flex items-center gap-3 rounded-xl px-2.5 py-2.5 transition-colors ${
-                  isActive
-                    ? 'bg-neutral text-primary font-medium shadow-xs'
-                    : 'text-secondary hover:bg-overlay-hover hover:text-primary'
-                }`}
+                {...stylex.props(styles.chatLink, isActive ? styles.chatActive : styles.chatInactive)}
               >
                 <UserAvatar
                   name={chat.name}
@@ -119,21 +182,21 @@ export function ConversationList({
                   url={chat.avatarUrl}
                   size={46}
                 />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="truncate text-[15px] font-medium">{chat.name}</span>
+                <div {...stylex.props(styles.chatInfo)}>
+                  <div {...stylex.props(styles.chatHeader)}>
+                    <div {...stylex.props(styles.chatName)}>
+                      <span {...stylex.props(styles.chatNameText)}>{chat.name}</span>
                     </div>
                     {chat.lastMessageAt && (
                       <TimeAgo
                         date={chat.lastMessageAt}
                         short
-                        className="shrink-0 text-xs text-secondary"
+                        xstyle={styles.time}
                       />
                     )}
                   </div>
-                  <div className="mt-0.5 flex items-center justify-between gap-2">
-                    <span className="truncate text-[13px] text-secondary">
+                  <div {...stylex.props(styles.previewRow)}>
+                    <span {...stylex.props(styles.preview)}>
                       {chat.lastMessagePreview ?? (chat.kind === 'group' ? '群聊已创建' : '开始对话吧')}
                     </span>
                     {chat.unreadCount > 0 && (

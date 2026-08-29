@@ -1,12 +1,52 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import * as stylex from '@stylexjs/stylex';
 
+const styles = stylex.create({
+  root: {display: 'flex', height: '100%', minHeight: 0, width: '100%', overflow: 'hidden'},
+  sidebar: {
+    display: 'flex',
+    height: '100%',
+    flexShrink: 0,
+    flexDirection: 'column',
+    overflow: 'hidden',
+    borderColor: 'var(--color-border)',
+    width: '100%',
+    '@media (min-width: 768px)': {width: 'var(--split-sidebar-width)'},
+  },
+  sidebarHidden: {display: 'none', '@media (min-width: 640px)': {display: 'flex'}},
+  detail: {
+    minHeight: 0,
+    minWidth: 0,
+    flex: 1,
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  detailVisible: {display: 'flex'},
+  detailHidden: {display: 'none', '@media (min-width: 640px)': {display: 'flex'}},
+  detailScroll: {
+    height: '100%',
+    minHeight: 0,
+    width: '100%',
+    flex: 1,
+    overflowY: 'auto',
+    padding: 'var(--spacing-6)',
+    '@media (min-width: 1024px)': {padding: 'var(--spacing-8)'},
+  },
+  detailInner: {width: '100%', maxWidth: '760px', paddingBottom: 'var(--spacing-12)'},
+});
+
+function parseSidebarWidth(value: number | string): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const match = String(value).match(/(\d+(?:\.\d+)?)/);
+  return match ? Number(match[1]) : 280;
+}
 export interface SplitLayoutProps {
   /** Root pathname for the master list (e.g. '/messages', '/settings', '/groups') */
   rootPath: string;
-  /** Width class for the master sidebar (e.g. 'w-[280px]', 'w-[220px]'). Defaults to 'w-[280px]' */
-  sidebarWidth?: string;
+  /** Width of the master sidebar in pixels. Legacy utility strings are also accepted. */
+  sidebarWidth?: number | string;
   /** Secondary sidebar content (e.g. ConversationList, SettingsSidebar) */
   sidebar: React.ReactNode;
   /** Main detail content (children) */
@@ -28,34 +68,30 @@ export interface SplitLayoutProps {
  */
 export function SplitLayout({
   rootPath,
-  sidebarWidth = 'w-[280px]',
+  sidebarWidth = 280,
   sidebar,
   children,
   scrollableDetail = false,
 }: SplitLayoutProps) {
   const pathname = usePathname();
   const inDetail = pathname !== rootPath;
+  const sidebarWidthPx = parseSidebarWidth(sidebarWidth);
 
   return (
-    <div className="flex h-full min-h-0 w-full overflow-hidden">
+    <div {...stylex.props(styles.root)}>
       {/* Secondary Sidebar (Column 2) */}
       <aside
-        className={`${
-          inDetail ? 'hidden sm:flex' : 'flex'
-        } h-full shrink-0 flex-col overflow-hidden border-border ${sidebarWidth} sm:border-r`}
+        {...stylex.props(styles.sidebar, inDetail && styles.sidebarHidden)}
+        style={{'--split-sidebar-width': `${sidebarWidthPx}px`} as React.CSSProperties}
       >
         {sidebar}
       </aside>
 
       {/* Right Detail Pane (Column 3) — directly occupies the remaining width */}
-      <section
-        className={`${
-          inDetail ? 'flex' : 'hidden sm:flex'
-        } min-h-0 min-w-0 flex-1 flex-col overflow-hidden`}
-      >
+      <section {...stylex.props(styles.detail, inDetail ? styles.detailVisible : styles.detailHidden)}>
         {scrollableDetail ? (
-          <div className="h-full min-h-0 w-full flex-1 overflow-y-auto p-6 lg:p-8">
-            <div className="w-full max-w-[760px] pb-12">{children}</div>
+          <div {...stylex.props(styles.detailScroll)}>
+            <div {...stylex.props(styles.detailInner)}>{children}</div>
           </div>
         ) : (
           children

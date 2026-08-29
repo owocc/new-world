@@ -18,7 +18,26 @@ import {Selector} from '@astryxdesign/core/Selector';
 import {ProgressBar} from '@astryxdesign/core/ProgressBar';
 import {useTheme} from '@astryxdesign/core/theme';
 import type {BreakdownRow, UsageRange, UsageSummary} from '@/server/usage';
+import * as stylex from '@stylexjs/stylex';
 
+const styles = stylex.create({
+  filters: {display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px'},
+  stat: {minWidth: 0},
+  statValue: {marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.01em', '@media (min-width: 640px)': {fontSize: 'var(--font-size-2xl)'}},
+  statSub: {marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'},
+  summaryGrid: {display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: '16px', rowGap: '24px', '@media (min-width: 1024px)': {gridTemplateColumns: 'repeat(3, minmax(0, 1fr))'}},
+  emptyTrend: {borderRadius: 'var(--radius-container)', border: '1px solid var(--color-border)', padding: '24px', textAlign: 'center'},
+  chartTitle: {marginBottom: '16px'},
+  chart: {width: '100%', height: '224px', '@media (min-width: 640px)': {height: '256px'}},
+  breakdownTitle: {marginBottom: '12px'},
+  emptyBreakdown: {paddingBlock: '24px', textAlign: 'center'},
+  breakdownRows: {display: 'flex', flexDirection: 'column', gap: '12px'},
+  breakdownHeader: {display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', fontSize: 'var(--font-size-sm)'},
+  truncate: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'},
+  medium: {fontWeight: 'var(--font-weight-medium)'},
+  secondary: {color: 'var(--color-text-secondary)'},
+  cost: {marginInlineStart: '4px', color: 'var(--color-text-secondary)'},
+});
 export function fmtTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
@@ -59,7 +78,7 @@ export function UsageFilters({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div {...stylex.props(styles.filters)}>
       <SegmentedControl
         label="时间范围"
         value={range}
@@ -96,12 +115,12 @@ export function UsageFilters({
 
 function Stat({label, value, sub}: {label: string; value: string; sub: string}) {
   return (
-    <div className="min-w-0">
+    <div {...stylex.props(styles.stat)}>
       <Text type="supporting" size="sm" as="div">
         {label}
       </Text>
-      <div className="mt-1 truncate text-xl font-semibold tracking-tight sm:text-2xl">{value}</div>
-      <Text type="supporting" size="sm" as="div" className="mt-0.5 truncate">
+      <div {...stylex.props(styles.statValue)}>{value}</div>
+      <Text type="supporting" size="sm" as="div" xstyle={styles.statSub}>
         {sub}
       </Text>
     </div>
@@ -116,7 +135,7 @@ export function SummaryCards({summary, todaySummary, weekSummary, monthSummary}:
 }) {
   return (
     <Card padding={4}>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-6 lg:grid-cols-3">
+      <div {...stylex.props(styles.summaryGrid)}>
         <Stat label="总 Token" value={fmtTokens(summary.totalTokens)} sub={`${summary.requests} 次调用`} />
         <Stat label="输入 / 输出" value={`${fmtTokens(summary.inputTokens)} / ${fmtTokens(summary.outputTokens)}`} sub={`缓存 ${fmtTokens(summary.cachedTokens)} · 推理 ${fmtTokens(summary.reasoningTokens)}`} />
         <Stat label="预估成本" value={fmtCost(summary.costUsd)} sub={summary.failedRequests > 0 ? `${summary.failedRequests} 次失败调用` : '全部成功'} />
@@ -149,7 +168,7 @@ export function TrendChart({
 
   if (data.length === 0) {
     return (
-      <div className="rounded-container border border-border p-6 text-center">
+      <div {...stylex.props(styles.emptyTrend)}>
         <Text type="supporting">所选时间范围内还没有任何 AI 调用</Text>
       </div>
     );
@@ -157,10 +176,10 @@ export function TrendChart({
 
   return (
     <Card padding={4}>
-      <Text weight="medium" as="h3" className="mb-4">
+      <Text weight="medium" as="h3" xstyle={styles.chartTitle}>
         Token 消耗趋势
       </Text>
-      <div className="h-56 w-full sm:h-64" data-mode={mode}>
+      <div {...stylex.props(styles.chart)} data-mode={mode}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{top: 4, right: 4, left: -14, bottom: 0}}>
             <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} vertical={false} />
@@ -210,22 +229,22 @@ export function BreakdownTable({
   const max = Math.max(...rows.map((r) => r.totalTokens), 1);
   return (
     <Card padding={4}>
-      <Text weight="medium" as="h3" className="mb-3">
+      <Text weight="medium" as="h3" xstyle={styles.breakdownTitle}>
         {title}
       </Text>
       {rows.length === 0 ? (
-        <Text type="supporting" as="p" className="py-6 text-center">
+        <Text type="supporting" as="p" xstyle={styles.emptyBreakdown}>
           暂无数据
         </Text>
       ) : (
-        <div className="space-y-3">
+        <div {...stylex.props(styles.breakdownRows)}>
           {rows.map((r) => (
             <div key={r.key}>
-              <div className="flex items-baseline justify-between gap-2 text-sm">
-                <span className="truncate font-medium">{r.label}</span>
-                <span className="shrink-0 text-secondary">
+              <div {...stylex.props(styles.breakdownHeader)}>
+                <span {...stylex.props(styles.truncate, styles.medium)}>{r.label}</span>
+                <span {...stylex.props(styles.truncate, styles.secondary)}>
                   {fmtTokens(r.totalTokens)} · {r.requests} 次
-                  {r.costUsd > 0 && <span className="ml-1 text-secondary">({fmtCost(r.costUsd)})</span>}
+                  {r.costUsd > 0 && <span {...stylex.props(styles.cost)}>({fmtCost(r.costUsd)})</span>}
                 </span>
               </div>
               <ProgressBar

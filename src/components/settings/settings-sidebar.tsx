@@ -11,7 +11,20 @@ import {
   Cpu,
   Sparkles,
 } from 'lucide-react';
+import * as stylex from '@stylexjs/stylex';
 
+const styles = stylex.create({
+  root: {display: 'flex', height: '100%', flexDirection: 'column', paddingBlock: '16px'},
+  header: {paddingInline: '16px', paddingBottom: '12px'},
+  title: {fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.01em'},
+  nav: {flex: 1, overflowY: 'auto', paddingInline: '4px'},
+  section: {marginBottom: '16px'},
+  sectionLabel: {display: 'block', paddingInline: '12px', paddingBottom: '4px', fontSize: '11px', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-secondary)'},
+  item: {display: 'flex', alignItems: 'center', gap: '10px', marginInline: '8px', marginBottom: '2px', borderRadius: 'var(--radius-container)', paddingInline: '10px', paddingBlock: '8px', fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-secondary)', transition: 'background-color 150ms ease, color 150ms ease', ':hover': {backgroundColor: 'var(--color-background-muted)', color: 'var(--color-text-primary)'}},
+  activeItem: {backgroundColor: 'var(--color-background-muted)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-text-primary)'},
+  icon: {color: 'var(--color-text-secondary)'},
+  activeIcon: {color: 'var(--color-text-accent)'},
+});
 const SECTIONS = [
   {
     title: '基础设置',
@@ -76,17 +89,17 @@ export function SettingsSidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full flex-col py-4">
+    <div {...stylex.props(styles.root)}>
       {/* Sidebar Header */}
-      <div className="px-4 pb-3">
-        <h1 className="text-xl font-semibold tracking-tight">系统设置</h1>
+      <div {...stylex.props(styles.header)}>
+        <h1 {...stylex.props(styles.title)}>系统设置</h1>
       </div>
 
       {/* Navigation Sections */}
-      <nav className="flex-1 space-y-4 overflow-y-auto px-1" aria-label="设置导航">
+      <nav {...stylex.props(styles.nav)} aria-label="设置导航">
         {SECTIONS.map((sec) => (
-          <div key={sec.title} className="space-y-0.5">
-            <span className="block px-3 pb-1 text-[11px] font-medium text-secondary">
+          <div key={sec.title} {...stylex.props(styles.section)}>
+            <span {...stylex.props(styles.sectionLabel)}>
               {sec.title}
             </span>
             {sec.items.map((item) => {
@@ -97,15 +110,11 @@ export function SettingsSidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`mx-2 mb-0.5 flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-muted font-semibold text-primary'
-                      : 'text-secondary hover:bg-muted hover:text-primary'
-                  }`}
-                >
-                  <Icon
-                    size={16}
-                    className={isActive ? 'text-accent' : 'text-secondary'}
+                  {...stylex.props(styles.item, isActive && styles.activeItem)}
+                  >
+                    <Icon
+                      size={16}
+                      {...stylex.props(isActive ? styles.activeIcon : styles.icon)}
                   />
                   <span>{item.label}</span>
                 </Link>

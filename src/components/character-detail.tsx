@@ -1,6 +1,7 @@
 'use client';
 
 import {useState} from 'react';
+import * as stylex from '@stylexjs/stylex';
 import {MessageCircle} from 'lucide-react';
 import {Button} from '@astryxdesign/core/Button';
 import {Dialog} from '@astryxdesign/core/Dialog';
@@ -21,6 +22,24 @@ import {
   type CharacterFormValues,
 } from '@/components/character-editor';
 import type {CharacterListItem} from '@/components/character-card';
+
+const styles = stylex.create({
+  profileHeader: {display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--spacing-4)'},
+  headline: {display: 'flex', alignItems: 'center', gap: '10px'},
+  heading: {
+    fontSize: 'var(--font-size-2xl)',
+    fontWeight: 'var(--font-weight-semibold)',
+    letterSpacing: '-0.025em',
+  },
+  grow: {flex: 1},
+  buttonGroup: {display: 'flex', alignItems: 'center', gap: 'var(--spacing-2)'},
+  bio: {maxWidth: '36rem', lineHeight: 1.625, color: 'var(--color-text-secondary)'},
+  tags: {display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-1-5)'},
+  prose: {whiteSpace: 'pre-wrap', lineHeight: 1.625},
+  proseSecondary: {whiteSpace: 'pre-wrap', lineHeight: 1.625, color: 'var(--color-text-secondary)'},
+  dialogTitle: {fontSize: 'var(--font-size-lg)', fontWeight: 'var(--font-weight-semibold)'},
+  editorContainer: {marginInline: 'auto', width: '100%', maxWidth: '640px', paddingBlock: 'var(--spacing-2)'},
+});
 
 function splitTags(value: string): string[] {
   return value
@@ -81,7 +100,7 @@ export function CharacterDetail({
     <VStack gap={6}>
       {/* profile header */}
       <VStack gap={3}>
-        <div className="flex flex-wrap items-center gap-4">
+        <div {...stylex.props(styles.profileHeader)}>
           <UserAvatar
             name={character.name}
             emoji={character.avatarEmoji}
@@ -90,8 +109,8 @@ export function CharacterDetail({
             size={72}
           />
           <VStack gap={1}>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-2xl font-semibold tracking-tight">{character.name}</h1>
+            <div {...stylex.props(styles.headline)}>
+              <h1 {...stylex.props(styles.heading)}>{character.name}</h1>
               <StatusDot variant={active ? 'success' : 'neutral'} label={active ? '活跃' : '已禁用'} />
             </div>
             <Text type="supporting" as="div">
@@ -99,14 +118,14 @@ export function CharacterDetail({
               {character.relationshipToUser ? ` · 与你的关系：${character.relationshipToUser}` : ''}
             </Text>
           </VStack>
-          <div className="flex-1" />
-          <div className="flex items-center gap-2">
+          <div {...stylex.props(styles.grow)} />
+          <div {...stylex.props(styles.buttonGroup)}>
             <Button label="发私信" variant="primary" icon={<MessageCircle size={16} />} onClick={chat} />
             <Button label="编辑" variant="secondary" onClick={() => setEditing(true)} />
           </div>
         </div>
         {character.bio && (
-          <Text as="p" className="max-w-xl leading-relaxed text-secondary">
+          <Text as="p" xstyle={styles.bio}>
             {character.bio}
           </Text>
         )}
@@ -120,7 +139,7 @@ export function CharacterDetail({
               <Text weight="medium" as="div">
                 性格
               </Text>
-              <div className="flex flex-wrap gap-1.5">
+              <div {...stylex.props(styles.tags)}>
                 {splitTags(character.personality).map((t) => (
                   <Token key={t} label={t} color="orange" />
                 ))}
@@ -132,7 +151,7 @@ export function CharacterDetail({
               <Text weight="medium" as="div">
                 兴趣
               </Text>
-              <div className="flex flex-wrap gap-1.5">
+              <div {...stylex.props(styles.tags)}>
                 {splitTags(character.interests).map((t) => (
                   <Token key={t} label={t} color="teal" />
                 ))}
@@ -152,7 +171,7 @@ export function CharacterDetail({
               <Text weight="medium" as="div">
                 关于 TA
               </Text>
-              <Text as="p" textWrap="wrap" className="whitespace-pre-wrap leading-relaxed">
+              <Text as="p" textWrap="wrap" xstyle={styles.prose}>
                 {character.persona}
               </Text>
             </VStack>
@@ -162,7 +181,7 @@ export function CharacterDetail({
               <Text weight="medium" as="div">
                 表达方式
               </Text>
-              <Text as="p" textWrap="wrap" className="whitespace-pre-wrap leading-relaxed text-secondary">
+              <Text as="p" textWrap="wrap" xstyle={styles.proseSecondary}>
                 {character.expressionStyle}
               </Text>
             </VStack>
@@ -184,12 +203,12 @@ export function CharacterDetail({
           height="fill"
           header={
             <LayoutHeader hasDivider>
-              <h2 className="text-lg font-semibold">编辑居民</h2>
+              <h2 {...stylex.props(styles.dialogTitle)}>编辑居民</h2>
             </LayoutHeader>
           }
           content={
             <LayoutContent>
-              <div className="mx-auto w-full max-w-[640px] py-2">
+              <div {...stylex.props(styles.editorContainer)}>
                 <CharacterEditor
                   characterId={character.id}
                   initial={initial}

@@ -2,14 +2,42 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import * as stylex from '@stylexjs/stylex';
+import { colorVars, radiusVars } from '@astryxdesign/core/theme/tokens.stylex';
 import { resolveMediaUrl } from '@/lib/utils';
-import clsx from 'clsx';
 
 /**
  * App avatar: Astryx Avatar for image avatars, with a gradient + emoji
  * fallback for AI residents. Identity colors live here (not in the theme)
  * since they belong to the characters, not to the UI.
  */
+const styles = stylex.create({
+  root: {
+    display: 'inline-flex',
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: radiusVars['--radius-full'],
+    userSelect: 'none',
+  },
+  image: {
+    height: '100%',
+    width: '100%',
+    objectFit: 'cover',
+    objectPosition: 'center',
+  },
+  fallback: {
+    lineHeight: 1,
+    color: colorVars['--color-on-dark'],
+    fontWeight: 500,
+  },
+  link: {
+    display: 'inline-flex',
+    flexShrink: 0,
+    borderRadius: radiusVars['--radius-full'],
+  },
+});
 const GRADIENTS: Record<string, string> = {
   violet: 'linear-gradient(135deg,#8b5cf6,#6366f1)',
   rose: 'linear-gradient(135deg,#fb7185,#e11d48)',
@@ -32,6 +60,7 @@ export function UserAvatar({
   href,
   tooltip = true,
   className,
+  xstyle,
 }: {
   name: string;
   emoji?: string | null;
@@ -41,6 +70,7 @@ export function UserAvatar({
   href?: string;
   tooltip?: boolean | string;
   className?: string;
+  xstyle?: stylex.StyleXStyles;
 }) {
   const [imgError, setImgError] = useState(false);
   const finalUrl = resolveMediaUrl(url);
@@ -51,13 +81,10 @@ export function UserAvatar({
 
   const gradient = GRADIENTS[color ?? 'violet'] ?? GRADIENTS.violet;
   const showImage = Boolean(finalUrl && !imgError);
-
   const inner = (
     <span
-      className={clsx(
-        'inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full',
-        className,
-      )}
+      {...stylex.props(styles.root, xstyle)}
+      className={className}
       style={{
         width: size,
         height: size,
@@ -73,10 +100,10 @@ export function UserAvatar({
           src={finalUrl!}
           alt={name}
           onError={() => setImgError(true)}
-          className="h-full w-full object-cover object-center"
+          {...stylex.props(styles.image)}
         />
       ) : (
-        <span className="leading-none text-white font-medium">
+        <span {...stylex.props(styles.fallback)}>
           {emoji || name.slice(0, 1) || '✨'}
         </span>
       )}
@@ -85,7 +112,7 @@ export function UserAvatar({
 
   if (!href) return inner;
   return (
-    <Link href={href} aria-label={name} className="inline-flex shrink-0 rounded-full">
+    <Link href={href} aria-label={name} {...stylex.props(styles.link)}>
       {inner}
     </Link>
   );
