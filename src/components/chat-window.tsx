@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
+import { colorVars } from '@astryxdesign/core/theme/tokens.stylex';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import Link from 'next/link';
@@ -69,8 +70,14 @@ const styles = stylex.create({
   },
   headerInfo: {minWidth: 0, flex: 1, overflow: 'hidden'},
   headerName: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '15px', fontWeight: 'var(--font-weight-semibold)', lineHeight: 1.25},
-  shrink: {flexShrink: 0},
-  headerBio: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'},
+  headerNameLink: {
+    textDecoration: 'none',
+    color: colorVars['--color-text-primary'],
+    cursor: 'pointer',
+    '@media (hover: hover)': {
+      ':hover': {color: colorVars['--color-text-accent']},
+    },
+  },
   scrollAreaWrapper: {
     position: 'relative',
     minHeight: 0,
@@ -557,14 +564,15 @@ export function ChatWindow({
           color={character.avatarColor}
           url={character.avatarUrl}
           size={36}
+          href={`/characters/${character.id}`}
         />
         <div {...stylex.props(styles.headerInfo)}>
-          <div {...stylex.props(styles.headerName)}>{character.name}</div>
-          {character.bio && (
-            <Text type="supporting" size="sm" as="div" xstyle={styles.headerBio}>
-              {character.bio}
-            </Text>
-          )}
+          <Link
+            href={`/characters/${character.id}`}
+            {...stylex.props(styles.headerName, styles.headerNameLink)}
+          >
+            {character.name}
+          </Link>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {isDevMode && (
@@ -590,9 +598,6 @@ export function ChatWindow({
               <span>开发者工具</span>
             </button>
           )}
-          <Link href={`/characters/${character.id}`} {...stylex.props(styles.shrink)}>
-            <Button label="查看资料" variant="ghost" size="sm" />
-          </Link>
         </div>
       </header>
 
