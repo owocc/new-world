@@ -4,8 +4,7 @@ import { useState, useTransition, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as stylex from '@stylexjs/stylex';
-import { colorVars, radiusVars, shadowVars, spacingVars } from '@astryxdesign/core/theme/tokens.stylex';
-import { Popover } from '@astryxdesign/core/Popover';
+import { colorVars, radiusVars, shadowVars } from '@astryxdesign/core/theme/tokens.stylex';
 import { Button } from '@astryxdesign/core/Button';
 import { Badge } from '@astryxdesign/core/Badge';
 import { EmptyState } from '@astryxdesign/core/EmptyState';
@@ -21,7 +20,15 @@ import {
 import { Bell, CheckCheck, ArrowRight, MessageCircle, MessageSquare, Heart, Sparkles } from 'lucide-react';
 
 const styles = stylex.create({
-  panel: {
+  wrapper: {
+    position: 'relative',
+    display: 'inline-flex',
+  },
+  popoverCard: {
+    position: 'absolute',
+    bottom: '100%',
+    left: '0',
+    marginBottom: '10px',
     width: '380px',
     maxWidth: 'calc(100vw - 32px)',
     backgroundColor: colorVars['--color-background-surface'],
@@ -34,6 +41,7 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
     maxHeight: '520px',
+    zIndex: 9999,
   },
   header: {
     display: 'flex',
@@ -176,13 +184,6 @@ const styles = stylex.create({
     borderTopColor: colorVars['--color-border'],
     backgroundColor: colorVars['--color-background-surface'],
     flexShrink: 0,
-  },
-  popoverReset: {
-    padding: 0,
-    backgroundColor: 'transparent',
-    boxShadow: 'none',
-    borderWidth: 0,
-    borderRadius: 0,
   },
   notificationButton: {
     position: 'relative',
@@ -333,139 +334,129 @@ export function NotificationPopover({
     [],
   );
 
-  const popoverContent = (
-    <div
-      {...stylex.props(styles.panel)}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {/* Header */}
-      <div {...stylex.props(styles.header)}>
-        <div {...stylex.props(styles.headerGroup)}>
-          <Text as="span" size="sm" xstyle={styles.headerText}>
-            通知
-          </Text>
-          {unreadCount > 0 && (
-            <Badge variant="orange" label={`${unreadCount > 99 ? '99+' : unreadCount} 条未读`} />
-          )}
-        </div>
-        {unreadCount > 0 && (
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={<CheckCheck size={14} />}
-            label="全部已读"
-            onClick={handleMarkAllRead}
-            isLoading={isPending}
-          />
-        )}
-      </div>
-
-      {/* Body List */}
-      <div {...stylex.props(styles.body)}>
-        {notifications.length === 0 ? (
-          <div {...stylex.props(styles.empty)}>
-            <EmptyState
-              icon={<Bell size={32} strokeWidth={1.5} {...stylex.props(styles.iconInfo)} />}
-              title="暂无新通知"
-              description="AI 居民们的动态和私信会在此提醒你"
-            />
-          </div>
-        ) : (
-          <div {...stylex.props(styles.list)}>
-            {notifications.map((item) => {
-              const href = getNotificationHref(item);
-              return (
-                <Link
-                  key={item.id}
-                  href={href}
-                  onClick={() => handleItemClick(item)}
-                  {...stylex.props(styles.item, item.read ? styles.itemRead : styles.itemUnread)}
-                >
-                  <div {...stylex.props(styles.avatarWrap)}>
-                    <UserAvatar
-                      name={item.characterName ?? '系统'}
-                      emoji={item.characterEmoji ?? '✨'}
-                      color={item.characterColor ?? 'violet'}
-                      url={item.characterAvatarUrl}
-                      size={36}
-                    />
-                    {!item.read && <span {...stylex.props(styles.unreadDot)} />}
-                  </div>
-
-                  <div {...stylex.props(styles.itemContent)}>
-                    <div {...stylex.props(styles.itemRow)}>
-                      <div {...stylex.props(styles.itemNameGroup)}>
-                        <span {...stylex.props(styles.itemName)}>
-                          {item.characterName ?? '系统'}
-                        </span>
-                        <span>{getNotificationIcon(item.type)}</span>
-                      </div>
-                      <TimeAgo date={item.createdAt} xstyle={styles.time} />
-                    </div>
-
-                    <Text type="supporting" as="p" xstyle={styles.actionText}>
-                      {getNotificationActionLabel(item.type)}
-                    </Text>
-
-                    {item.content && (
-                      <p {...stylex.props(styles.content)}>
-                        {item.content}
-                      </p>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div {...stylex.props(styles.footer)}>
-        <Button
-          as={Link}
-          href="/notifications"
-          onClick={() => setIsOpen(false)}
-          variant="ghost"
-          width="100%"
-          size="sm"
-          label="打开通知中心"
-          endContent={<ArrowRight size={14} />}
-        />
-      </div>
-    </div>
-  );
-
   return (
     <div
+      {...stylex.props(styles.wrapper)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      style={{ display: 'inline-flex' }}
     >
-      <Popover
-        isOpen={isOpen}
-        onOpenChange={setIsOpen}
-        placement="below"
-        alignment="end"
-        label="最新通知"
-        xstyle={styles.popoverReset}
-        content={popoverContent}
+      <Link
+        href="/notifications"
+        {...stylex.props(styles.notificationButton)}
+        aria-label={unreadCount > 0 ? `${unreadCount} 条未读通知` : '通知中心'}
+        title="通知中心"
       >
-        <Link
-          href="/notifications"
-          {...stylex.props(styles.notificationButton)}
-          aria-label={unreadCount > 0 ? `${unreadCount} 条未读通知` : '通知中心'}
-          title="通知中心"
+        <Bell size={18} />
+        {unreadCount > 0 && (
+          <span {...stylex.props(styles.notificationBadge)}>
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </Link>
+
+      {isOpen && (
+        <div
+          {...stylex.props(styles.popoverCard)}
+          role="region"
+          aria-label="最新通知浮层"
         >
-          <Bell size={18} />
-          {unreadCount > 0 && (
-            <span {...stylex.props(styles.notificationBadge)}>
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
-          )}
-        </Link>
-      </Popover>
+          {/* Header */}
+          <div {...stylex.props(styles.header)}>
+            <div {...stylex.props(styles.headerGroup)}>
+              <Text as="span" size="sm" xstyle={styles.headerText}>
+                通知
+              </Text>
+              {unreadCount > 0 && (
+                <Badge variant="orange" label={`${unreadCount > 99 ? '99+' : unreadCount} 条未读`} />
+              )}
+            </div>
+            {unreadCount > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={<CheckCheck size={14} />}
+                label="全部已读"
+                onClick={handleMarkAllRead}
+                isLoading={isPending}
+              />
+            )}
+          </div>
+
+          {/* Body List */}
+          <div {...stylex.props(styles.body)}>
+            {notifications.length === 0 ? (
+              <div {...stylex.props(styles.empty)}>
+                <EmptyState
+                  icon={<Bell size={32} strokeWidth={1.5} {...stylex.props(styles.iconInfo)} />}
+                  title="暂无新通知"
+                  description="AI 居民们的动态和私信会在此提醒你"
+                />
+              </div>
+            ) : (
+              <div {...stylex.props(styles.list)}>
+                {notifications.map((item) => {
+                  const href = getNotificationHref(item);
+                  return (
+                    <Link
+                      key={item.id}
+                      href={href}
+                      onClick={() => handleItemClick(item)}
+                      {...stylex.props(styles.item, item.read ? styles.itemRead : styles.itemUnread)}
+                    >
+                      <div {...stylex.props(styles.avatarWrap)}>
+                        <UserAvatar
+                          name={item.characterName ?? '系统'}
+                          emoji={item.characterEmoji ?? '✨'}
+                          color={item.characterColor ?? 'violet'}
+                          url={item.characterAvatarUrl}
+                          size={36}
+                        />
+                        {!item.read && <span {...stylex.props(styles.unreadDot)} />}
+                      </div>
+
+                      <div {...stylex.props(styles.itemContent)}>
+                        <div {...stylex.props(styles.itemRow)}>
+                          <div {...stylex.props(styles.itemNameGroup)}>
+                            <span {...stylex.props(styles.itemName)}>
+                              {item.characterName ?? '系统'}
+                            </span>
+                            <span>{getNotificationIcon(item.type)}</span>
+                          </div>
+                          <TimeAgo date={item.createdAt} xstyle={styles.time} />
+                        </div>
+
+                        <Text type="supporting" as="p" xstyle={styles.actionText}>
+                          {getNotificationActionLabel(item.type)}
+                        </Text>
+
+                        {item.content && (
+                          <p {...stylex.props(styles.content)}>
+                            {item.content}
+                          </p>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div {...stylex.props(styles.footer)}>
+            <Button
+              as={Link}
+              href="/notifications"
+              onClick={() => setIsOpen(false)}
+              variant="ghost"
+              width="100%"
+              size="sm"
+              label="打开通知中心"
+              endContent={<ArrowRight size={14} />}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
