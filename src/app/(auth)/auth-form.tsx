@@ -69,7 +69,8 @@ export function AuthForm({mode}: {mode: 'login' | 'register'}) {
         );
         return;
       }
-      router.replace('/feed');
+      // brand-new residents go through the first-friend onboarding
+      router.replace(isRegister ? '/onboarding' : '/feed');
       router.refresh();
     } catch {
       setError('网络错误，请稍后重试');

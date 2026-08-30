@@ -1,6 +1,8 @@
 import { after } from 'next/server';
+import { redirect } from 'next/navigation';
 import { FeedView } from '@/components/feed-view';
 import { requireUserId } from '@/lib/session';
+import { getOnboardingStatus } from '@/server/onboarding';
 import { getFeedPosts, getUserProfile, getFeedCover } from '@/server/feed';
 import { getFeedNotifications, getUnreadFeedNotificationCount } from '@/server/actions/feed';
 import { maybePulse, processDueEvents } from '@/server/ai/community/engine';
@@ -17,6 +19,14 @@ export default async function FeedPage({
   const isMine = filter === 'mine' || user === 'me';
 
   const userId = await requireUserId();
+
+  // users who have neither finished onboarding nor created any resident are
+  // guided through the first-friend tutorial first
+  const onboarding = await getOnboardingStatus(userId);
+  if (!onboarding.completed && !onboarding.hasCharacters) {
+    redirect('/onboarding');
+  }
+
   const [posts, profile, coverUrl, notifications, unreadCount] = await Promise.all([
     getFeedPosts(userId, 30, 0, isMine ? 'mine' : 'all'),
     getUserProfile(userId),

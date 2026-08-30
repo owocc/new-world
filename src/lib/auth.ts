@@ -27,19 +27,6 @@ export const auth = betterAuth({
       generateId: () => crypto.randomUUID(),
     },
   },
-  databaseHooks: {
-    user: {
-      create: {
-        // every new user gets their own seeded AI community on signup
-        after: async (created) => {
-          const { seedUserCommunity } = await import('@/server/seed');
-          await seedUserCommunity(created.id).catch((err) =>
-            console.error('[auth] seed failed', err),
-          );
-        },
-      },
-    },
-  },
 });
 
 export type Session = typeof auth.$Infer.Session;
