@@ -4,7 +4,7 @@ import {aiCharacters, aiRelationships} from '@/db/schema';
 import {requireUserId} from '@/lib/session';
 import {RelationshipManagePanel} from '@/components/relationship-manage-panel';
 
-export const metadata = {title: '关系管理'};
+export const metadata = {title: 'AI 通讯录'};
 export const dynamic = 'force-dynamic';
 
 export default async function CharactersRelationshipsPage() {

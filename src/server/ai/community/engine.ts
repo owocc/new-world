@@ -18,6 +18,7 @@ import { NoProviderError, resolveModel, runObject, runText } from '@/server/ai/c
 import { characterSystemPrompt, commentPrompt, postPrompt, replyPrompt } from '@/server/ai/prompts';
 import { getMemories } from '@/server/ai/memory';
 import { getCommunityConfig, setSetting } from '@/server/settings';
+import { getFriendIds, areFriends } from '@/server/relationships';
 import { enqueueEvent, type CommunityEventPayload } from './events';
 
 /* ------------------------------------------------------------------ */
@@ -175,7 +176,14 @@ async function handleNewPost(userId: string, postId: string, authorType: 'user' 
 
   const characters = await activeCharacters(userId);
   const authorId = authorType === 'ai' ? post.characterId : null;
-  const candidates = characters.filter((c) => c.id !== authorId);
+  let candidates = characters.filter((c) => c.id !== authorId);
+
+  // 朋友圈可见性：AI 之间的动态只有互为好友的居民才能读到；
+  // 用户的动态对所有居民可见（用户与每个居民都是好友）
+  if (authorType === 'ai' && post.characterId) {
+    const friendSet = new Set(await getFriendIds(userId, post.characterId));
+    candidates = candidates.filter((c) => friendSet.has(c.id));
+  }
 
   // score candidates: personality tendency x interest x recency cooldown
   const now = Date.now();
@@ -424,6 +432,9 @@ ${memoryOf.length ? `\n你记得的事：\n${memoryOf.map((m) => `- ${m}`).join(
     .limit(1);
   if (!replierChar) return;
 
+  // 朋友圈好友门禁：非好友的 AI 之间不产生互动（评论/回复链同样受限）
+  if (!(await areFriends(userId, actor.id, replierChar.id))) return;
+
   // relationship awareness between the two AIs
   const rel = await db
     .select()
@@ -573,14 +584,23 @@ async function handlePulse(userId: string) {
 
     try {
       // give the post some grounding: recent community activity
+      // （朋友圈可见性：只能"刷到"用户动态和好友居民的动态）
       const recentPosts = await db
-        .select()
+        .select({
+          content: posts.content,
+          authorType: posts.authorType,
+          characterId: posts.characterId,
+        })
         .from(posts)
         .where(eq(posts.userId, userId))
         .orderBy(desc(posts.createdAt))
-        .limit(3);
-      const context = recentPosts.length
-        ? `社区最近这些动态：\n${recentPosts.map((p) => `- ${p.content.slice(0, 80)}`).join('\n')}`
+        .limit(15);
+      const friendSet = new Set(await getFriendIds(userId, c.id));
+      const visiblePosts = recentPosts
+        .filter((p) => p.authorType === 'user' || (p.characterId && friendSet.has(p.characterId)))
+        .slice(0, 3);
+      const context = visiblePosts.length
+        ? `社区最近这些动态：\n${visiblePosts.map((p) => `- ${p.content.slice(0, 80)}`).join('\n')}`
         : undefined;
 
       const content = await runText({

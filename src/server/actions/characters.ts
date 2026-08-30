@@ -1,6 +1,6 @@
 'use server';
 
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/db';
@@ -147,6 +147,29 @@ export async function setRelationship(input: z.input<typeof relationshipSchema>)
     return { error: '角色不存在' };
   }
 
+  // 好友关系是双向对等的（互加好友）：
+  // 若反向记录已存在则原地更新，避免同一对好友出现两条记录
+  const [reverse] = await db
+    .select({ id: aiRelationships.id })
+    .from(aiRelationships)
+    .where(
+      and(
+        eq(aiRelationships.userId, userId),
+        eq(aiRelationships.fromCharacterId, parsed.data.toCharacterId),
+        eq(aiRelationships.toCharacterId, parsed.data.fromCharacterId),
+      ),
+    )
+    .limit(1);
+
+  if (reverse) {
+    await db
+      .update(aiRelationships)
+      .set({ kind: parsed.data.kind, note: parsed.data.note || null })
+      .where(eq(aiRelationships.id, reverse.id));
+    revalidatePath('/characters');
+    return { ok: true };
+  }
+
   await db
     .insert(aiRelationships)
     .values({
@@ -162,21 +185,34 @@ export async function setRelationship(input: z.input<typeof relationshipSchema>)
       set: { kind: parsed.data.kind, note: parsed.data.note || null },
     });
   revalidatePath('/characters');
+  revalidatePath('/characters/relationships');
+  revalidatePath('/characters/manage');
   return { ok: true };
 }
 
 export async function deleteRelationship(fromCharacterId: string, toCharacterId: string) {
   const userId = await requireUserId();
+  // 双向删除：好友关系解除后双方好友列表同时移除
   await db
     .delete(aiRelationships)
     .where(
       and(
         eq(aiRelationships.userId, userId),
-        eq(aiRelationships.fromCharacterId, fromCharacterId),
-        eq(aiRelationships.toCharacterId, toCharacterId),
+        or(
+          and(
+            eq(aiRelationships.fromCharacterId, fromCharacterId),
+            eq(aiRelationships.toCharacterId, toCharacterId),
+          ),
+          and(
+            eq(aiRelationships.fromCharacterId, toCharacterId),
+            eq(aiRelationships.toCharacterId, fromCharacterId),
+          ),
+        ),
       ),
     );
   revalidatePath('/characters');
+  revalidatePath('/characters/relationships');
+  revalidatePath('/characters/manage');
   return { ok: true };
 }
 

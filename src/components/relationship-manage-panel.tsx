@@ -4,7 +4,7 @@ import {useState, useTransition} from 'react';
 import * as stylex from '@stylexjs/stylex';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
-import {ArrowLeft, ArrowRight, HeartHandshake, Plus, Trash2, Users} from 'lucide-react';
+import {ArrowLeft, ArrowRightLeft, HeartHandshake, Plus, Trash2, Users} from 'lucide-react';
 import {Button} from '@astryxdesign/core/Button';
 import {Dialog} from '@astryxdesign/core/Dialog';
 import {Layout, LayoutHeader, LayoutContent, LayoutFooter} from '@astryxdesign/core/Layout';
@@ -151,7 +151,7 @@ export function RelationshipManagePanel({
       return;
     }
     if (fromId === toId) {
-      toast.error('发起方和接收方不能为同一人');
+      toast.error('两位居民不能是同一个人');
       return;
     }
     startTransition(async () => {
@@ -166,7 +166,7 @@ export function RelationshipManagePanel({
         toast.error(res.error);
         return;
       }
-      toast.success('关系已保存');
+      toast.success('已互加为好友');
       setIsAddOpen(false);
       setFromId('');
       setToId('');
@@ -179,7 +179,7 @@ export function RelationshipManagePanel({
   const handleDelete = (fromCharacterId: string, toCharacterId: string) => {
     startTransition(async () => {
       await deleteRelationship(fromCharacterId, toCharacterId);
-      toast.success('关系已删除');
+      toast.success('好友关系已解除');
       router.refresh();
     });
   };
@@ -192,13 +192,13 @@ export function RelationshipManagePanel({
             <ArrowLeft size={18} />
           </Link>
           <div>
-            <h1 {...stylex.props(styles.heading)}>关系管理</h1>
-            <p {...stylex.props(styles.subheading)}>设定居民之间的关系，影响互相互动时的语气与动态</p>
+            <h1 {...stylex.props(styles.heading)}>AI 通讯录</h1>
+            <p {...stylex.props(styles.subheading)}>为居民互加好友：互为好友才能看到对方的朋友圈；没有好友关系无法私聊（群聊中仍可见）</p>
           </div>
         </div>
         <div {...stylex.props(styles.headerActions)}>
           <Button
-            label="新增关系"
+            label="添加好友"
             variant="primary"
             size="sm"
             icon={<Plus size={15} />}
@@ -211,8 +211,8 @@ export function RelationshipManagePanel({
       {relationships.length === 0 ? (
         <EmptyState
           icon={<HeartHandshake size={40} strokeWidth={1.5} />}
-          title="暂无居民关系"
-          description={characters.length < 2 ? '至少需要 2 位居民才能建立关系' : '点击右上角「新增关系」为居民之间设定羁绊'}
+          title="还没有好友关系"
+          description={characters.length < 2 ? '至少需要 2 位居民才能互加好友' : '点击右上角「添加好友」让两位居民互相成为好友'}
         />
       ) : (
         <div {...stylex.props(styles.list)}>
@@ -235,7 +235,7 @@ export function RelationshipManagePanel({
                 </div>
 
                 <div {...stylex.props(styles.arrowWrap)}>
-                  <ArrowRight size={14} />
+                  <ArrowRightLeft size={14} />
                 </div>
 
                 <div {...stylex.props(styles.person)}>
@@ -260,7 +260,7 @@ export function RelationshipManagePanel({
                   disabled={pending}
                   onClick={() => handleDelete(rel.fromCharacterId, rel.toCharacterId)}
                   {...stylex.props(styles.deleteBtn)}
-                  aria-label="删除关系"
+                  aria-label="解除好友关系"
                 >
                   <Trash2 size={15} />
                 </button>
@@ -280,7 +280,7 @@ export function RelationshipManagePanel({
           height="fill"
           header={
             <LayoutHeader hasDivider>
-              <h2 {...stylex.props(styles.dialogTitle)}>新增居民关系</h2>
+              <h2 {...stylex.props(styles.dialogTitle)}>让两位居民互加好友</h2>
             </LayoutHeader>
           }
           content={
@@ -288,14 +288,14 @@ export function RelationshipManagePanel({
               <div {...stylex.props(styles.form)}>
                 <div {...stylex.props(styles.formRow)}>
                   <Selector
-                    label="发起方"
+                    label="居民 A"
                     placeholder="选择居民"
                     options={characterOptions}
                     value={fromId}
                     onChange={setFromId}
                   />
                   <Selector
-                    label="接收方"
+                    label="居民 B"
                     placeholder="选择居民"
                     options={characterOptions.filter((o) => o.value !== fromId)}
                     value={toId}
