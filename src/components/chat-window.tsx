@@ -116,8 +116,6 @@ const styles = stylex.create({
     scrollBehavior: 'smooth',
   },
   messagesInner: {
-    maxWidth: '768px',
-    marginInline: 'auto',
     width: '100%',
   },
   emptyState: {
@@ -155,7 +153,6 @@ const styles = stylex.create({
     pointerEvents: 'none',
   },
   composerFloating: {
-    maxWidth: '768px',
     width: '100%',
     pointerEvents: 'auto',
   },

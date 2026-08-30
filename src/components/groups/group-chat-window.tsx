@@ -129,8 +129,6 @@ const styles = stylex.create({
   composerFloating: {
     pointerEvents: 'auto',
     width: '100%',
-    maxWidth: '800px',
-    marginInline: 'auto',
   },
   composerWrap: {display: 'flex', width: '100%', flexDirection: 'column', gap: '8px'},
   composerBody: {
@@ -461,8 +459,11 @@ export function GroupChatWindow({
   };
 
   const insertMention = (member: GroupMemberView) => {
-    const mentionTag = `@${member.name} `;
-    setInputValue((prev) => `${prev}${mentionTag}`);
+    setInputValue((prev) => {
+      // If the user already typed a trailing '@', replace it with '@Member ' rather than appending '@@Member '
+      const base = prev.endsWith('@') ? prev.slice(0, -1) : prev;
+      return `${base}@${member.name} `;
+    });
     setShowMentionPicker(false);
   };
 
@@ -878,7 +879,7 @@ export function GroupChatWindow({
                   isDisabled={isUploadingAny || isPending}
                 />
                 <Button
-                  label="@ 成员"
+                  label="成员"
                   variant="ghost"
                   size="sm"
                   icon={<AtSign size={15} />}

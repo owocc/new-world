@@ -18,7 +18,7 @@ const styles = stylex.create({
   title: {fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.01em'},
   empty: {paddingInline: '24px', paddingBlock: '40px', textAlign: 'center'},
   nav: {flex: 1, overflowY: 'auto'},
-  link: {display: 'flex', alignItems: 'center', gap: '12px', marginInline: '8px', marginBottom: '2px', borderRadius: 'var(--radius-container)', paddingInline: '10px', paddingBlock: '10px', color: 'var(--color-text-secondary)', transition: 'background-color 150ms ease, color 150ms ease', ':hover': {backgroundColor: 'var(--color-overlay-hover)', color: 'var(--color-text-primary)'}},
+  link: {display: 'flex', width: '100%', alignItems: 'center', gap: '12px', marginInline: 0, marginBottom: 0, borderRadius: 0, paddingInline: '16px', paddingBlock: '10px', color: 'var(--color-text-secondary)', outline: 'none', transition: 'background-color 150ms ease, color 150ms ease', ':focus': {outline: 'none'}, ':focus-visible': {outline: 'none'}, ':hover': {backgroundColor: 'var(--color-overlay-hover)', color: 'var(--color-text-primary)'}},
   activeLink: {backgroundColor: 'var(--color-background-muted)', color: 'var(--color-text-primary)', fontWeight: 'var(--font-weight-medium)'},
   content: {minWidth: 0, flex: 1},
   topRow: {display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px'},
