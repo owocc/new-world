@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
+import { colorVars, radiusVars } from '@astryxdesign/core/theme/tokens.stylex';
 import { RefreshCw, Pencil, Save, X, Cpu, Hash, Tag, Copy, Check } from 'lucide-react';
 import { Button } from '@astryxdesign/core/Button';
 import { Badge } from '@astryxdesign/core/Badge';
@@ -26,18 +27,20 @@ const styles = stylex.create({
     padding: '16px',
     height: '100%',
     overflowY: 'auto',
-    backgroundColor: 'var(--color-background)',
-    color: 'var(--color-text-primary)',
+    backgroundColor: colorVars['--color-background-surface'],
+    color: colorVars['--color-text-primary'],
   },
   section: {
     padding: '12px',
-    borderRadius: 'var(--radius-element)',
-    border: '1px solid var(--color-border)',
-    backgroundColor: 'var(--color-surface)',
+    borderRadius: radiusVars['--radius-element'],
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: colorVars['--color-border'],
+    backgroundColor: colorVars['--color-background-card'],
   },
   sectionLabel: {
     fontSize: '11px',
-    color: 'var(--color-text-secondary)',
+    color: colorVars['--color-text-secondary'],
     marginBottom: '4px',
     display: 'block',
   },
@@ -68,14 +71,16 @@ const styles = stylex.create({
     gap: '8px',
   },
   promptBlock: {
-    backgroundColor: 'var(--color-background-muted)',
-    borderRadius: 'var(--radius-element)',
+    backgroundColor: colorVars['--color-background-muted'],
+    borderRadius: radiusVars['--radius-element'],
     padding: '10px',
     fontSize: '12px',
     lineHeight: 1.5,
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
-    border: '1px solid var(--color-border)',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: colorVars['--color-border'],
     maxHeight: '160px',
     overflowY: 'auto',
   },
@@ -92,7 +97,7 @@ export function MediaPerceptionPanel({
   onClose,
 }: {
   mediaAssetId: string;
-  onClose: () => void;
+  onClose?: () => void;
 }) {
   const toast = useAppToast();
   const [detail, setDetail] = useState<MediaPerceptionDetail | null>(null);
@@ -187,16 +192,17 @@ export function MediaPerceptionPanel({
 
   return (
     <div {...stylex.props(styles.root)}>
-      <HStack hAlign="between" vAlign="center" width="100%">
-        <HStack gap={1.5} vAlign="center">
-          <Cpu size={15} color="var(--color-primary, #6366f1)" />
-          <Text size="sm" as="span" style={{ fontWeight: 600 }}>
-            开发者 · 图片感知上下文
-          </Text>
+      {onClose && (
+        <HStack hAlign="between" vAlign="center" width="100%">
+          <HStack gap={1.5} vAlign="center">
+            <Cpu size={15} color="var(--color-primary, #6366f1)" />
+            <Text size="sm" as="span" style={{ fontWeight: 600 }}>
+              开发者 · 图片感知上下文
+            </Text>
+          </HStack>
+          <Button label="" variant="ghost" size="sm" icon={<X size={14} />} onClick={onClose} />
         </HStack>
-        <Button label="" variant="ghost" size="sm" icon={<X size={14} />} onClick={onClose} />
-      </HStack>
-
+      )}
       {/* Identity */}
       <div {...stylex.props(styles.section)}>
         <VStack gap={2}>

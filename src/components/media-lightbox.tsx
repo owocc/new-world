@@ -1,150 +1,137 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import Lightbox from 'yet-another-react-lightbox';
+import Zoom from 'yet-another-react-lightbox/plugins/zoom';
+import Download from 'yet-another-react-lightbox/plugins/download';
+import 'yet-another-react-lightbox/styles.css';
+
 import * as stylex from '@stylexjs/stylex';
 import { colorVars, radiusVars, shadowVars } from '@astryxdesign/core/theme/tokens.stylex';
-import { Download, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { Code2, Download as DownloadIcon, Info, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { resolveMediaUrl } from '@/lib/utils';
 import { MediaPerceptionPanel } from '@/components/media-perception-panel';
 
 const styles = stylex.create({
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    zIndex: 50,
-    display: 'flex',
-    flexDirection: 'column',
+  toolbarBtn: {
+    display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    backdropFilter: 'blur(4px)',
-    transitionProperty: 'opacity',
-    transitionDuration: '175ms',
-  },
-  toolbar: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    left: 0,
-    zIndex: 10,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    color: colorVars['--color-on-dark'],
-    backgroundImage: 'linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent)',
-  },
-  filename: {
-    maxWidth: 448,
-    overflow: 'hidden',
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 14,
-    fontWeight: 500,
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  dimensions: {
-    marginLeft: 8,
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 12,
-  },
-  toolbarActions: {
-    display: 'flex',
-    alignItems: 'center',
-    columnGap: 8,
-  },
-  action: {
-    display: 'flex',
-    height: 36,
-    width: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: '40px',
+    height: '40px',
     borderRadius: radiusVars['--radius-full'],
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    color: colorVars['--color-on-dark'],
-    transitionProperty: 'background-color',
-    transitionDuration: '175ms',
+    color: '#ffffff',
+    backgroundColor: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    transitionProperty: 'background-color, color, transform',
+    transitionDuration: '150ms',
     ':hover': {
       backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      color: '#ffffff',
+    },
+    ':active': {
+      transform: 'scale(0.92)',
     },
   },
-  imageContainer: {
-    display: 'flex',
-    height: '100%',
-    width: '100%',
-    flex: 1,
+  toolbarBtnActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    color: '#ffffff',
+  },
+  infoWrapper: {
+    position: 'relative',
+    display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'auto',
-    padding: 16,
-    cursor: 'zoom-out',
-    '@media (min-width: 768px)': {
-      padding: 40,
-    },
   },
-  image: {
-    maxHeight: '85vh',
-    maxWidth: '90vw',
-    borderRadius: radiusVars['--radius-element'],
-    objectFit: 'contain',
-    boxShadow: shadowVars['--shadow-high'],
-    transitionProperty: 'transform',
-    transitionDuration: '175ms',
-    userSelect: 'none',
-    cursor: 'zoom-in',
-  },
-  imageZoomed: {
-    maxWidth: 'none',
-    transform: 'scale(1.25)',
-    cursor: 'zoom-out',
-  },
-  captionBar: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    left: 0,
-    zIndex: 10,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: 16,
-    backgroundImage: 'linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent)',
-    pointerEvents: 'none',
-  },
-  captionCard: {
-    maxWidth: 640,
-    padding: '8px 14px',
+  infoPopover: {
+    position: 'fixed',
+    top: '60px',
+    right: '20px',
+    width: '320px',
+    maxWidth: 'calc(100vw - 40px)',
+    padding: '14px 16px',
     borderRadius: radiusVars['--radius-container'],
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    border: '1px solid rgba(255, 255, 255, 0.15)',
-    color: 'rgba(255, 255, 255, 0.92)',
-    fontSize: 13,
-    lineHeight: 1.5,
-    textAlign: 'center',
-    backdropFilter: 'blur(8px)',
+    backgroundColor: 'rgba(24, 24, 27, 0.96)',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    boxShadow: shadowVars['--shadow-high'],
+    backdropFilter: 'blur(16px)',
+    color: '#ffffff',
+    fontSize: '13px',
+    lineHeight: 1.6,
+    zIndex: 10005,
     pointerEvents: 'auto',
+    textAlign: 'left',
   },
-  captionTag: {
-    display: 'inline-block',
-    fontSize: 11,
+  infoTag: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    fontSize: '11px',
     fontWeight: 600,
     color: '#93c5fd',
-    marginRight: 6,
+    marginBottom: '6px',
+  },
+  infoText: {
+    color: 'rgba(255, 255, 255, 0.92)',
+    wordBreak: 'break-word',
+    whiteSpace: 'pre-wrap',
   },
   devSide: {
-    position: 'absolute',
+    position: 'fixed',
     top: 0,
     right: 0,
     bottom: 0,
     width: 'min(420px, 92vw)',
-    zIndex: 20,
-    backgroundColor: 'var(--color-background)',
-    borderLeft: '1px solid var(--color-border)',
+    zIndex: 10002,
+    backgroundColor: colorVars['--color-background-surface'],
+    borderLeftWidth: '1px',
+    borderLeftStyle: 'solid',
+    borderLeftColor: colorVars['--color-border'],
     boxShadow: shadowVars['--shadow-high'],
     display: 'flex',
     flexDirection: 'column',
-    overflowY: 'auto',
+    overflow: 'hidden',
+  },
+  devSideHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingInline: '16px',
+    paddingBlock: '12px',
+    borderBottomWidth: '1px',
+    borderBottomStyle: 'solid',
+    borderBottomColor: colorVars['--color-border'],
+    backgroundColor: colorVars['--color-background-surface'],
+  },
+  devSideTitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '13px',
+    fontWeight: 600,
+    color: colorVars['--color-text-primary'],
+  },
+  devSideClose: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '28px',
+    height: '28px',
+    borderRadius: radiusVars['--radius-element'],
+    color: colorVars['--color-text-secondary'],
+    backgroundColor: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    transitionProperty: 'background-color, color',
+    transitionDuration: '150ms',
+    ':hover': {
+      backgroundColor: colorVars['--color-background-muted'],
+      color: colorVars['--color-text-primary'],
+    },
   },
 });
 
@@ -165,107 +152,174 @@ export function MediaLightbox({
   isDevMode?: boolean;
   mediaAssetId?: string | null;
 }) {
-  const [mounted, setMounted] = useState(false);
-  const [zoomed, setZoomed] = useState(false);
+  const [showDevPanel, setShowDevPanel] = useState(false);
+  const [showInfoPopover, setShowInfoPopover] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  if (!media) return null;
 
-  useEffect(() => {
-    if (!media) return;
+  const imageUrl = resolveMediaUrl(media.url) || media.url;
+  const hasPerception = Boolean(media.perception?.summary);
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
+  const handleDownload = () => {
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = media.originalFilename || 'image';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [media, onClose]);
+  const handleClose = () => {
+    setShowDevPanel(false);
+    setShowInfoPopover(false);
+    onClose();
+  };
 
-  if (!mounted || !media) return null;
+  return (
+    <>
+      <Lightbox
+        open={Boolean(media)}
+        close={handleClose}
+        slides={[
+          {
+            src: imageUrl,
+            download: media.originalFilename
+              ? { filename: media.originalFilename, url: imageUrl }
+              : undefined,
+          },
+        ]}
+        plugins={[Zoom, Download]}
+        controller={{ closeOnBackdropClick: true }}
+        zoom={{
+          // 默认展示适配尺寸，支持缩小至 0.2 倍，支持放大至 10 倍
+          minZoom: 0.2,
+          maxZoomPixelRatio: 10,
+          scrollToZoom: true,
+        }}
+        render={{
+          buttonPrev: () => null,
+          buttonNext: () => null,
+          iconDownload: () => <DownloadIcon size={20} color="#ffffff" />,
+          iconClose: () => <X size={22} color="#ffffff" />,
+          iconZoomIn: () => <ZoomIn size={20} color="#ffffff" />,
+          iconZoomOut: () => <ZoomOut size={20} color="#ffffff" />,
+          controls: () => (
+            <>
+              {hasPerception && showInfoPopover ? (
+                <div
+                  {...stylex.props(styles.infoPopover)}
+                  onMouseEnter={() => setShowInfoPopover(true)}
+                  onMouseLeave={() => setShowInfoPopover(false)}
+                >
+                  <div {...stylex.props(styles.infoTag)}>
+                    <Info size={13} />
+                    <span>AI 视觉感知</span>
+                  </div>
+                  <div {...stylex.props(styles.infoText)}>
+                    {media.perception?.summary}
+                  </div>
+                </div>
+              ) : null}
+            </>
+          ),
+          buttonZoom: ({ zoom, maxZoom, minZoom, zoomIn, zoomOut }) => (
+            <>
+              <button
+                type="button"
+                className="yarl__button"
+                onClick={zoomIn}
+                disabled={zoom >= maxZoom}
+                title="放大"
+                aria-label="放大"
+                style={{ color: '#ffffff' }}
+              >
+                <ZoomIn size={20} color="#ffffff" />
+              </button>
+              <button
+                type="button"
+                className="yarl__button"
+                onClick={zoomOut}
+                disabled={zoom <= minZoom}
+                title="缩小"
+                aria-label="缩小"
+                style={{ color: '#ffffff' }}
+              >
+                <ZoomOut size={20} color="#ffffff" />
+              </button>
+            </>
+          ),
+        }}
+        toolbar={{
+          buttons: [
+            hasPerception ? (
+              <button
+                key="info-btn"
+                type="button"
+                {...stylex.props(styles.toolbarBtn, showInfoPopover && styles.toolbarBtnActive)}
+                onMouseEnter={() => setShowInfoPopover(true)}
+                onMouseLeave={() => setShowInfoPopover(false)}
+                onClick={() => setShowInfoPopover((prev) => !prev)}
+                title="AI 视觉感知信息"
+              >
+                <Info size={20} color="#ffffff" />
+              </button>
+            ) : null,
 
-  return createPortal(
-    <div
-      {...stylex.props(styles.overlay)}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      {/* Top action bar */}
-      <div {...stylex.props(styles.toolbar)}>
-        <div {...stylex.props(styles.filename)}>
-          {media.originalFilename || '图片预览'}
-          {media.width && media.height ? (
-            <span {...stylex.props(styles.dimensions)}>
-              ({media.width} × {media.height})
-            </span>
-          ) : null}
-        </div>
+            // 开发者模式 AI 视觉详情按钮
+            isDevMode && mediaAssetId ? (
+              <button
+                key="dev-btn"
+                type="button"
+                {...stylex.props(styles.toolbarBtn, showDevPanel && styles.toolbarBtnActive)}
+                onClick={() => setShowDevPanel((prev) => !prev)}
+                title={showDevPanel ? '收起感知详情' : '打开 AI 视觉感知详情'}
+              >
+                <Code2 size={20} color="#ffffff" />
+              </button>
+            ) : null,
 
-        <div {...stylex.props(styles.toolbarActions)}>
-          <button
-            type="button"
-            onClick={() => setZoomed(!zoomed)}
-            {...stylex.props(styles.action)}
-            title={zoomed ? '适应屏幕' : '放大'}
-          >
-            {zoomed ? <ZoomOut size={18} /> : <ZoomIn size={18} />}
-          </button>
-          <a
-            href={media.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            download={media.originalFilename || 'image'}
-            {...stylex.props(styles.action)}
-            title="下载原图"
-          >
-            <Download size={18} />
-          </a>
-          <button
-            type="button"
-            onClick={onClose}
-            {...stylex.props(styles.action)}
-            title="关闭 (Esc)"
-          >
-            <X size={20} />
-          </button>
-        </div>
-      </div>
+            'download',
+            'close',
+          ],
+        }}
+      />
 
-      {/* Main Image Container */}
-      <div
-        {...stylex.props(styles.imageContainer)}
-        onClick={onClose}
-      >
-        <img
-          src={resolveMediaUrl(media.url) || media.url}
-          alt={media.originalFilename || '预览图片'}
-          onClick={(e) => {
-            e.stopPropagation();
-            setZoomed(!zoomed);
-          }}
-          {...stylex.props(styles.image, zoomed && styles.imageZoomed)}
-        />
-      </div>
-
-      {/* Bottom Perception Bar if Available */}
-      {media.perception?.summary ? (
-        <div {...stylex.props(styles.captionBar)}>
-          <div {...stylex.props(styles.captionCard)}>
-            <span {...stylex.props(styles.captionTag)}>AI 视觉感知</span>
-            {media.perception.summary}
-          </div>
-        </div>
-      ) : null}
-
-      {/* Developer Mode: Image Perception Context Panel */}
-      {isDevMode && mediaAssetId ? (
-        <div {...stylex.props(styles.devSide)} onClick={(e) => e.stopPropagation()}>
-          <MediaPerceptionPanel mediaAssetId={mediaAssetId} onClose={onClose} />
-        </div>
-      ) : null}
-    </div>,
-    document.body,
+      {/* 开发者模式：AI 视觉感知详情抽屉 (通过 Portal 渲染到顶级 body，彻底脱离 Lightbox 事件流) */}
+      {isDevMode && mediaAssetId && showDevPanel
+        ? createPortal(
+            <div
+              {...stylex.props(styles.devSide)}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <div {...stylex.props(styles.devSideHeader)}>
+                <div {...stylex.props(styles.devSideTitle)}>
+                  <Code2 size={16} />
+                  <span>AI 视觉感知详情</span>
+                </div>
+                <button
+                  type="button"
+                  {...stylex.props(styles.devSideClose)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setShowDevPanel(false);
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  title="关闭详情面板"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <MediaPerceptionPanel mediaAssetId={mediaAssetId} />
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
