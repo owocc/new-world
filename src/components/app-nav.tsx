@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useThemeMode } from '@/components/providers';
 import { NotificationPopover } from '@/components/notification-popover';
+import { MobileBackBar } from '@/components/mobile-back-bar';
 import { useClientSync } from '@/components/client-sync-provider';
 import type { NotificationItem } from '@/server/actions/feed';
 const styles = stylex.create({
@@ -148,6 +149,7 @@ const styles = stylex.create({
     padding: 12,
     paddingLeft: 0,
     '@media (max-width: 639px)': {
+      flexDirection: 'column',
       padding: 0,
     },
   },
@@ -246,6 +248,22 @@ function UnreadBadge({ count }: { count: number }) {
 const isActive = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(href + '/');
 
+// 移动端二级页面（详情/子路由）隐藏底部 Tab 栏，更像原生应用；
+// 返回值为该二级页面的上级页面地址，用于渲染通用返回栏
+const mobileBackTarget = (pathname: string): string | null => {
+  if (pathname.startsWith('/post/')) return '/feed';
+  if (pathname.startsWith('/groups/')) return '/messages';
+  if (pathname.startsWith('/usage')) return '/settings';
+  const root = ['/messages', '/characters', '/settings', '/notifications'].find((segment) =>
+    pathname.startsWith(`${segment}/`),
+  );
+  return root ?? null;
+};
+
+// 自带移动端返回按钮的二级页面（聊天窗口头部、动态详情头部），无需通用返回栏
+const hasOwnMobileBack = (pathname: string) =>
+  pathname.startsWith('/messages/') || pathname.startsWith('/post/');
+
 export function AppNav({
   user,
   unreadMessages,
@@ -264,6 +282,10 @@ export function AppNav({
   const pathname = usePathname();
   const { mode, setMode } = useThemeMode();
   const sync = useClientSync();
+  // 移动端二级页面：隐藏底部 Tab 栏，无自带返回按钮的页面渲染通用返回栏
+  const backTarget = mobileBackTarget(pathname);
+  const isMobileSecondary = backTarget !== null;
+  const showMobileBackBar = isMobileSecondary && !hasOwnMobileBack(pathname);
   const liveUnreadMessages = sync.unread.messages ?? unreadMessages;
   const liveUnreadGroups = sync.unread.groups ?? unreadGroups;
   const liveUnreadNotifications = sync.unread.notifications ?? unreadNotifications;
@@ -403,13 +425,15 @@ export function AppNav({
 
       {/* Main Area */}
       <main {...stylex.props(styles.main)}>
+        {showMobileBackBar && <MobileBackBar href={backTarget} />}
         <div {...stylex.props(styles.card)}>
           {children}
         </div>
       </main>
 
-      {/* Mobile Bottom Tab Bar */}
-      <nav {...stylex.props(styles.bottomBar)} aria-label="底部导航">
+      {/* Mobile Bottom Tab Bar（移动端二级页面隐藏，返回上级后恢复） */}
+      {!isMobileSecondary && (
+        <nav {...stylex.props(styles.bottomBar)} aria-label="底部导航">
         {MOBILE_TABS.map((item) => {
           const Icon = item.icon;
           return (
@@ -426,7 +450,8 @@ export function AppNav({
             </Link>
           );
         })}
-      </nav>
+        </nav>
+      )}
     </div>
   );
 }
