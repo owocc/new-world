@@ -14,7 +14,8 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: '新世界',
-    statusBarStyle: 'default',
+    // 透明状态栏：状态栏区域由页面顶部内容（跟随深/浅色主题的背景色）填充
+    statusBarStyle: 'black-translucent',
   },
   icons: {
     icon: [

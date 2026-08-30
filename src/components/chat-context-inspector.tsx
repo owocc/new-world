@@ -31,9 +31,9 @@ import {
 } from '@/server/actions/debug';
 const styles = stylex.create({
   fixedLayout: {
-    height: '80vh',
-    minHeight: '80vh',
-    maxHeight: '80vh',
+    height: stylex.firstThatWorks('80dvh', '80vh'),
+    minHeight: stylex.firstThatWorks('80dvh', '80vh'),
+    maxHeight: stylex.firstThatWorks('80dvh', '80vh'),
     display: 'flex',
     flexDirection: 'column',
   },

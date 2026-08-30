@@ -24,12 +24,15 @@ import type { NotificationItem } from '@/server/actions/feed';
 const styles = stylex.create({
   shell: {
     display: 'flex',
-    height: '100vh',
+    // 100vh 在手机浏览器上会包含地址栏区域导致底部栏被截断，优先使用动态视口单位
+    height: stylex.firstThatWorks('100dvh', '100vh'),
     width: '100vw',
     overflow: 'hidden',
     backgroundColor: colorVars['--color-background-body'],
     '@media (max-width: 639px)': {
       flexDirection: 'column',
+      // PWA standalone 模式下内容延伸到状态栏之下，用主题背景色填充状态栏区域
+      paddingTop: 'env(safe-area-inset-top)',
     },
   },
   rail: {

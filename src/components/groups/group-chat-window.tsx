@@ -89,7 +89,7 @@ const styles = stylex.create({
     width: '100%',
     paddingTop: '16px',
     paddingInline: '16px',
-    paddingBottom: '50vh',
+    paddingBottom: stylex.firstThatWorks('50dvh', '50vh'),
     '@media (min-width: 640px)': {
       paddingInline: '24px',
     },

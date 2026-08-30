@@ -122,7 +122,7 @@ const styles = stylex.create({
     WebkitOverflowScrolling: 'touch',
     paddingInline: '16px',
     paddingTop: '20px',
-    paddingBottom: '50vh',
+    paddingBottom: stylex.firstThatWorks('50dvh', '50vh'),
     scrollBehavior: 'smooth',
   },
   messagesInner: {
@@ -155,7 +155,8 @@ const styles = stylex.create({
     right: 0,
     bottom: 0,
     paddingInline: '16px',
-    paddingBottom: '16px',
+    // 适配 iPhone 底部 Home 指示条（standalone 模式下内容延伸到底部安全区）
+    paddingBottom: stylex.firstThatWorks('calc(16px + env(safe-area-inset-bottom))', '16px'),
     paddingTop: '8px',
     zIndex: 10,
     display: 'flex',
