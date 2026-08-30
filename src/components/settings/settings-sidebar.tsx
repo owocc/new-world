@@ -55,12 +55,6 @@ const SECTIONS = [
         isMatch: (p: string) => p.startsWith('/settings/usage'),
       },
       {
-        href: '/settings/notifications',
-        label: '通知中心',
-        icon: Bell,
-        isMatch: (p: string) => p.startsWith('/settings/notifications'),
-      },
-      {
         href: '/settings/developer',
         label: '开发者设置',
         icon: Code2,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useCallback, useEffect } from 'react';
+import { useState, useTransition, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as stylex from '@stylexjs/stylex';
@@ -22,40 +22,53 @@ import { Bell, CheckCheck, ArrowRight, MessageCircle, MessageSquare, Heart, Spar
 
 const styles = stylex.create({
   panel: {
-    width: 360,
+    width: '380px',
     maxWidth: 'calc(100vw - 32px)',
-    '@media (min-width: 640px)': {
-      width: 380,
-    },
+    backgroundColor: colorVars['--color-background-surface'],
+    borderRadius: radiusVars['--radius-container'],
+    boxShadow: shadowVars['--shadow-high'],
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderBottomColor: colorVars['--color-border'],
+    borderTopColor: colorVars['--color-border'],
+    borderLeftColor: colorVars['--color-border'],
+    borderRightColor: colorVars['--color-border'],
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    maxHeight: '520px',
   },
   header: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottom: '1px solid',
+    paddingInline: '16px',
+    paddingBlock: '12px',
+    borderBottomWidth: '1px',
+    borderBottomStyle: 'solid',
     borderBottomColor: colorVars['--color-border'],
-    paddingBlock: 12,
-    paddingInline: 16,
     backgroundColor: colorVars['--color-background-surface'],
+    flexShrink: 0,
   },
   headerGroup: {
     display: 'flex',
     alignItems: 'center',
-    columnGap: 8,
+    gap: '8px',
   },
   headerText: {
+    fontWeight: 'var(--font-weight-semibold)',
     color: colorVars['--color-text-primary'],
-    fontWeight: 600,
   },
   body: {
-    maxHeight: 380,
     overflowY: 'auto',
-    overscrollBehavior: 'contain',
+    flex: 1,
+    padding: 0,
   },
   empty: {
-    paddingBlock: 32,
-    paddingInline: 16,
-    textAlign: 'center',
+    paddingInline: '16px',
+    paddingBlock: '32px',
+    display: 'flex',
+    justifyContent: 'center',
   },
   list: {
     display: 'flex',
@@ -64,14 +77,17 @@ const styles = stylex.create({
   item: {
     display: 'flex',
     alignItems: 'flex-start',
-    columnGap: 12,
-    padding: 14,
-    borderBottom: '1px solid',
+    gap: '12px',
+    paddingInline: '16px',
+    paddingBlock: '12px',
+    textDecoration: 'none',
+    borderBottomWidth: '1px',
+    borderBottomStyle: 'solid',
     borderBottomColor: colorVars['--color-border'],
     transitionProperty: 'background-color',
-    transitionDuration: '175ms',
+    transitionDuration: '150ms',
     ':hover': {
-      backgroundColor: 'color-mix(in srgb, var(--color-background-muted) 70%, transparent)',
+      backgroundColor: 'color-mix(in srgb, var(--color-background-muted) 80%, transparent)',
     },
   },
   itemRead: {
@@ -83,71 +99,72 @@ const styles = stylex.create({
   avatarWrap: {
     position: 'relative',
     flexShrink: 0,
-    paddingTop: 2,
+    marginTop: '2px',
   },
   unreadDot: {
     position: 'absolute',
-    top: -2,
-    right: -2,
-    height: 10,
-    width: 10,
-    border: '2px solid',
-    borderColor: colorVars['--color-background-surface'],
-    borderRadius: radiusVars['--radius-full'],
-    backgroundColor: colorVars['--color-accent'],
+    top: '-2px',
+    right: '-2px',
+    width: '8px',
+    height: '8px',
+    borderRadius: '9999px',
+    backgroundColor: colorVars['--color-text-accent'],
+    borderWidth: '1.5px',
+    borderStyle: 'solid',
+    borderBottomColor: colorVars['--color-background-surface'],
+    borderTopColor: colorVars['--color-background-surface'],
+    borderLeftColor: colorVars['--color-background-surface'],
+    borderRightColor: colorVars['--color-background-surface'],
   },
   itemContent: {
-    minWidth: 0,
     flex: 1,
+    minWidth: 0,
   },
   itemRow: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    columnGap: 4,
+    gap: '8px',
+    marginBottom: '2px',
   },
   itemNameGroup: {
     display: 'flex',
-    minWidth: 0,
     alignItems: 'center',
-    columnGap: 6,
+    gap: '6px',
+    minWidth: 0,
   },
   itemName: {
-    overflow: 'hidden',
+    fontSize: '13px',
+    fontWeight: 'var(--font-weight-medium)',
     color: colorVars['--color-text-primary'],
-    fontSize: 12,
-    fontWeight: 600,
+    overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
   time: {
-    flexShrink: 0,
+    fontSize: '11px',
     color: colorVars['--color-text-secondary'],
-    fontSize: 11,
+    flexShrink: 0,
   },
   actionText: {
-    marginTop: 2,
+    fontSize: '12px',
     color: colorVars['--color-text-secondary'],
-    fontSize: 12,
-    transitionProperty: 'color',
-    transitionDuration: '175ms',
-    ':hover': {
-      color: colorVars['--color-text-primary'],
-    },
+    marginBottom: '4px',
   },
   content: {
-    display: '-webkit-box',
-    marginTop: 4,
+    fontSize: '12px',
+    lineHeight: '1.4',
+    color: colorVars['--color-text-primary'],
     overflow: 'hidden',
-    borderRadius: radiusVars['--radius-inner'],
-    backgroundColor: 'color-mix(in srgb, var(--color-background-muted) 50%, transparent)',
-    paddingBlock: 4,
-    paddingInline: 8,
-    color: colorVars['--color-text-secondary'],
-    fontSize: 12,
+    textOverflow: 'ellipsis',
+    display: '-webkit-box',
     WebkitLineClamp: 2,
-    lineHeight: 1.625,
     WebkitBoxOrient: 'vertical',
+    backgroundColor: colorVars['--color-background-muted'],
+    borderRadius: '6px',
+    paddingInline: '8px',
+    paddingBlock: '6px',
+    marginTop: '4px',
   },
   iconDm: {
     color: colorVars['--color-text-accent'],
@@ -156,63 +173,65 @@ const styles = stylex.create({
     color: colorVars['--color-icon-blue'],
   },
   iconDanger: {
-    color: colorVars['--color-error'],
-    fill: 'color-mix(in srgb, var(--color-error) 20%, transparent)',
+    color: colorVars['--color-icon-red'],
   },
   iconWarning: {
     color: colorVars['--color-warning'],
   },
   footer: {
-    borderTop: '1px solid',
+    paddingInline: '12px',
+    paddingBlock: '8px',
+    borderTopWidth: '1px',
+    borderTopStyle: 'solid',
     borderTopColor: colorVars['--color-border'],
     backgroundColor: colorVars['--color-background-surface'],
-    padding: 8,
+    flexShrink: 0,
   },
   notificationButton: {
     position: 'relative',
     display: 'flex',
-    height: 32,
-    width: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radiusVars['--radius-element'],
+    width: '40px',
+    height: '40px',
+    borderRadius: 'var(--radius-container)',
     color: colorVars['--color-text-secondary'],
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    cursor: 'pointer',
+    textDecoration: 'none',
     transitionProperty: 'background-color, color',
-    transitionDuration: '175ms',
-    ':hover': {
-      color: colorVars['--color-text-primary'],
-      backgroundColor: colorVars['--color-background-muted'],
-    },
-    ':focus-visible': {
-      outline: '2px solid',
-      outlineColor: colorVars['--color-accent'],
-      outlineOffset: 3,
+    transitionDuration: '150ms',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: colorVars['--color-background-muted'],
+        color: colorVars['--color-text-primary'],
+      },
     },
   },
   notificationBadge: {
     position: 'absolute',
-    top: -2,
-    right: -2,
-    display: 'flex',
-    minWidth: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radiusVars['--radius-full'],
-    backgroundColor: colorVars['--color-error'],
-    paddingInline: 4,
-    color: colorVars['--color-on-error'],
-    fontSize: 10,
-    fontWeight: 700,
-    lineHeight: 1,
-    boxShadow: shadowVars['--shadow-low'],
+    top: '4px',
+    right: '4px',
+    minWidth: '16px',
+    backgroundColor: colorVars['--color-icon-red'],
+    color: '#ffffff',
+    fontSize: '10px',
+    fontWeight: 'var(--font-weight-bold)',
+    lineHeight: '16px',
+    textAlign: 'center',
+    pointerEvents: 'none',
   },
 });
 
 function getNotificationHref(item: NotificationItem): string {
-  if (item.conversationId) return `/messages/${item.conversationId}`;
-  if (item.postId) return `/post/${item.postId}`;
-  return '/feed';
+  if (item.type === 'dm' && item.conversationId) {
+    return `/messages/${item.conversationId}`;
+  }
+  if ((item.type === 'comment' || item.type === 'like') && item.postId) {
+    return `/post/${item.postId}`;
+  }
+  return '/notifications';
 }
 
 function getNotificationActionLabel(type: string): string {
@@ -224,7 +243,7 @@ function getNotificationActionLabel(type: string): string {
     case 'like':
       return '赞了你的动态';
     default:
-      return '与你互动';
+      return '系统通知';
   }
 }
 
@@ -254,6 +273,8 @@ export function NotificationPopover({
   const [unreadCount, setUnreadCount] = useState<number>(initialUnreadCount);
   const [isPending, startTransition] = useTransition();
 
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Sync with initial props if they change
   useEffect(() => {
     setNotifications(initialNotifications);
@@ -263,20 +284,31 @@ export function NotificationPopover({
     setUnreadCount(initialUnreadCount);
   }, [initialUnreadCount]);
 
-  const handleOpenChange = useCallback((open: boolean) => {
-    setIsOpen(open);
-    if (open) {
-      // Fetch latest notifications on open to stay fresh
-      getRecentNotifications(8)
-        .then((items) => {
-          setNotifications(items);
-          setUnreadCount(items.filter((n) => !n.read).length);
-        })
-        .catch((err) => {
-          console.error('[NotificationPopover] failed to fetch recent notifications', err);
-        });
-    }
+  const handleFetchLatest = useCallback(() => {
+    getRecentNotifications(8)
+      .then((items) => {
+        setNotifications(items);
+        setUnreadCount(items.filter((n) => !n.read).length);
+      })
+      .catch((err) => {
+        console.error('[NotificationPopover] failed to fetch recent notifications', err);
+      });
   }, []);
+
+  const handleMouseEnter = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    setIsOpen(true);
+    handleFetchLatest();
+  };
+
+  const handleMouseLeave = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsOpen(false);
+    }, 200);
+  };
 
   const handleMarkAllRead = useCallback(() => {
     setUnreadCount(0);
@@ -302,7 +334,11 @@ export function NotificationPopover({
   );
 
   const popoverContent = (
-    <div {...stylex.props(styles.panel)}>
+    <div
+      {...stylex.props(styles.panel)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       {/* Header */}
       <div {...stylex.props(styles.header)}>
         <div {...stylex.props(styles.headerGroup)}>
@@ -394,7 +430,7 @@ export function NotificationPopover({
           variant="ghost"
           width="100%"
           size="sm"
-          label="打开通知页面"
+          label="打开通知中心"
           endContent={<ArrowRight size={14} />}
         />
       </div>
@@ -402,27 +438,33 @@ export function NotificationPopover({
   );
 
   return (
-    <Popover
-      isOpen={isOpen}
-      onOpenChange={handleOpenChange}
-      placement="below"
-      alignment="end"
-      label="最新通知"
-      content={popoverContent}
+    <div
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      style={{ display: 'inline-flex' }}
     >
-      <button
-        type="button"
-        {...stylex.props(styles.notificationButton)}
-        aria-label={unreadCount > 0 ? `${unreadCount} 条未读通知` : '通知'}
-        title="通知"
+      <Popover
+        isOpen={isOpen}
+        onOpenChange={setIsOpen}
+        placement="below"
+        alignment="end"
+        label="最新通知"
+        content={popoverContent}
       >
-        <Bell size={18} />
-        {unreadCount > 0 && (
-          <span {...stylex.props(styles.notificationBadge)}>
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
-      </button>
-    </Popover>
+        <Link
+          href="/notifications"
+          {...stylex.props(styles.notificationButton)}
+          aria-label={unreadCount > 0 ? `${unreadCount} 条未读通知` : '通知中心'}
+          title="通知中心"
+        >
+          <Bell size={18} />
+          {unreadCount > 0 && (
+            <span {...stylex.props(styles.notificationBadge)}>
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </Link>
+      </Popover>
+    </div>
   );
 }
