@@ -20,6 +20,7 @@ export function MessagesShell({
     <SplitLayout
       rootPath="/messages"
       sidebarWidth="md:w-[320px]"
+      resizable
       sidebar={<ConversationList chats={chats} contacts={contacts} />}
     >
       {children}
