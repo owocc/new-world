@@ -13,16 +13,22 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 
 const THEME_COLORS = {light: '#faf9f7', dark: '#141210'} as const;
 
-// 根据当前主题模式改写 theme-color meta，使 PWA/浏览器状态栏颜色跟随深浅色。
-// 手动指定 light/dark 时把两条 media meta 改为同一颜色以覆盖系统偏好；
-// system 模式下保持各自颜色，由 media 查询自行切换，无需监听系统变化。
+// 始终把两条 theme-color meta 改写为当前生效的颜色：Android 安装后的 PWA
+// 取第一条 meta 且不理会 media 查询，所以不能依赖 media 自动切换。
+// 手动 light/dark 直接覆盖；system 模式监听系统深浅色变化实时更新。
 function useThemeColorSync(mode: ThemeMode) {
   useEffect(() => {
-    if (mode === 'system') return;
-    const color = THEME_COLORS[mode];
-    for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
-      meta.setAttribute('content', color);
-    }
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      const dark = mode === 'dark' || (mode === 'system' && mq.matches);
+      const color = dark ? THEME_COLORS.dark : THEME_COLORS.light;
+      for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
+        meta.setAttribute('content', color);
+      }
+    };
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
   }, [mode]);
 }
 

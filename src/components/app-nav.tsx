@@ -31,7 +31,9 @@ const styles = stylex.create({
     backgroundColor: colorVars['--color-background-body'],
     '@media (max-width: 639px)': {
       flexDirection: 'column',
-      // PWA standalone 模式下内容延伸到状态栏之下，用主题背景色填充状态栏区域
+      // PWA standalone 模式下内容延伸到状态栏之下：状态栏区域与内容卡片
+      // 同用 surface 色，避免交界处出现色差接缝
+      backgroundColor: colorVars['--color-background-surface'],
       paddingTop: 'env(safe-area-inset-top)',
     },
   },

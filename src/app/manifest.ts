@@ -1,6 +1,12 @@
 import type {MetadataRoute} from 'next';
+import {cookies} from 'next/headers';
 
-export default function manifest(): MetadataRoute.Manifest {
+// Android 安装后的 PWA 状态栏颜色取自 manifest 的 theme_color，
+// 这里按用户的主题 cookie 动态输出，避免深色模式下状态栏仍是浅色。
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const theme = (await cookies()).get('theme')?.value;
+  const theme_color = theme === 'dark' ? '#141210' : '#faf9f7';
+
   return {
     name: '新世界居民 · New World Residents',
     short_name: '新世界',
@@ -11,7 +17,7 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     orientation: 'portrait',
     lang: 'zh-CN',
-    theme_color: '#faf9f7',
+    theme_color,
     background_color: '#141210',
     icons: [
       {
