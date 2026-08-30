@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import * as stylex from '@stylexjs/stylex';
 import { colorVars, radiusVars, shadowVars } from '@astryxdesign/core/theme/tokens.stylex';
@@ -210,6 +211,10 @@ const styles = stylex.create({
       },
     },
   },
+  notificationButtonActive: {
+    backgroundColor: colorVars['--color-background-muted'],
+    color: colorVars['--color-text-primary'],
+  },
   notificationBadge: {
     position: 'absolute',
     top: '4px',
@@ -272,6 +277,8 @@ export function NotificationPopover({
   initialUnreadCount?: number;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const isOnNotificationsPage = pathname === '/notifications' || pathname.startsWith('/notifications/');
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
   const [unreadCount, setUnreadCount] = useState<number>(initialUnreadCount);
@@ -334,7 +341,7 @@ export function NotificationPopover({
       }
       setIsOpen(false);
     },
-    [],
+    [setIsOpen],
   );
 
   return (
@@ -345,8 +352,12 @@ export function NotificationPopover({
     >
       <Link
         href="/notifications"
-        {...stylex.props(styles.notificationButton)}
+        {...stylex.props(
+          styles.notificationButton,
+          isOnNotificationsPage && styles.notificationButtonActive,
+        )}
         aria-label={unreadCount > 0 ? `${unreadCount} 条未读通知` : '通知中心'}
+        aria-current={isOnNotificationsPage ? 'page' : undefined}
         title="通知中心"
       >
         <Bell size={18} />

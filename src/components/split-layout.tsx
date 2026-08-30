@@ -1,5 +1,6 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import * as stylex from '@stylexjs/stylex';
 import { useResizable, ResizeHandle } from '@astryxdesign/core/Resizable';
@@ -50,6 +51,15 @@ function parseSidebarWidth(value: number | string): number {
   const match = String(value).match(/(\d+(?:\.\d+)?)/);
   return match ? Number(match[1]) : 280;
 }
+
+const emptySubscribe = () => () => {};
+function useIsMounted() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+}
 export interface SplitLayoutProps {
   /** Root pathname for the master list (e.g. '/messages', '/settings', '/groups') */
   rootPath: string;
@@ -87,6 +97,10 @@ export function SplitLayout({
   const pathname = usePathname();
   const inDetail = pathname !== rootPath;
   const sidebarWidthPx = parseSidebarWidth(sidebarWidth);
+  // useResizable 的 autoSaveId 会在客户端首次渲染读取 localStorage，
+  // 与 SSR 输出（SSR 默认宽度）不一致会导致 hydration mismatch，
+  // 因此挂载后才切换到持久化宽度
+  const isMounted = useIsMounted();
   const resizableState = useResizable({
     defaultSize: sidebarWidthPx,
     minSizePx: 240,
@@ -94,7 +108,8 @@ export function SplitLayout({
     snaps: [280, 320, 400],
     autoSaveId: `split-sidebar-${rootPath.replace(/\//g, '-')}`,
   });
-  const effectiveWidth = resizable ? resizableState.size : sidebarWidthPx;
+  const resizableActive = resizable && isMounted;
+  const effectiveWidth = resizableActive ? resizableState.size : sidebarWidthPx;
 
   return (
     <div {...stylex.props(styles.root)}>
@@ -107,7 +122,7 @@ export function SplitLayout({
       </aside>
 
       {/* Drag handle — resizes the sidebar on desktop */}
-      {resizable && (
+      {resizableActive && (
         <ResizeHandle
           direction="horizontal"
           resizable={resizableState.props}

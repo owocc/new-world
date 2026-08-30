@@ -346,9 +346,7 @@ export function AppNav({
             title="系统设置"
             {...stylex.props(
               styles.settings,
-              isActive(pathname, '/settings') ||
-                isActive(pathname, '/usage') ||
-                isActive(pathname, '/notifications')
+              isActive(pathname, '/settings') || isActive(pathname, '/usage')
                 ? styles.settingsActive
                 : styles.settingsIdle,
             )}
