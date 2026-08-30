@@ -4,7 +4,7 @@ import { useState, useTransition, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as stylex from '@stylexjs/stylex';
-import { colorVars, radiusVars, shadowVars } from '@astryxdesign/core/theme/tokens.stylex';
+import { colorVars, radiusVars, shadowVars, spacingVars } from '@astryxdesign/core/theme/tokens.stylex';
 import { Popover } from '@astryxdesign/core/Popover';
 import { Button } from '@astryxdesign/core/Button';
 import { Badge } from '@astryxdesign/core/Badge';
@@ -29,10 +29,7 @@ const styles = stylex.create({
     boxShadow: shadowVars['--shadow-high'],
     borderWidth: '1px',
     borderStyle: 'solid',
-    borderBottomColor: colorVars['--color-border'],
-    borderTopColor: colorVars['--color-border'],
-    borderLeftColor: colorVars['--color-border'],
-    borderRightColor: colorVars['--color-border'],
+    borderColor: colorVars['--color-border'],
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
@@ -79,7 +76,7 @@ const styles = stylex.create({
     alignItems: 'flex-start',
     gap: '12px',
     paddingInline: '16px',
-    paddingBlock: '12px',
+    paddingBlock: '14px',
     textDecoration: 'none',
     borderBottomWidth: '1px',
     borderBottomStyle: 'solid',
@@ -94,7 +91,7 @@ const styles = stylex.create({
     backgroundColor: colorVars['--color-background-surface'],
   },
   itemUnread: {
-    backgroundColor: 'color-mix(in srgb, var(--color-background-surface) 70%, var(--color-background-muted))',
+    backgroundColor: 'color-mix(in srgb, var(--color-background-surface) 65%, var(--color-background-muted))',
   },
   avatarWrap: {
     position: 'relative',
@@ -111,10 +108,7 @@ const styles = stylex.create({
     backgroundColor: colorVars['--color-text-accent'],
     borderWidth: '1.5px',
     borderStyle: 'solid',
-    borderBottomColor: colorVars['--color-background-surface'],
-    borderTopColor: colorVars['--color-background-surface'],
-    borderLeftColor: colorVars['--color-background-surface'],
-    borderRightColor: colorVars['--color-background-surface'],
+    borderColor: colorVars['--color-background-surface'],
   },
   itemContent: {
     flex: 1,
@@ -154,17 +148,13 @@ const styles = stylex.create({
   content: {
     fontSize: '12px',
     lineHeight: '1.4',
-    color: colorVars['--color-text-primary'],
+    color: colorVars['--color-text-secondary'],
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     display: '-webkit-box',
     WebkitLineClamp: 2,
     WebkitBoxOrient: 'vertical',
-    backgroundColor: colorVars['--color-background-muted'],
-    borderRadius: '6px',
-    paddingInline: '8px',
-    paddingBlock: '6px',
-    marginTop: '4px',
+    marginTop: '2px',
   },
   iconDm: {
     color: colorVars['--color-text-accent'],
@@ -186,6 +176,13 @@ const styles = stylex.create({
     borderTopColor: colorVars['--color-border'],
     backgroundColor: colorVars['--color-background-surface'],
     flexShrink: 0,
+  },
+  popoverReset: {
+    padding: 0,
+    backgroundColor: 'transparent',
+    boxShadow: 'none',
+    borderWidth: 0,
+    borderRadius: 0,
   },
   notificationButton: {
     position: 'relative',
@@ -214,6 +211,9 @@ const styles = stylex.create({
     top: '4px',
     right: '4px',
     minWidth: '16px',
+    height: '16px',
+    paddingInline: '4px',
+    borderRadius: '9999px',
     backgroundColor: colorVars['--color-icon-red'],
     color: '#ffffff',
     fontSize: '10px',
@@ -409,9 +409,9 @@ export function NotificationPopover({
                     </Text>
 
                     {item.content && (
-                      <div {...stylex.props(styles.content)}>
+                      <p {...stylex.props(styles.content)}>
                         {item.content}
-                      </div>
+                      </p>
                     )}
                   </div>
                 </Link>
@@ -449,6 +449,7 @@ export function NotificationPopover({
         placement="below"
         alignment="end"
         label="最新通知"
+        xstyle={styles.popoverReset}
         content={popoverContent}
       >
         <Link
