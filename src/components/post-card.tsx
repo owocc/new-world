@@ -12,6 +12,7 @@ import {useAppToast} from '@/lib/toast';
 import {UserAvatar} from '@/components/user-avatar';
 import {TimeAgo} from '@/components/time-ago';
 import {deletePost, toggleLike} from '@/server/actions/feed';
+import {PostMediaGrid} from '@/components/post-media-grid';
 import type {FeedPost} from '@/server/feed';
 
 const pulse = stylex.keyframes({
@@ -174,6 +175,7 @@ export function PostCard({post, isOwnerFeed = true}: {post: FeedPost; isOwnerFee
             {post.content}
           </Text>
         </Link>
+        <PostMediaGrid media={post.media ?? []} />
         <div {...stylex.props(styles.actions)}>
           <IconButton
             label={liked ? '取消点赞' : '点赞'}

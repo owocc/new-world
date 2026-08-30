@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/db';
-import { aiCharacters, comments, communityEvents, notifications, posts, reactions } from '@/db/schema';
+import { aiCharacters, comments, communityEvents, mediaAssets, notifications, posts, reactions } from '@/db/schema';
 import { requireUserId } from '@/lib/session';
 import { enqueueEvent } from '@/server/ai/community/events';
 import { maybePulse, processDueEvents, processEvent } from '@/server/ai/community/engine';
@@ -13,8 +13,10 @@ import { uploadFeedCover } from '@/server/media';
 import { setFeedCover } from '@/server/settings';
 
 const createPostSchema = z.object({
-  content: z.string().trim().min(1, '写点什么吧').max(2000, '最多 2000 字'),
+  content: z.string().trim().max(2000, '最多 2000 字'),
 });
+
+const MAX_POST_IMAGES = 9;
 
 export async function createPost(formData: FormData) {
   const userId = await requireUserId();
@@ -23,12 +25,57 @@ export async function createPost(formData: FormData) {
     return { error: parsed.error.issues[0]?.message ?? '发布失败' };
   }
 
+  // 图片：客户端先上传到 /api/media/upload 拿到 assetId，再随发帖提交（最多 9 张）
+  const mediaIds = formData
+    .getAll('mediaIds')
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+  if (mediaIds.length > MAX_POST_IMAGES) {
+    return { error: `最多上传 ${MAX_POST_IMAGES} 张图片` };
+  }
+  if (!parsed.data.content && mediaIds.length === 0) {
+    return { error: '写点什么或添加图片吧' };
+  }
+
+  let mediaJson: string | null = null;
+  if (mediaIds.length > 0) {
+    const assets = await db
+      .select({
+        id: mediaAssets.id,
+        blobUrl: mediaAssets.blobUrl,
+        downloadUrl: mediaAssets.downloadUrl,
+        width: mediaAssets.width,
+        height: mediaAssets.height,
+        mediaType: mediaAssets.mediaType,
+        status: mediaAssets.status,
+      })
+      .from(mediaAssets)
+      .where(and(eq(mediaAssets.userId, userId), inArray(mediaAssets.id, mediaIds)));
+    const ordered = mediaIds
+      .map((id) => assets.find((a) => a.id === id))
+      .filter(
+        (a): a is (typeof assets)[number] => !!a && a.mediaType === 'image' && a.status === 'ready',
+      );
+    if (ordered.length === 0) {
+      return { error: '图片已失效，请重新上传' };
+    }
+    mediaJson = JSON.stringify(
+      ordered.map((a) => ({
+        type: 'image',
+        url: a.downloadUrl || a.blobUrl,
+        width: a.width,
+        height: a.height,
+      })),
+    );
+  }
+
   const postId = crypto.randomUUID();
   await db.insert(posts).values({
     id: postId,
     userId,
     authorType: 'user',
     content: parsed.data.content,
+    ...(mediaJson ? { media: mediaJson } : {}),
   });
 
   // fan out to the AI community engine after the response is sent

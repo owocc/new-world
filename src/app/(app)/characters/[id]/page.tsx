@@ -1,7 +1,7 @@
-import {and, desc, eq} from 'drizzle-orm';
+import {and, desc, eq, or} from 'drizzle-orm';
 import {notFound} from 'next/navigation';
 import {db} from '@/db';
-import {aiCharacters, aiMemories, providerConfigs} from '@/db/schema';
+import {aiCharacters, aiMemories, aiRelationships, providerConfigs} from '@/db/schema';
 import {requireUserId} from '@/lib/session';
 import {CharacterProfile} from '@/components/character-profile';
 import {CharacterEditor, type CharacterFormValues} from '@/components/character-editor';
@@ -55,6 +55,39 @@ export default async function CharacterViewPage({
   ]);
 
   if (!character) notFound();
+
+  // 好友列表：任一方向的关系登记即互为好友（与社区引擎的可见性判定一致）
+  const friendRows = await db
+    .select({
+      kind: aiRelationships.kind,
+      fromId: aiRelationships.fromCharacterId,
+      friend: {
+        id: aiCharacters.id,
+        name: aiCharacters.name,
+        username: aiCharacters.username,
+        avatarUrl: aiCharacters.avatarUrl,
+        avatarEmoji: aiCharacters.avatarEmoji,
+        avatarColor: aiCharacters.avatarColor,
+      },
+    })
+    .from(aiRelationships)
+    .innerJoin(
+      aiCharacters,
+      or(
+        and(eq(aiRelationships.toCharacterId, aiCharacters.id), eq(aiRelationships.fromCharacterId, id)),
+        and(eq(aiRelationships.fromCharacterId, aiCharacters.id), eq(aiRelationships.toCharacterId, id)),
+      ),
+    )
+    .where(and(eq(aiRelationships.userId, userId), or(eq(aiRelationships.fromCharacterId, id), eq(aiRelationships.toCharacterId, id))));
+
+  const friends = friendRows
+    .map((row) => ({
+      ...row.friend,
+      kind: row.kind,
+    }))
+    .filter((f) => f.id !== id)
+    // 同一好友可能有两个方向的登记，按 id 去重
+    .filter((f, i, arr) => arr.findIndex((x) => x.id === f.id) === i);
 
   if (isEditMode) {
     const initialValues: CharacterFormValues = {
@@ -110,6 +143,7 @@ export default async function CharacterViewPage({
       character={character}
       modelText={modelText ?? undefined}
       memories={memories}
+      friends={friends}
       actions={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <SendMessageButton characterId={character.id} />

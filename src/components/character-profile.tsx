@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import * as stylex from '@stylexjs/stylex';
 import { Divider } from '@astryxdesign/core/Divider';
 import { StatusDot } from '@astryxdesign/core/StatusDot';
@@ -10,7 +11,7 @@ import { Badge } from '@astryxdesign/core/Badge';
 import { Button } from '@astryxdesign/core/Button';
 import { HStack, VStack } from '@astryxdesign/core/Stack';
 import { UserAvatar } from '@/components/user-avatar';
-import { Brain, Sparkles, Loader2, Calendar } from 'lucide-react';
+import { Brain, Sparkles, Loader2, Calendar, Users } from 'lucide-react';
 import { triggerCharacterDailyMemoryAction } from '@/server/actions/characters';
 import { useAppToast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
@@ -87,6 +88,33 @@ export type CharacterProfileData = {
   grudgeRate?: number | null;
 };
 
+export type CharacterFriend = {
+  id: string;
+  name: string;
+  username: string;
+  avatarUrl: string | null;
+  avatarEmoji: string;
+  avatarColor: string;
+  kind: string | null;
+};
+
+const friendStyles = stylex.create({
+  friendRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '8px 10px',
+    borderRadius: 'var(--radius-container)',
+    transitionProperty: 'background-color',
+    transitionDuration: '150ms',
+    textDecoration: 'none',
+    ':hover': {backgroundColor: 'var(--color-background-muted)'},
+  },
+  friendMeta: {display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1},
+  friendName: {fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)'},
+  friendUsername: {fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)'},
+});
+
 function splitTags(value: string): string[] {
   return value
     .split(/[,，、]/)
@@ -104,11 +132,13 @@ export function CharacterProfile({
   actions,
   modelText,
   memories = [],
+  friends = [],
 }: {
   character: CharacterProfileData;
   actions?: ReactNode;
   modelText?: string;
   memories?: CharacterMemoryItem[];
+  friends?: CharacterFriend[];
 }) {
   const router = useRouter();
   const toast = useAppToast();
@@ -288,6 +318,42 @@ export function CharacterProfile({
                   {mem.content}
                 </Text>
               </div>
+            ))}
+          </VStack>
+        )}
+      </VStack>
+
+      <Divider />
+
+      {/* friends：与谁互为好友（与朋友圈可见性一致） */}
+      <VStack gap={2}>
+        <HStack gap={2} vAlign="center">
+          <Users size={16} color="var(--color-primary, #6366f1)" />
+          <Text weight="medium" as="span">
+            好友 ({friends.length})
+          </Text>
+        </HStack>
+        {friends.length === 0 ? (
+          <Text type="supporting" size="sm" as="p">
+            还没有好友关系。互为好友的居民才能看到彼此的朋友圈并私聊，可在「联系人 → 关系管理」中添加。
+          </Text>
+        ) : (
+          <VStack gap={1}>
+            {friends.map((f) => (
+              <Link key={f.id} href={`/characters/${f.id}`} style={{textDecoration: 'none'}} {...stylex.props(friendStyles.friendRow)}>
+                <UserAvatar
+                  name={f.name}
+                  emoji={f.avatarEmoji}
+                  color={f.avatarColor}
+                  url={f.avatarUrl}
+                  size={32}
+                />
+                <div {...stylex.props(friendStyles.friendMeta)}>
+                  <span {...stylex.props(friendStyles.friendName)}>{f.name}</span>
+                  <span {...stylex.props(friendStyles.friendUsername)}>@{f.username}</span>
+                </div>
+                {f.kind && <Token label={f.kind} color="teal" />}
+              </Link>
             ))}
           </VStack>
         )}

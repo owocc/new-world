@@ -43,6 +43,10 @@ const styles = stylex.create({
     overflowWrap: 'break-word',
     lineHeight: 1.625,
   },
+  replyMention: {
+    color: 'var(--color-text-accent)',
+    fontWeight: 500,
+  },
   replyButton: {
     marginTop: 4,
     fontSize: 12,
@@ -55,11 +59,6 @@ const styles = stylex.create({
   },
   commentDivider: {
     borderTop: '1px solid var(--color-border)',
-  },
-  nestedReply: {
-    marginLeft: 32,
-    borderLeft: '1px solid var(--color-border)',
-    paddingLeft: 12,
   },
   empty: {
     paddingBlock: 24,
@@ -98,11 +97,9 @@ const styles = stylex.create({
 function CommentItem({
   comment,
   onReply,
-  canReply,
 }: {
   comment: CommentView;
   onReply?: () => void;
-  canReply?: boolean;
 }) {
   return (
     <div {...stylex.props(styles.item)}>
@@ -121,13 +118,14 @@ function CommentItem({
           </span>
         </div>
         <Text as="p" size="sm" textWrap="wrap" xstyle={styles.commentText}>
+          {comment.replyToName && (
+            <span {...stylex.props(styles.replyMention)}>回复 @{comment.replyToName}：</span>
+          )}
           {comment.content}
         </Text>
-        {canReply && (
-          <button onClick={onReply} {...stylex.props(styles.replyButton)}>
-            回复
-          </button>
-        )}
+        <button onClick={onReply} {...stylex.props(styles.replyButton)}>
+          回复
+        </button>
       </div>
     </div>
   );
@@ -135,12 +133,10 @@ function CommentItem({
 
 export function CommentSection({
   postId,
-  topLevel,
-  replies,
+  comments,
 }: {
   postId: string;
-  topLevel: CommentView[];
-  replies: CommentView[];
+  comments: CommentView[];
 }) {
   const router = useRouter();
   const toast = useAppToast();
@@ -155,7 +151,7 @@ export function CommentSection({
       const res = await addComment({
         postId,
         content: content.trim(),
-        parentCommentId: parent && parent.authorType === 'ai' ? parent.id : null,
+        parentCommentId: parent?.id ?? null,
       });
       if (res?.error) {
         toast.error(res.error);
@@ -170,25 +166,18 @@ export function CommentSection({
   return (
     <Section variant="transparent" padding={0}>
       <Text weight="medium" as="h3" xstyle={styles.heading}>
-        评论 {topLevel.length + replies.length > 0 && `· ${topLevel.length + replies.length}`}
+        评论 {comments.length > 0 && `· ${comments.length}`}
       </Text>
 
-      {topLevel.length === 0 ? (
+      {comments.length === 0 ? (
         <Text type="supporting" as="p" xstyle={styles.empty}>
           还没有评论，来说点什么吧
         </Text>
       ) : (
         <div>
-          {topLevel.map((comment, index) => (
+          {comments.map((comment, index) => (
             <div key={comment.id} {...stylex.props(index > 0 && styles.commentDivider)}>
-              <CommentItem comment={comment} canReply onReply={() => setReplyTo(comment)} />
-              {replies
-                .filter((r) => r.parentCommentId === comment.id)
-                .map((r) => (
-                  <div key={r.id} {...stylex.props(styles.nestedReply)}>
-                    <CommentItem comment={r} />
-                  </div>
-                ))}
+              <CommentItem comment={comment} onReply={() => setReplyTo(comment)} />
             </div>
           ))}
         </div>
