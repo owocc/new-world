@@ -1,20 +1,13 @@
 import { after } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
-import { conversations, messages } from '@/db/schema';
+import { conversations, messages, user } from '@/db/schema';
 import { getSession } from '@/lib/session';
-import { getConversation, markConversationRead } from '@/server/chat';
-import { linkMediaToMessage } from '@/server/media';
+import { getConversation } from '@/server/chat';
 import { appendMessageToTurn, tickTurns, QUIET_WINDOW_MS } from '@/server/ai/turn-engine';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
-
-type SendMessageBody = {
-  conversationId?: string;
-  content?: string;
-  mediaAssetIds?: string[];
-};
 
 export async function POST(req: Request) {
   const session = await getSession();
@@ -24,40 +17,42 @@ export async function POST(req: Request) {
   const userId = session.user.id;
 
   try {
-    const body = (await req.json()) as SendMessageBody;
-    const content = (body.content || '').trim();
-    const mediaAssetIds = Array.isArray(body.mediaAssetIds) ? body.mediaAssetIds : [];
+    const body = (await req.json()) as { conversationId?: string };
     const conversationId = body.conversationId;
 
-    if (!conversationId || (!content && mediaAssetIds.length === 0)) {
-      return Response.json({ ok: false, error: 'Bad Request: content or media required' }, { status: 400 });
+    if (!conversationId) {
+      return Response.json({ ok: false, error: 'conversationId is required' }, { status: 400 });
     }
 
-    // Verify conversation ownership
     const conv = await getConversation(userId, conversationId);
     if (!conv) {
       return Response.json({ ok: false, error: 'Conversation not found' }, { status: 404 });
     }
 
-    const now = new Date();
-    const messageId = crypto.randomUUID();
+    const [userInfo] = await db
+      .select({ name: user.name })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
 
-    // 1. Immediately persist user message to DB
+    const userName = userInfo?.name || '我';
+    const characterName = conv.character.name;
+
+    const now = new Date();
+    const systemMessageId = crypto.randomUUID();
+    const pokeContent = `${userName} 拍了拍 ${characterName}`;
+
+    // 1. Persist system poke message to DB
     await db.insert(messages).values({
-      id: messageId,
+      id: systemMessageId,
       conversationId,
       userId,
-      role: 'user',
-      content,
+      role: 'system',
+      content: pokeContent,
       createdAt: now,
     });
 
-    // 2. Link media attachments if any
-    if (mediaAssetIds.length > 0) {
-      await linkMediaToMessage(userId, messageId, mediaAssetIds);
-    }
-
-    // 3. Update conversation last message & read state
+    // 2. Update conversation lastMessageAt & lastReadAt
     await db
       .update(conversations)
       .set({
@@ -66,40 +61,38 @@ export async function POST(req: Request) {
       })
       .where(eq(conversations.id, conversationId));
 
-    // 4. Append message to collecting Conversation Turn
+    // 3. Append to turn so AI is prompted to answer pending/interrupted messages
     const turnResult = await appendMessageToTurn({
       conversationId,
       userId,
       characterId: conv.character.id,
-      messageId,
+      messageId: systemMessageId,
     });
 
-    // 5. Schedule background turn tick via Next.js after()
+    // 4. Trigger turn tick asynchronously
     after(async () => {
       try {
-        // Wait for quiet window to allow multi-message batching
-        await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS + 300));
+        await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS + 200));
         await tickTurns({ userId, conversationId, limit: 2 });
       } catch (err) {
-        console.error('[api/chat] background turn processing error:', err);
+        console.error('[api/chat/poke] background turn processing error:', err);
       }
     });
 
-    // 6. Immediately return HTTP response with message and turn information
     return Response.json({
       ok: true,
       message: {
-        id: messageId,
+        id: systemMessageId,
         conversationId,
-        role: 'user',
-        content,
+        role: 'system',
+        content: pokeContent,
         createdAt: now,
       },
       turn: turnResult,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal Server Error';
-    console.error('[api/chat] error sending message:', err);
+    console.error('[api/chat/poke] error sending poke:', err);
     return Response.json({ ok: false, error: message }, { status: 500 });
   }
 }

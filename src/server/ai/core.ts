@@ -230,6 +230,8 @@ export type RunTextOptions = {
   callType: CallType;
   system: string;
   prompt?: string;
+  messages?: ModelMessage[];
+  tools?: Record<string, any>;
   temperature?: number;
   maxOutputTokens?: number;
 };
@@ -242,7 +244,10 @@ export async function runText(opts: RunTextOptions): Promise<string> {
     const result = await generateText({
       model: createModelFor(resolved.provider, resolved.modelId),
       system: opts.system,
-      prompt: opts.prompt ?? '',
+      ...(opts.messages && opts.messages.length > 0
+        ? { messages: opts.messages }
+        : { prompt: opts.prompt ?? '' }),
+      ...(opts.tools ? { tools: opts.tools } : {}),
       temperature: opts.temperature ?? resolved.temperature ?? undefined,
       maxOutputTokens: opts.maxOutputTokens ?? resolved.maxTokens ?? undefined,
     });
@@ -277,8 +282,12 @@ export async function runObject<T extends z.ZodType>(opts: {
   characterId?: string | null;
   callType: CallType;
   system: string;
-  prompt: string;
+  prompt?: string;
+  messages?: ModelMessage[];
+  tools?: Record<string, any>;
   schema: T;
+  schemaName?: string;
+  schemaDescription?: string;
   temperature?: number;
   maxOutputTokens?: number;
 }): Promise<z.infer<T>> {
@@ -288,8 +297,12 @@ export async function runObject<T extends z.ZodType>(opts: {
     const result = await generateObject({
       model: createModelFor(resolved.provider, resolved.modelId),
       system: opts.system,
-      prompt: opts.prompt,
+      ...(opts.messages && opts.messages.length > 0
+        ? { messages: opts.messages }
+        : { prompt: opts.prompt ?? '' }),
       schema: opts.schema,
+      schemaName: opts.schemaName,
+      schemaDescription: opts.schemaDescription,
       temperature: opts.temperature ?? resolved.temperature ?? undefined,
       maxOutputTokens: opts.maxOutputTokens ?? resolved.maxTokens ?? undefined,
     });

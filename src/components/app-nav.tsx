@@ -18,8 +18,8 @@ import {
 } from 'lucide-react';
 import { useThemeMode } from '@/components/providers';
 import { NotificationPopover } from '@/components/notification-popover';
+import { useClientSync } from '@/components/client-sync-provider';
 import type { NotificationItem } from '@/server/actions/feed';
-
 const styles = stylex.create({
   shell: {
     display: 'flex',
@@ -184,8 +184,11 @@ export function AppNav({
 }) {
   const pathname = usePathname();
   const { mode, setMode } = useThemeMode();
-  const totalUnreadChats = unreadMessages + unreadGroups;
-
+  const sync = useClientSync();
+  const liveUnreadMessages = sync.unread.messages ?? unreadMessages;
+  const liveUnreadGroups = sync.unread.groups ?? unreadGroups;
+  const liveUnreadNotifications = sync.unread.notifications ?? unreadNotifications;
+  const totalUnreadChats = liveUnreadMessages + liveUnreadGroups;
   const NAV_ITEMS = [
     {
       href: '/messages',
@@ -235,7 +238,7 @@ export function AppNav({
         <div {...stylex.props(styles.bottom)}>
           <NotificationPopover
             initialNotifications={initialNotifications}
-            initialUnreadCount={unreadNotifications}
+            initialUnreadCount={liveUnreadNotifications}
           />
 
           <Link

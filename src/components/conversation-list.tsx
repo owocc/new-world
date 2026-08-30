@@ -12,8 +12,8 @@ import { TimeAgo } from '@/components/time-ago';
 import { openConversation } from '@/server/actions/chat';
 import type { UnifiedChatItem } from '@/server/unified-chat';
 import type { aiCharacters } from '@/db/schema';
+import { useClientSync } from '@/components/client-sync-provider';
 import { Plus } from 'lucide-react';
-
 const styles = stylex.create({
   root: {display: 'flex', height: '100%', flexDirection: 'column'},
   hiddenMobile: {display: 'none', '@media (min-width: 640px)': {display: 'flex'}},
@@ -93,7 +93,8 @@ export function ConversationList({
   const router = useRouter();
   const pathname = usePathname();
   const [search, setSearch] = useState('');
-
+  const sync = useClientSync();
+  const activeChats = sync.chats.length > 0 ? sync.chats : chats;
   // on mobile, detail view takes over the whole screen
   const hiddenOnMobile = pathname !== '/messages';
 
@@ -102,8 +103,7 @@ export function ConversationList({
     if (res.id) router.push(`/messages/${res.id}`);
   };
 
-  const filteredChats = chats.filter((c) => {
-    if (!search.trim()) return true;
+  const filteredChats = activeChats.filter((c) => {
     const q = search.toLowerCase();
     return (
       c.name.toLowerCase().includes(q) ||

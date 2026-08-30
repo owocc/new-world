@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { user } from '@/db/schema';
 import { processDueEvents, maybePulse } from '@/server/ai/community/engine';
 import { tickGroupAttention } from '@/server/ai/group/engine';
+import { tickTurns } from '@/server/ai/turn-engine';
 import { cleanupOrphanMedia } from '@/server/media';
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,7 @@ export async function GET(req: Request) {
       await maybePulse(u.id);
       await processDueEvents(u.id, 8);
       await tickGroupAttention(u.id, undefined, 8);
+      await tickTurns({ userId: u.id, limit: 8 });
       processed++;
     } catch (err) {
       console.error('[cron] failed for user', u.id, err);

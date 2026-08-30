@@ -212,6 +212,41 @@ export const conversations = sqliteTable('conversations', {
   uniqueIndex('conversations_user_character_idx').on(t.userId, t.characterId),
 ]);
 
+export const conversationTurns = sqliteTable('conversation_turns', {
+  id: text('id').primaryKey(),
+  conversationId: text('conversation_id')
+    .notNull()
+    .references(() => conversations.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  characterId: text('character_id')
+    .notNull()
+    .references(() => aiCharacters.id, { onDelete: 'cascade' }),
+  /** collecting | scheduled | processing | completed | failed */
+  status: text('status').notNull().default('collecting'),
+  /** quiet window deadline: if no more messages arrive by this time, promote to scheduled */
+  scheduledFor: ts('scheduled_for').notNull(),
+  /** hard deadline for collecting phase */
+  collectDeadline: ts('collect_deadline').notNull(),
+  /** optimistic locking / fencing token for generation workers */
+  generationId: text('generation_id'),
+  /** lease expires at timestamp - prevents long DB locks while allowing recovery */
+  leaseExpiresAt: ts('lease_expires_at'),
+  /** worker identifier holding the lease */
+  lockedBy: text('locked_by'),
+  /** retry count */
+  retryCount: integer('retry_count').notNull().default(0),
+  error: text('error'),
+  completedAt: ts('completed_at'),
+  createdAt: ts('created_at').notNull().default(now()),
+  updatedAt: ts('updated_at').notNull().default(now()),
+}, (t) => [
+  index('conversation_turns_conv_status_idx').on(t.conversationId, t.status),
+  index('conversation_turns_scheduled_idx').on(t.status, t.scheduledFor),
+  index('conversation_turns_lease_idx').on(t.status, t.leaseExpiresAt),
+]);
+
 export const messages = sqliteTable('messages', {
   id: text('id').primaryKey(),
   conversationId: text('conversation_id')
@@ -223,9 +258,14 @@ export const messages = sqliteTable('messages', {
   /** user | assistant */
   role: text('role').notNull(),
   content: text('content').notNull(),
+  /** link message to its conversation turn */
+  turnId: text('turn_id').references(() => conversationTurns.id, { onDelete: 'set null' }),
   usageId: text('usage_id'),
   createdAt: ts('created_at').notNull().default(now()),
-}, (t) => [index('messages_conversation_idx').on(t.conversationId, t.createdAt)]);
+}, (t) => [
+  index('messages_conversation_idx').on(t.conversationId, t.createdAt),
+  index('messages_turn_idx').on(t.turnId),
+]);
 
 /* ------------------------------------------------------------------ */
 /* Group Chat                                                          */

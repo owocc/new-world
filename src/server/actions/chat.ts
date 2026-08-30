@@ -16,3 +16,14 @@ export async function markRead(conversationId: string) {
   await markConversationRead(userId, conversationId);
   return { ok: true };
 }
+
+export async function pokeCharacter(conversationId: string) {
+  const userId = await requireUserId();
+  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/chat/poke`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ conversationId }),
+  }).catch(() => null);
+
+  return { ok: true };
+}

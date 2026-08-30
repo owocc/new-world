@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { colorVars } from '@astryxdesign/core/theme/tokens.stylex';
-import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Code2, Image as ImageIcon, Loader2, RefreshCw, X } from 'lucide-react';
@@ -14,6 +12,7 @@ import {
   ChatMessageList,
   ChatMessage,
   ChatMessageBubble,
+  ChatSystemMessage,
   ChatComposer,
   ChatComposerDrawer,
 } from '@astryxdesign/core/Chat';
@@ -25,306 +24,392 @@ import { MediaLightbox } from '@/components/media-lightbox';
 import { useAppToast } from '@/lib/toast';
 import { resolveMediaUrl } from '@/lib/utils';
 import { markRead } from '@/server/actions/chat';
+import { useClientSync } from '@/components/client-sync-provider';
 import type { aiCharacters } from '@/db/schema';
 import type { MediaAssetView } from '@/server/media';
 
 const spin = stylex.keyframes({
-  from: {transform: 'rotate(0deg)'},
-  to: {transform: 'rotate(360deg)'},
+  '0%': { transform: 'rotate(0deg)' },
+  '100%': { transform: 'rotate(360deg)' },
 });
+
 const bounce = stylex.keyframes({
-  '0%, 100%': {transform: 'translateY(-25%)', animationTimingFunction: 'cubic-bezier(0.8, 0, 1, 1)'},
-  '50%': {transform: 'translateY(0)', animationTimingFunction: 'cubic-bezier(0, 0, 0.2, 1)'},
+  '0%, 80%, 100%': { transform: 'scale(0)' },
+  '40%': { transform: 'scale(1)' },
 });
 
 const styles = stylex.create({
   root: {
-    position: 'relative',
     display: 'flex',
-    height: '100%',
-    minHeight: 0,
     flexDirection: 'column',
+    height: '100%',
+    width: '100%',
+    position: 'relative',
+    backgroundColor: 'var(--color-background-canvas, var(--color-background))',
     overflow: 'hidden',
   },
   header: {
+    height: '60px',
+    borderBottomWidth: '1px',
+    borderBottomStyle: 'solid',
+    borderBottomColor: colorVars['--color-border'],
+    backgroundColor: 'var(--color-background-surface, var(--color-surface))',
     display: 'flex',
-    height: '56px',
-    flexShrink: 0,
     alignItems: 'center',
-    gap: 'var(--spacing-2)',
-    borderBottom: 'var(--border-width) solid var(--color-border)',
-    backgroundColor: 'var(--color-background-surface)',
-    paddingInline: 'var(--spacing-2)',
-    '@media (min-width: 640px)': {paddingInline: 'var(--spacing-4)'},
+    paddingInline: '16px',
+    gap: '12px',
+    flexShrink: 0,
+    zIndex: 10,
   },
   mobileBack: {
-    display: 'flex',
-    width: '36px',
-    height: '36px',
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 'var(--radius-full)',
-    color: 'var(--color-text-secondary)',
-    transition: 'color 175ms ease, background-color 175ms ease',
-    ':hover': {'@media (hover: hover)': {backgroundColor: 'var(--color-background-muted)'}},
-    '@media (min-width: 1024px)': {display: 'none'},
-  },
-  headerInfo: {minWidth: 0, flex: 1, overflow: 'hidden'},
-  headerName: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '15px', fontWeight: 'var(--font-weight-semibold)', lineHeight: 1.25},
-  headerNameLink: {
-    textDecoration: 'none',
-    color: colorVars['--color-text-primary'],
-    cursor: 'pointer',
-    '@media (hover: hover)': {
-      ':hover': {color: colorVars['--color-text-accent']},
+    display: 'none',
+    color: colorVars['--color-text-secondary'],
+    padding: '4px',
+    marginRight: '2px',
+    borderRadius: '6px',
+    '@media (max-width: 640px)': {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
   },
-  profileOverlay: {
-    position: 'absolute',
-    inset: 0,
-    zIndex: 30,
+  headerInfo: {
     display: 'flex',
     flexDirection: 'column',
-    backgroundColor: colorVars['--color-background-surface'],
-  },
-  profileOverlayBar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    flexShrink: 0,
-    paddingBlock: '8px',
-    paddingInline: '12px',
-    borderBottom: '1px solid',
-    borderBottomColor: colorVars['--color-border'],
-  },
-  profileOverlayTitle: {
-    flex: 1,
     minWidth: 0,
-    fontSize: '15px',
-    fontWeight: 'var(--font-weight-semibold)',
-    color: colorVars['--color-text-primary'],
-  },
-  profileOverlayBody: {
     flex: 1,
-    minHeight: 0,
-    overflowY: 'auto',
-    padding: '16px',
-    '@media (min-width: 640px)': {
-      padding: '24px',
+  },
+  headerName: {
+    fontSize: '15px',
+    fontWeight: '600',
+    color: colorVars['--color-text-primary'],
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  headerNameLink: {
+    textDecoration: 'none',
+    cursor: 'pointer',
+    ':hover': {
+      textDecoration: 'underline',
     },
   },
-  overlayClose: {
-    display: 'flex',
-    width: '32px',
-    height: '32px',
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 'var(--radius-full, 9999px)',
+  headerStatus: {
+    fontSize: '12px',
     color: colorVars['--color-text-secondary'],
-    textDecoration: 'none',
-    ':hover': {backgroundColor: colorVars['--color-background-muted'], color: colorVars['--color-text-primary']},
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   scrollAreaWrapper: {
     position: 'relative',
-    minHeight: 0,
     flex: 1,
+    minHeight: 0,
     display: 'flex',
     flexDirection: 'column',
-    overflow: 'hidden',
   },
   scrollArea: {
-    minHeight: 0,
     flex: 1,
+    minHeight: 0,
     overflowY: 'auto',
-    overscrollBehavior: 'contain',
+    WebkitOverflowScrolling: 'touch',
+    paddingInline: '16px',
+    paddingTop: '20px',
+    paddingBottom: '50vh',
+    scrollBehavior: 'smooth',
   },
   messagesInner: {
+    maxWidth: '768px',
+    marginInline: 'auto',
     width: '100%',
-    paddingTop: 'var(--spacing-4)',
-    paddingInline: 'var(--spacing-4)',
-    paddingBottom: '50vh',
-    '@media (min-width: 640px)': {
-      paddingInline: 'var(--spacing-6)',
-    },
   },
   emptyState: {
     display: 'flex',
-    minHeight: '50vh',
-    height: '100%',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 'var(--spacing-3)',
+    paddingTop: '60px',
+    paddingBottom: '40px',
     textAlign: 'center',
   },
-  spinner: {
-    animationName: spin,
-    animationDuration: '1s',
-    animationTimingFunction: 'linear',
-    animationIterationCount: 'infinite',
+  emptyName: {
+    fontSize: '18px',
+    fontWeight: '600',
+    color: colorVars['--color-text-primary'],
+    marginTop: '16px',
+    marginBottom: '6px',
   },
-  emptyName: {fontSize: 'var(--font-size-lg)', fontWeight: 'var(--font-weight-semibold)'},
-  emptyBio: {maxWidth: '20rem'},
-  attachmentSingle: {maxWidth: '340px', marginBottom: 'var(--spacing-2)'},
-  attachmentGrid: {
-    display: 'grid',
-    maxWidth: '380px',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: 'var(--spacing-1-5)',
-    marginBottom: 'var(--spacing-2)',
-  },
-  attachmentImage: {
-    width: '100%',
-    height: 'auto',
-    maxHeight: '280px',
-    objectFit: 'cover',
-    transition: 'transform 200ms ease',
-    ':hover': {'@media (hover: hover)': {transform: 'scale(1.02)'}},
-  },
-  userMessage: {whiteSpace: 'pre-wrap', overflowWrap: 'break-word'},
-  assistantMarkdown: {fontSize: '15px'},
-  typing: {display: 'flex', alignItems: 'center', gap: '6px', paddingBlock: '4px', paddingInline: '2px'},
-  typingDot: {
-    width: '6px',
-    height: '6px',
-    borderRadius: 'var(--radius-full)',
-    backgroundColor: 'var(--color-text-secondary)',
-    animationName: bounce,
-    animationDuration: '1s',
-    animationTimingFunction: 'cubic-bezier(0.8, 0, 0.2, 1)',
-    animationIterationCount: 'infinite',
+  emptyBio: {
+    maxWidth: '360px',
+    marginBottom: '16px',
+    lineHeight: '1.5',
   },
   footer: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
+    bottom: 0,
+    paddingInline: '16px',
+    paddingBottom: '16px',
+    paddingTop: '8px',
     zIndex: 10,
+    display: 'flex',
+    justifyContent: 'center',
     pointerEvents: 'none',
-    backgroundColor: 'transparent',
-    paddingInline: 'var(--spacing-4)',
-    paddingBottom: 'calc(var(--spacing-3) + env(safe-area-inset-bottom, 0px))',
-    paddingTop: 'var(--spacing-2)',
-    '@media (min-width: 640px)': {
-      paddingInline: 'var(--spacing-6)',
-      paddingBottom: 'calc(var(--spacing-4) + env(safe-area-inset-bottom, 0px))',
-    },
+  },
+  composerFloating: {
+    maxWidth: '768px',
+    width: '100%',
+    pointerEvents: 'auto',
+  },
+  composerBody: {
+    backgroundColor: colorVars['--color-background-surface'],
+    borderRadius: '16px',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: colorVars['--color-border'],
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
   },
   gradientBackdrop: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
-    width: '100%',
-    height: '180px',
+    bottom: 0,
+    height: '140px',
+    background: 'linear-gradient(to top, rgba(0, 0, 0, 0.2) 0%, transparent 100%)',
     pointerEvents: 'none',
-    zIndex: 6,
-    background: 'linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.3) 100%)',
+    zIndex: 5,
     opacity: 0,
-    transition: 'opacity 250ms ease',
+    transition: 'opacity 0.2s ease',
   },
   gradientBackdropVisible: {
     opacity: 1,
   },
-  composerFloating: {
-    pointerEvents: 'auto',
-    width: '100%',
-    maxWidth: '800px',
-    marginInline: 'auto',
+  userMessage: {
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    margin: 0,
+    fontSize: '14px',
+    lineHeight: '1.5',
   },
-  composerBody: {
+  assistantMarkdown: {
+    fontSize: '14px',
+    lineHeight: '1.5',
+    color: colorVars['--color-text-primary'],
+  },
+  typing: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    paddingBlock: '4px',
+  },
+  typingDot: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    backgroundColor: colorVars['--color-text-secondary'],
+    display: 'inline-block',
+    animationName: bounce,
+    animationDuration: '1.4s',
+    animationIterationCount: 'infinite',
+    animationTimingFunction: 'ease-in-out',
+  },
+  attachmentSingle: {
+    marginBottom: '8px',
+    maxWidth: '300px',
+    borderRadius: '8px',
+    overflow: 'hidden',
+    cursor: 'pointer',
+  },
+  attachmentGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+    gap: '6px',
+    marginBottom: '8px',
+    maxWidth: '320px',
+    borderRadius: '8px',
+    overflow: 'hidden',
+    cursor: 'pointer',
+  },
+  attachmentImage: {
+    width: '100%',
+    height: 'auto',
+    maxHeight: '260px',
+    objectFit: 'cover',
+    display: 'block',
+    borderRadius: '6px',
+    transition: 'transform 0.15s ease',
+    ':hover': {
+      transform: 'scale(1.02)',
+    },
+  },
+  drawerList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    padding: '8px',
+  },
+  pendingItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '6px',
+    borderRadius: '8px',
+    backgroundColor: 'var(--color-background-canvas, var(--color-background))',
     borderWidth: '1px',
     borderStyle: 'solid',
-    borderColor: 'var(--color-border)',
-    boxShadow: 'none',
-    backgroundColor: 'var(--color-background-body)',
-    borderRadius: 'var(--radius-chat)',
-  },
-  fullWidth: {width: '100%'},
-  hidden: {display: 'none'},
-  drawerList: {display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--spacing-2)', paddingBlock: 'var(--spacing-1)'},
-  pendingItem: {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--spacing-2)',
-    border: 'var(--border-width) solid var(--color-border)',
-    borderRadius: 'var(--radius-container)',
-    backgroundColor: 'var(--color-background-surface)',
-    padding: '6px 8px 6px 6px',
-    fontSize: 'var(--font-size-xs)',
+    borderColor: colorVars['--color-border'],
   },
   thumbnail: {
-    position: 'relative',
-    display: 'flex',
-    width: '48px',
-    height: '48px',
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: '40px',
+    height: '40px',
+    borderRadius: '6px',
     overflow: 'hidden',
-    borderRadius: 'var(--radius-element)',
-    backgroundColor: 'var(--color-background-muted)',
+    position: 'relative',
+    flexShrink: 0,
+    backgroundColor: colorVars['--color-background-muted'],
   },
-  thumbnailImage: {width: '100%', height: '100%', objectFit: 'cover'},
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
   uploadOverlay: {
     position: 'absolute',
     inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    color: 'white',
+    color: '#ffffff',
   },
   errorOverlay: {
     position: 'absolute',
     inset: 0,
+    backgroundColor: 'rgba(239, 68, 68, 0.6)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'color-mix(in srgb, var(--color-error) 70%, transparent)',
-    color: 'white',
+    color: '#ffffff',
   },
-  fileInfo: {maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'},
-  fileName: {overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 'var(--font-weight-medium)'},
-  fileStatus: {color: 'var(--color-text-secondary)', fontSize: '11px'},
+  spinner: {
+    animationName: spin,
+    animationDuration: '1s',
+    animationIterationCount: 'infinite',
+    animationTimingFunction: 'linear',
+  },
+  fileInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  fileName: {
+    fontSize: '12px',
+    fontWeight: '500',
+    color: colorVars['--color-text-primary'],
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  fileStatus: {
+    fontSize: '11px',
+    color: colorVars['--color-text-secondary'],
+  },
   iconButton: {
-    border: 0,
-    borderRadius: 'var(--radius-full)',
+    padding: '4px',
+    borderRadius: '4px',
+    borderWidth: '0',
     backgroundColor: 'transparent',
-    padding: 'var(--spacing-1)',
-    color: 'var(--color-text-secondary)',
-    ':hover': {'@media (hover: hover)': {color: 'var(--color-text-primary)', backgroundColor: 'var(--color-background-muted)'}},
+    color: colorVars['--color-text-secondary'],
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ':hover': {
+      backgroundColor: colorVars['--color-background-muted'],
+      color: colorVars['--color-text-primary'],
+    },
   },
-  iconButtonError: {':hover': {'@media (hover: hover)': {color: 'var(--color-error)', backgroundColor: 'var(--color-background-muted)'}}},
-  footerActions: {display: 'flex', alignItems: 'center', gap: '6px'},
+  iconButtonError: {
+    ':hover': {
+      color: 'var(--color-danger, #ef4444)',
+    },
+  },
+  footerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  profileOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: '380px',
+    maxWidth: '100%',
+    backgroundColor: colorVars['--color-background-surface'],
+    borderLeftWidth: '1px',
+    borderLeftStyle: 'solid',
+    borderLeftColor: colorVars['--color-border'],
+    boxShadow: '-4px 0 20px rgba(0, 0, 0, 0.1)',
+    zIndex: 30,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  profileOverlayBar: {
+    height: '56px',
+    borderBottomWidth: '1px',
+    borderBottomStyle: 'solid',
+    borderBottomColor: colorVars['--color-border'],
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingInline: '16px',
+    flexShrink: 0,
+  },
+  profileOverlayTitle: {
+    fontSize: '15px',
+    fontWeight: '600',
+    color: colorVars['--color-text-primary'],
+  },
+  profileOverlayBody: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '16px',
+  },
+  overlayClose: {
+    padding: '4px',
+    borderRadius: '6px',
+    color: colorVars['--color-text-secondary'],
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hidden: {
+    display: 'none',
+  },
 });
 
 type CharacterRow = typeof aiCharacters.$inferSelect;
 
-type InitialMessage = {
+type MessageItem = {
   id: string;
-  role: string;
+  role: 'user' | 'assistant' | 'system';
   content: string;
   attachments?: MediaAssetView[];
-  createdAt: Date;
+  createdAt: Date | string | number;
+  pending?: boolean;
 };
+
 type PendingImage = {
   id: string;
   file: File;
   previewUrl: string;
+  status: 'uploading' | 'ready' | 'error';
   assetId?: string;
   blobUrl?: string;
-  perception?: {
-    status: string;
-    summary: string | null;
-    perception?: string | null;
-    ocrText: string | null;
-  } | null;
-  status: 'uploading' | 'ready' | 'error';
   error?: string;
+  perception?: { summary: string | null; ocrText: string | null; status: string; perception?: string | null } | null;
 };
 
 export function ChatWindow({
@@ -337,13 +422,18 @@ export function ChatWindow({
   conversationId: string;
   character: CharacterRow;
   user: { name: string; imageUrl: string | null };
-  initialMessages: InitialMessage[];
+  initialMessages: MessageItem[];
   isDevMode?: boolean;
 }) {
   const toast = useAppToast();
-  const profileOpen = useSearchParams().get('profile') === '1';
+  const { refresh: refreshSync } = useClientSync();
+  const searchParams = useSearchParams();
+  const profileOpen = searchParams?.get('profile') === '1';
+
+  const [messagesList, setMessagesList] = useState<MessageItem[]>(initialMessages);
+  const [isTyping, setIsTyping] = useState(false);
+  const [turnStatus, setTurnStatus] = useState<string>('idle');
   const [showDevInspector, setShowDevInspector] = useState(false);
-  const [composerValue, setComposerValue] = useState('');
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [activeLightboxMedia, setActiveLightboxMedia] = useState<{
     id?: string | null;
@@ -354,78 +444,78 @@ export function ChatWindow({
     perception?: { summary?: string | null; ocrText?: string | null; status?: string } | null;
   } | null>(null);
 
-  // Map to store attachments for messages (both initial and optimistically sent)
-  const [messageAttachmentsMap, setMessageAttachmentsMap] = useState<Record<string, MediaAssetView[]>>(() => {
-    const initialMap: Record<string, MediaAssetView[]> = {};
-    for (const m of initialMessages) {
-      if (m.attachments && m.attachments.length > 0) {
-        initialMap[m.id] = m.attachments;
-      }
-    }
-    return initialMap;
-  });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pendingImagesRef = useRef<PendingImage[]>([]);
-  pendingImagesRef.current = pendingImages;
-  const pendingSendAttachmentsRef = useRef<MediaAssetView[]>([]);
-  const { messages, sendMessage, status, error, regenerate, stop } = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-      body: { conversationId },
-    }),
-    messages: initialMessages.map((m) => ({
-      id: m.id,
-      role: m.role === 'assistant' ? 'assistant' : 'user',
-      parts: [{ type: 'text', text: m.content }],
-    })),
-    onFinish: () => {
-      markRead(conversationId);
-    },
-  });
-
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
   const [isAtBottom, setIsAtBottom] = useState(true);
-  useEffect(() => {
-    markRead(conversationId);
+
+  // Poll conversation-specific sync
+  const pollConversation = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/chat/sync?conversationId=${conversationId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.ok || !data.conversation) return;
+
+      const serverMsgs: MessageItem[] = (data.conversation.messages || []).map((m: any) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        attachments: m.attachments,
+        createdAt: m.createdAt,
+      }));
+
+      // Merge server messages with any optimistic pending user messages
+      setMessagesList((prev) => {
+        const pending = prev.filter((p) => p.pending);
+        const unresolvedPending = pending.filter(
+          (p) => !serverMsgs.some((s) => s.role === 'user' && s.content === p.content),
+        );
+        return [...serverMsgs, ...unresolvedPending];
+      });
+
+      setIsTyping(data.conversation.isTyping);
+      setTurnStatus(data.conversation.turnStatus);
+    } catch (err) {
+      console.error('[ChatWindow] sync error', err);
+    }
   }, [conversationId]);
 
-  // Keep optimistic attachments linked to the latest user message
   useEffect(() => {
-    if (pendingSendAttachmentsRef.current.length > 0 && messages.length > 0) {
-      const lastUser = [...messages].reverse().find((m) => m.role === 'user');
-      if (lastUser && !messageAttachmentsMap[lastUser.id]) {
-        const atts = pendingSendAttachmentsRef.current;
-        pendingSendAttachmentsRef.current = [];
-        setMessageAttachmentsMap((prev) => ({
-          ...prev,
-          [lastUser.id]: atts,
-        }));
+    markRead(conversationId);
+    pollConversation();
+
+    // Fast polling in active chat window for real-time responsiveness
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        pollConversation();
       }
-    }
-  }, [messages, messageAttachmentsMap]);
-  // auto-scroll while streaming; respect manual scroll-up
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [conversationId, pollConversation]);
+
+  // Auto-scroll when new messages arrive or typing status changes
   useEffect(() => {
     const el = scrollRef.current;
     if (el && stickToBottomRef.current) {
       el.scrollTop = el.scrollHeight;
       setIsAtBottom(true);
     } else if (el) {
-      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 10;
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 15;
       setIsAtBottom(atBottom);
     }
-  }, [messages, status]);
+  }, [messagesList, isTyping]);
 
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
     const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
-    const atBottom = remaining <= 10;
+    const atBottom = remaining <= 15;
     stickToBottomRef.current = remaining < 80;
     setIsAtBottom(atBottom);
   };
 
-  // keep pinned to bottom when viewport resizes
   useEffect(() => {
     const scrollToBottom = () => {
       const el = scrollRef.current;
@@ -435,7 +525,7 @@ export function ChatWindow({
     return () => window.removeEventListener('resize', scrollToBottom);
   }, []);
 
-  // Upload a single selected file
+  // Upload an image attachment
   const uploadImageFile = async (file: File) => {
     const tempId = crypto.randomUUID();
     const previewUrl = URL.createObjectURL(file);
@@ -519,26 +609,12 @@ export function ChatWindow({
   };
 
   const isUploadingAny = pendingImages.some((i) => i.status === 'uploading');
-  const generating = status === 'submitted' || status === 'streaming';
 
-  const avatar = (
-    <UserAvatar
-      name={character.name}
-      emoji={character.avatarEmoji}
-      color={character.avatarColor}
-      url={character.avatarUrl}
-      size={36}
-    />
-  );
+  // Submit user message asynchronously (instant return)
+  const handleSubmit = async (text: string) => {
+    if (isUploadingAny) return;
 
-  const userAvatar = (
-    <UserAvatar name={user.name || '我'} url={user.imageUrl} size={36} />
-  );
-
-  const handleSubmit = (text: string) => {
-    if (isUploadingAny || generating) return;
-
-    const readyAttachments = pendingImages
+    const readyAttachments: MediaAssetView[] = pendingImages
       .filter((i) => i.status === 'ready' && i.assetId && i.blobUrl)
       .map((i) => ({
         id: i.assetId!,
@@ -555,7 +631,14 @@ export function ChatWindow({
         duration: null,
         status: 'ready' as const,
         purpose: 'attachment' as const,
-        perception: i.perception ?? null,
+        perception: i.perception
+          ? {
+              status: i.perception.status || 'completed',
+              summary: i.perception.summary || null,
+              ocrText: i.perception.ocrText || null,
+              perception: i.perception.perception || null,
+            }
+          : null,
         createdAt: new Date(),
       }));
     const mediaAssetIds = readyAttachments.map((a) => a.id);
@@ -563,24 +646,82 @@ export function ChatWindow({
     if (!text.trim() && mediaAssetIds.length === 0) return;
 
     stickToBottomRef.current = true;
+    const tempMsgId = `pending-${crypto.randomUUID()}`;
 
-    // Send with media asset IDs in body
-    sendMessage(
-      { text: text.trim() },
-      {
-        body: {
+    // Optimistic UI update: instantly show user message
+    const optimisticMessage: MessageItem = {
+      id: tempMsgId,
+      role: 'user',
+      content: text.trim(),
+      attachments: readyAttachments,
+      createdAt: new Date(),
+      pending: true,
+    };
+
+    setMessagesList((prev) => [...prev, optimisticMessage]);
+    setPendingImages([]);
+    setIsTyping(true); // Optimistically show typing as Turn becomes collecting
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           conversationId,
+          content: text.trim(),
           mediaAssetIds,
-        },
-      },
-    );
+        }),
+      });
 
-    // If attachments were sent, attach them to the pending message view
-    if (readyAttachments.length > 0) {
-      pendingSendAttachmentsRef.current = readyAttachments;
-      setPendingImages([]);
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        toast.error(data.error || '消息发送失败');
+        return;
+      }
+
+      // Re-poll immediately to sync state
+      await pollConversation();
+      refreshSync();
+    } catch (err) {
+      console.error('[ChatWindow] send message error:', err);
+      toast.error('网络错误，发送失败');
     }
   };
+
+  // Double click avatar triggers poke (拍一拍)
+  const handlePoke = async () => {
+    try {
+      const res = await fetch('/api/chat/poke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setIsTyping(true);
+        await pollConversation();
+        refreshSync();
+      }
+    } catch (err) {
+      console.error('[ChatWindow] poke error', err);
+    }
+  };
+
+  const avatar = (
+    <div onDoubleClick={handlePoke} style={{ cursor: 'pointer' }} title="双击拍一拍">
+      <UserAvatar
+        name={character.name}
+        emoji={character.avatarEmoji}
+        color={character.avatarColor}
+        url={character.avatarUrl}
+        size={36}
+      />
+    </div>
+  );
+
+  const userAvatar = (
+    <UserAvatar name={user.name || '我'} url={user.imageUrl} size={36} />
+  );
 
   return (
     <div {...stylex.props(styles.root)}>
@@ -599,6 +740,7 @@ export function ChatWindow({
         mode="dm"
         conversationId={conversationId}
       />
+
       <header {...stylex.props(styles.header)}>
         <Link
           href="/messages"
@@ -607,20 +749,21 @@ export function ChatWindow({
         >
           <ArrowLeft size={19} />
         </Link>
-        <UserAvatar
-          name={character.name}
-          emoji={character.avatarEmoji}
-          color={character.avatarColor}
-          url={character.avatarUrl}
-          size={36}
-          href={`/messages/${conversationId}?profile=1`}
-        />
+        <div onDoubleClick={handlePoke} style={{ cursor: 'pointer' }} title="双击拍一拍">
+          <UserAvatar
+            name={character.name}
+            emoji={character.avatarEmoji}
+            color={character.avatarColor}
+            url={character.avatarUrl}
+            size={36}
+          />
+        </div>
         <div {...stylex.props(styles.headerInfo)}>
           <Link
             href={`/messages/${conversationId}?profile=1`}
             {...stylex.props(styles.headerName, styles.headerNameLink)}
           >
-            {generating ? '正在输入中...' : character.name}
+            {isTyping ? '正在输入中...' : character.name}
           </Link>
         </div>
         {isDevMode && (
@@ -636,11 +779,11 @@ export function ChatWindow({
         )}
       </header>
 
-      {/* messages */}
+      {/* messages list */}
       <div {...stylex.props(styles.scrollAreaWrapper)}>
         <div ref={scrollRef} onScroll={onScroll} {...stylex.props(styles.scrollArea)}>
           <div {...stylex.props(styles.messagesInner)}>
-            {messages.length === 0 ? (
+            {messagesList.length === 0 ? (
               <div {...stylex.props(styles.emptyState)}>
                 <UserAvatar
                   name={character.name}
@@ -658,16 +801,19 @@ export function ChatWindow({
                 </Text>
               </div>
             ) : (
-              <ChatMessageList isStreaming={status === 'streaming'} gap={2}>
-                {messages.map((m) => {
+              <ChatMessageList gap={2}>
+                {messagesList.map((m) => {
                   const isUser = m.role === 'user';
-                  const text = m.parts
-                    .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-                    .map((p) => p.text)
-                    .join('');
+                  const isSystem = m.role === 'system';
+                  const attachments = m.attachments || [];
 
-                  const isLastUser = isUser && messages.findLast((msg) => msg.role === 'user')?.id === m.id;
-                  const attachments = messageAttachmentsMap[m.id] || (isLastUser && pendingSendAttachmentsRef.current.length > 0 ? pendingSendAttachmentsRef.current : []);
+                  if (isSystem) {
+                    return (
+                      <ChatSystemMessage key={m.id} variant="default">
+                        {m.content}
+                      </ChatSystemMessage>
+                    );
+                  }
 
                   return (
                     <ChatMessage
@@ -679,7 +825,11 @@ export function ChatWindow({
                         {/* Image attachments display */}
                         {attachments.length > 0 && (
                           <div
-                            {...stylex.props(attachments.length === 1 ? styles.attachmentSingle : styles.attachmentGrid)}
+                            {...stylex.props(
+                              attachments.length === 1
+                                ? styles.attachmentSingle
+                                : styles.attachmentGrid,
+                            )}
                           >
                             {attachments.map((att) => (
                               <div
@@ -706,54 +856,29 @@ export function ChatWindow({
                           </div>
                         )}
 
-                        {text && text.trim() ? (
+                        {m.content && m.content.trim() ? (
                           isUser ? (
-                            <p {...stylex.props(styles.userMessage)}>{text}</p>
+                            <p {...stylex.props(styles.userMessage)}>{m.content}</p>
                           ) : (
-                            <Markdown xstyle={styles.assistantMarkdown}>{text}</Markdown>
+                            <Markdown xstyle={styles.assistantMarkdown}>{m.content}</Markdown>
                           )
-                        ) : !isUser && generating && m.id === messages[messages.length - 1]?.id ? (
-                          <span {...stylex.props(styles.typing)} aria-label="正在输入">
-                            {[0, 1, 2].map((i) => (
-                              <span
-                                key={i}
-                                {...stylex.props(styles.typingDot)}
-                                style={{ animationDelay: `${i * 0.15}s` }}
-                              />
-                            ))}
-                          </span>
                         ) : null}
                       </ChatMessageBubble>
                     </ChatMessage>
                   );
                 })}
-
-                {status === 'submitted' && messages[messages.length - 1]?.role === 'user' && (
-                  <ChatMessage sender="assistant" avatar={avatar}>
-                    <ChatMessageBubble variant="filled">
-                      <span {...stylex.props(styles.typing)} aria-label="正在输入">
-                        {[0, 1, 2].map((i) => (
-                          <span
-                            key={i}
-                            {...stylex.props(styles.typingDot)}
-                            style={{ animationDelay: `${i * 0.15}s` }}
-                          />
-                        ))}
-                      </span>
-                    </ChatMessageBubble>
-                  </ChatMessage>
-                )}
               </ChatMessageList>
             )}
           </div>
         </div>
       </div>
 
-      {/* 100% width gradient backdrop (transparent at top to 30% transparent black at bottom, hidden when at bottom) */}
+      {/* Gradient backdrop */}
       <div
         aria-hidden="true"
         {...stylex.props(styles.gradientBackdrop, !isAtBottom && styles.gradientBackdropVisible)}
       />
+
       {/* Floating Borderless Composer */}
       <footer {...stylex.props(styles.footer)}>
         <div {...stylex.props(styles.composerFloating)}>
@@ -776,19 +901,13 @@ export function ChatWindow({
                 : `给 ${character.name} 发消息…`
             }
             onSubmit={handleSubmit}
-            onStop={() => stop()}
-            isStopShown={generating}
-            isDisabled={status === 'submitted'}
-            status={error ? { type: 'error', message: error.message || '消息发送失败' } : undefined}
+            isStopShown={false}
             drawer={
               pendingImages.length > 0 ? (
                 <ChatComposerDrawer count={pendingImages.length}>
                   <div {...stylex.props(styles.drawerList)}>
                     {pendingImages.map((img) => (
-                      <div
-                        key={img.id}
-                        {...stylex.props(styles.pendingItem)}
-                      >
+                      <div key={img.id} {...stylex.props(styles.pendingItem)}>
                         <div {...stylex.props(styles.thumbnail)}>
                           <img
                             src={img.previewUrl}
@@ -852,11 +971,8 @@ export function ChatWindow({
                   icon={<ImageIcon size={16} />}
                   aria-label="发送图片"
                   onClick={() => fileInputRef.current?.click()}
-                  isDisabled={isUploadingAny || generating}
+                  isDisabled={isUploadingAny}
                 />
-                {error ? (
-                  <Button label="重试" variant="ghost" size="sm" onClick={() => regenerate()} />
-                ) : null}
               </div>
             }
           />
@@ -864,7 +980,11 @@ export function ChatWindow({
       </footer>
 
       {profileOpen && (
-        <div {...stylex.props(styles.profileOverlay)} role="dialog" aria-label={`${character.name} 的资料`}>
+        <div
+          {...stylex.props(styles.profileOverlay)}
+          role="dialog"
+          aria-label={`${character.name} 的资料`}
+        >
           <div {...stylex.props(styles.profileOverlayBar)}>
             <span {...stylex.props(styles.profileOverlayTitle)}>居民资料</span>
             <Link href={`/characters/${character.id}`}>
