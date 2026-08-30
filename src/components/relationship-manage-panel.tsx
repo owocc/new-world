@@ -2,9 +2,8 @@
 
 import {useState, useTransition} from 'react';
 import * as stylex from '@stylexjs/stylex';
-import Link from 'next/link';
 import {useRouter} from 'next/navigation';
-import {ArrowLeft, ArrowRightLeft, HeartHandshake, Plus, Trash2, Users} from 'lucide-react';
+import {ArrowRightLeft, HeartHandshake, Plus, Trash2, Users} from 'lucide-react';
 import {Button} from '@astryxdesign/core/Button';
 import {Dialog} from '@astryxdesign/core/Dialog';
 import {Layout, LayoutHeader, LayoutContent, LayoutFooter} from '@astryxdesign/core/Layout';
@@ -24,14 +23,6 @@ const styles = stylex.create({
   headerLeft: {display: 'flex', alignItems: 'center', gap: 'var(--spacing-2)'},
   heading: {fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.025em'},
   subheading: {color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', marginTop: '2px'},
-  backLink: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    color: 'var(--color-text-secondary)',
-    transitionProperty: 'color',
-    transitionDuration: '175ms',
-    ':hover': {'@media (hover: hover)': {color: 'var(--color-text-primary)'}},
-  },
   headerActions: {display: 'flex', alignItems: 'center', gap: 'var(--spacing-2)'},
   list: {
     display: 'flex',
@@ -188,9 +179,6 @@ export function RelationshipManagePanel({
     <div {...stylex.props(styles.root)}>
       <div {...stylex.props(styles.header)}>
         <div {...stylex.props(styles.headerLeft)}>
-          <Link href="/characters/manage" {...stylex.props(styles.backLink)} aria-label="返回联系人管理">
-            <ArrowLeft size={18} />
-          </Link>
           <div>
             <h1 {...stylex.props(styles.heading)}>AI 通讯录</h1>
             <p {...stylex.props(styles.subheading)}>为居民互加好友：互为好友才能看到对方的朋友圈；没有好友关系无法私聊（群聊中仍可见）</p>

@@ -1,7 +1,5 @@
 'use client';
 
-import Link from 'next/link';
-import {ArrowLeft} from 'lucide-react';
 import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/SegmentedControl';
 import {Section} from '@astryxdesign/core/Section';
 import {VStack} from '@astryxdesign/core/Stack';
@@ -11,7 +9,6 @@ import * as stylex from '@stylexjs/stylex';
 
 const styles = stylex.create({
   header: {display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--color-border)', paddingBottom: '12px'},
-  backLink: {display: 'flex', width: '32px', height: '32px', flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', color: 'var(--color-text-secondary)', '@media (min-width: 1024px)': {display: 'none'}, ':hover': {backgroundColor: 'var(--color-background-muted)'}},
   title: {fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.01em'},
   subtitle: {fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)'},
   sectionTitle: {fontSize: 'var(--font-size-base)', fontWeight: 'var(--font-weight-semibold)'},
@@ -22,9 +19,6 @@ export function AppearanceSettings() {
   return (
     <VStack gap={6}>
       <div {...stylex.props(styles.header)}>
-        <Link href="/settings" {...stylex.props(styles.backLink)} aria-label="返回设置菜单">
-          <ArrowLeft size={18} />
-        </Link>
         <div>
           <h1 {...stylex.props(styles.title)}>外观与主题</h1>
           <p {...stylex.props(styles.subtitle)}>自定义界面色彩与显示偏好</p>

@@ -48,15 +48,6 @@ const styles = stylex.create({
     alignItems: 'center',
     gap: 'var(--spacing-2)',
   },
-  backLink: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    color: 'var(--color-text-secondary)',
-    transitionProperty: 'color',
-    transitionDuration: '175ms',
-    ':hover': {'@media (hover: hover)': {color: 'var(--color-text-primary)'}},
-    '@media (min-width: 640px)': {display: 'none'},
-  },
   heading: {
     fontSize: 'var(--font-size-xl)',
     fontWeight: 'var(--font-weight-semibold)',
@@ -368,9 +359,6 @@ export function CharacterManagePanel({
       {/* Top Header */}
       <div {...stylex.props(styles.header)}>
         <div {...stylex.props(styles.headerLeft)}>
-          <Link href="/characters" {...stylex.props(styles.backLink)} aria-label="返回联系人">
-            <ArrowLeft size={16} />
-          </Link>
           <h1 {...stylex.props(styles.heading)}>管理联系人</h1>
         </div>
 

@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft, Bell, BellOff, Info, Send, Heart, MessageSquare } from 'lucide-react';
+import { Bell, BellOff, Info, Send, Heart, MessageSquare } from 'lucide-react';
 import { Card } from '@astryxdesign/core/Card';
 import { Text } from '@astryxdesign/core/Text';
 import { Button } from '@astryxdesign/core/Button';
@@ -24,18 +23,6 @@ const styles = stylex.create({
     gap: '8px',
     borderBottom: '1px solid var(--color-border)',
     paddingBottom: '12px',
-  },
-  backLink: {
-    display: 'flex',
-    width: '32px',
-    height: '32px',
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '9999px',
-    color: 'var(--color-text-secondary)',
-    '@media (min-width: 1024px)': { display: 'none' },
-    ':hover': { backgroundColor: 'var(--color-background-muted)' },
   },
   title: {
     fontSize: 'var(--font-size-xl)',
@@ -148,9 +135,6 @@ export function NotificationSettings({ initialPrefs }: { initialPrefs: Notificat
   return (
     <VStack gap={6}>
       <div {...stylex.props(styles.header)}>
-        <Link href="/settings" {...stylex.props(styles.backLink)} aria-label="返回设置菜单">
-          <ArrowLeft size={18} />
-        </Link>
         <div>
           <h1 {...stylex.props(styles.title)}>通知管理</h1>
           <p {...stylex.props(styles.subtitle)}>配置浏览器推送通知及其类别</p>

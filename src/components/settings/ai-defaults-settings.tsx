@@ -2,8 +2,6 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
-import Link from 'next/link';
-import {ArrowLeft} from 'lucide-react';
 import {Text} from '@astryxdesign/core/Text';
 import {Section} from '@astryxdesign/core/Section';
 import {Button} from '@astryxdesign/core/Button';
@@ -20,7 +18,6 @@ import * as stylex from '@stylexjs/stylex';
 
 const styles = stylex.create({
   header: {display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--color-border)', paddingBottom: '12px'},
-  backLink: {display: 'flex', width: '32px', height: '32px', flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', color: 'var(--color-text-secondary)', '@media (min-width: 1024px)': {display: 'none'}, ':hover': {backgroundColor: 'var(--color-background-muted)'}},
   title: {fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.01em'},
   subtitle: {fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)'},
   sectionTitle: {fontSize: 'var(--font-size-base)', fontWeight: 'var(--font-weight-semibold)'},
@@ -79,9 +76,6 @@ export function AiDefaultsSettings({
   return (
     <VStack gap={6}>
       <div {...stylex.props(styles.header)}>
-        <Link href="/settings" {...stylex.props(styles.backLink)} aria-label="返回设置菜单">
-          <ArrowLeft size={18} />
-        </Link>
         <div>
           <h1 {...stylex.props(styles.title)}>默认配置</h1>
           <p {...stylex.props(styles.subtitle)}>默认 AI 服务商 / 模型与社区自主行为</p>

@@ -2,8 +2,7 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
-import Link from 'next/link';
-import {ArrowLeft, Check, Plus, Star, Trash2, RefreshCw, Layers} from 'lucide-react';
+import {Check, Plus, Star, Trash2, RefreshCw, Layers} from 'lucide-react';
 import {Badge} from '@astryxdesign/core/Badge';
 import {Button} from '@astryxdesign/core/Button';
 import {Card} from '@astryxdesign/core/Card';
@@ -31,7 +30,6 @@ import * as stylex from '@stylexjs/stylex';
 
 const styles = stylex.create({
   header: {display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--color-border)', paddingBottom: '12px'},
-  backLink: {display: 'flex', width: '32px', height: '32px', flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', color: 'var(--color-text-secondary)', '@media (min-width: 1024px)': {display: 'none'}, ':hover': {backgroundColor: 'var(--color-background-muted)'}},
   title: {fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.01em'},
   subtitle: {fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)'},
   toolbar: {display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px'},
@@ -73,9 +71,6 @@ export function ProviderSettings({providers, modelsByProvider}: {providers: Prov
   return (
     <VStack gap={5}>
       <div {...stylex.props(styles.header)}>
-        <Link href="/settings" {...stylex.props(styles.backLink)} aria-label="返回设置菜单">
-          <ArrowLeft size={18} />
-        </Link>
         <div>
           <h1 {...stylex.props(styles.title)}>AI 服务商配置</h1>
           <p {...stylex.props(styles.subtitle)}>接入 OpenAI、Anthropic、DeepSeek 等大模型服务商</p>

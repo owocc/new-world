@@ -2,9 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
-  ArrowLeft,
   Eye,
   CheckCircle2,
   AlertCircle,
@@ -33,18 +31,6 @@ const styles = stylex.create({
     gap: '8px',
     borderBottom: '1px solid var(--color-border)',
     paddingBottom: '12px',
-  },
-  backLink: {
-    display: 'flex',
-    width: '32px',
-    height: '32px',
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '9999px',
-    color: 'var(--color-text-secondary)',
-    '@media (min-width: 1024px)': { display: 'none' },
-    ':hover': { backgroundColor: 'var(--color-background-muted)' },
   },
   title: {
     fontSize: 'var(--font-size-xl)',
@@ -159,9 +145,6 @@ export function VisionSettings({
     <VStack gap={6}>
       {/* Page Header */}
       <div {...stylex.props(styles.header)}>
-        <Link href="/settings" {...stylex.props(styles.backLink)} aria-label="返回设置菜单">
-          <ArrowLeft size={18} />
-        </Link>
         <div>
           <h1 {...stylex.props(styles.title)}>图片理解 (Vision Interpreter)</h1>
           <p {...stylex.props(styles.subtitle)}>

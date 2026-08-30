@@ -1,8 +1,6 @@
 import * as stylex from '@stylexjs/stylex';
 import {colorVars, fontWeightVars, radiusVars, spacingVars, textSizeVars} from '@astryxdesign/core/theme/tokens.stylex';
 import {Suspense} from 'react';
-import Link from 'next/link';
-import {ArrowLeft} from 'lucide-react';
 import {
   BreakdownTable,
   SummaryCards,
@@ -41,24 +39,6 @@ const styles = stylex.create({
     display: 'flex',
     alignItems: 'center',
     gap: spacingVars['--spacing-2'],
-  },
-  backLink: {
-    display: 'flex',
-    width: '2rem',
-    height: '2rem',
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radiusVars['--radius-full'],
-    color: colorVars['--color-text-secondary'],
-    '@media (min-width: 1024px)': {
-      display: 'none',
-    },
-    '@media (hover: hover)': {
-      ':hover': {
-        backgroundColor: colorVars['--color-background-muted'],
-      },
-    },
   },
   heading: {
     fontSize: textSizeVars['--font-size-xl'],
@@ -129,13 +109,6 @@ export default async function SettingsUsagePage({
     <div {...stylex.props(styles.root)}>
       <div {...stylex.props(styles.header)}>
         <div {...stylex.props(styles.headerTitle)}>
-          <Link
-            href="/settings"
-            {...stylex.props(styles.backLink)}
-            aria-label="返回设置菜单"
-          >
-            <ArrowLeft size={18} />
-          </Link>
           <div>
             <h1 {...stylex.props(styles.heading)}>用量统计</h1>
             <p {...stylex.props(styles.description)}>查看 Token 与 API 调用明细分析</p>

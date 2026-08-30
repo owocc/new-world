@@ -9,15 +9,13 @@ import { AvatarPicker } from '@/components/avatar-picker';
 import { UserAvatar } from '@/components/user-avatar';
 import { createGroup } from '@/server/actions/groups';
 import type { aiCharacters } from '@/db/schema';
-import { ArrowLeft, Check, Users, Sparkles } from 'lucide-react';
-import Link from 'next/link';
+import { Check, Users, Sparkles } from 'lucide-react';
 import * as stylex from '@stylexjs/stylex';
 
 const styles = stylex.create({
   root: {display: 'flex', height: '100%', maxWidth: '42rem', marginInline: 'auto', flexDirection: 'column', overflowY: 'auto', padding: '16px', '@media (min-width: 640px)': {padding: '24px'}, '@media (min-width: 1024px)': {padding: '32px'}},
   header: {display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px'},
   headerGroup: {display: 'flex', alignItems: 'center', gap: '8px'},
-  backLink: {display: 'flex', width: '36px', height: '36px', flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: '9999px', color: 'var(--color-text-secondary)', transition: 'background-color 150ms ease', ':hover': {backgroundColor: 'var(--color-background-muted)'}},
   title: {fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.01em'},
   form: {display: 'flex', flexDirection: 'column', gap: '24px'},
   error: {border: '1px solid rgba(225, 29, 72, 0.2)', borderRadius: 'var(--radius-element)', backgroundColor: 'rgba(225, 29, 72, 0.1)', padding: '12px', fontSize: 'var(--font-size-xs)', color: 'var(--color-error)'},
@@ -119,9 +117,6 @@ export function CreateGroupForm({ characters }: { characters: CharacterRow[] }) 
     <div {...stylex.props(styles.root)}>
       <div {...stylex.props(styles.header)}>
         <div {...stylex.props(styles.headerGroup)}>
-          <Link href="/messages" {...stylex.props(styles.backLink)} aria-label="返回群聊列表">
-            <ArrowLeft size={19} />
-          </Link>
           <div>
             <h1 {...stylex.props(styles.title)}>创建新群聊</h1>
             <Text type="supporting" size="sm" as="p">

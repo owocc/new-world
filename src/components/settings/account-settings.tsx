@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { Button } from '@astryxdesign/core/Button';
 import { Section } from '@astryxdesign/core/Section';
 import { TextInput } from '@astryxdesign/core/TextInput';
@@ -24,18 +23,6 @@ const styles = stylex.create({
     gap: '8px',
     borderBottom: '1px solid var(--color-border)',
     paddingBottom: '12px',
-  },
-  backLink: {
-    display: 'flex',
-    width: '32px',
-    height: '32px',
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 'var(--radius-full, 9999px)',
-    color: 'var(--color-text-secondary)',
-    '@media (min-width: 1024px)': { display: 'none' },
-    ':hover': { backgroundColor: 'var(--color-background-muted)' },
   },
   title: { fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: '-0.01em' },
   subtitle: { fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' },
@@ -122,9 +109,6 @@ export function AccountSettings({
   return (
     <VStack gap={6}>
       <div {...stylex.props(styles.header)}>
-        <Link href="/settings" {...stylex.props(styles.backLink)} aria-label="返回设置菜单">
-          <ArrowLeft size={18} />
-        </Link>
         <div>
           <h1 {...stylex.props(styles.title)}>账户与资料</h1>
           <p {...stylex.props(styles.subtitle)}>管理你的个人资料、账号信息与安全凭证</p>

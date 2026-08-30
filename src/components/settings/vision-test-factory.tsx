@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import Link from 'next/link';
 import {
-  ArrowLeft,
   Sparkles,
   AlertCircle,
   Upload,
@@ -30,18 +28,6 @@ const styles = stylex.create({
     gap: '8px',
     borderBottom: '1px solid var(--color-border)',
     paddingBottom: '12px',
-  },
-  backLink: {
-    display: 'flex',
-    width: '32px',
-    height: '32px',
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '9999px',
-    color: 'var(--color-text-secondary)',
-    '@media (min-width: 1024px)': { display: 'none' },
-    ':hover': { backgroundColor: 'var(--color-background-muted)' },
   },
   title: {
     fontSize: 'var(--font-size-xl)',
@@ -202,9 +188,6 @@ export function VisionTestFactory({
     <VStack gap={6}>
       {/* Page Header */}
       <div {...stylex.props(styles.header)}>
-        <Link href="/settings" {...stylex.props(styles.backLink)} aria-label="返回设置菜单">
-          <ArrowLeft size={18} />
-        </Link>
         <div>
           <HStack gap={1.5} vAlign="center">
             <FlaskConical size={18} color="var(--color-primary, #6366f1)" />

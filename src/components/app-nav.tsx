@@ -253,6 +253,8 @@ const mobileBackTarget = (pathname: string): string | null => {
   if (pathname.startsWith('/post/')) return '/feed';
   if (pathname.startsWith('/groups/')) return '/messages';
   if (pathname.startsWith('/usage')) return '/settings';
+  if (pathname.startsWith('/settings/developer/test-factory')) return '/settings/developer';
+  if (pathname.startsWith('/characters/relationships')) return '/characters/manage';
   const root = ['/messages', '/characters', '/settings', '/notifications'].find((segment) =>
     pathname.startsWith(`${segment}/`),
   );
