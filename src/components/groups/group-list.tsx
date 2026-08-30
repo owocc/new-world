@@ -2,13 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Button } from '@astryxdesign/core/Button';
 import { Text } from '@astryxdesign/core/Text';
 import { Badge } from '@astryxdesign/core/Badge';
 import { UserAvatar } from '@/components/user-avatar';
 import { TimeAgo } from '@/components/time-ago';
+import { CreateMenu } from '@/components/create-menu';
 import type { GroupView } from '@/server/groups';
-import { Plus } from 'lucide-react';
 import * as stylex from '@stylexjs/stylex';
 
 const styles = stylex.create({
@@ -41,9 +40,7 @@ export function GroupList({
       {/* Header — identical to ConversationList */}
       <div {...stylex.props(styles.header)}>
         <h1 {...stylex.props(styles.title)}>群聊</h1>
-        <Link href="/groups/new">
-          <Button label="新建" variant="ghost" size="sm" icon={<Plus size={15} />} />
-        </Link>
+        <CreateMenu />
       </div>
 
       {groups.length === 0 ? (

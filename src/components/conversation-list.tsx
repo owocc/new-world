@@ -4,7 +4,6 @@ import { useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Button } from '@astryxdesign/core/Button';
 import { Text } from '@astryxdesign/core/Text';
 import { Badge } from '@astryxdesign/core/Badge';
 import { UserAvatar } from '@/components/user-avatar';
@@ -13,7 +12,7 @@ import { openConversation } from '@/server/actions/chat';
 import type { UnifiedChatItem } from '@/server/unified-chat';
 import type { aiCharacters } from '@/db/schema';
 import { useClientSync } from '@/components/client-sync-provider';
-import { Plus } from 'lucide-react';
+import { CreateMenu } from '@/components/create-menu';
 const styles = stylex.create({
   root: {display: 'flex', height: '100%', flexDirection: 'column'},
   hiddenMobile: {display: 'none', '@media (min-width: 640px)': {display: 'flex'}},
@@ -125,9 +124,7 @@ export function ConversationList({
       {/* Header — 聊天 + 新建 */}
       <div {...stylex.props(styles.header)}>
         <h1 {...stylex.props(styles.heading)}>聊天</h1>
-        <Link href="/groups/new">
-          <Button label="新建" variant="ghost" size="sm" icon={<Plus size={15} />} />
-        </Link>
+        <CreateMenu />
       </div>
 
       {/* Quick contacts for unstarted DMs */}

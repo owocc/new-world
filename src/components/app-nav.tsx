@@ -7,7 +7,6 @@ import { colorVars, radiusVars, shadowVars } from '@astryxdesign/core/theme/toke
 import { DropdownMenu } from '@astryxdesign/core/DropdownMenu';
 import { UserAvatar } from '@/components/user-avatar';
 import {
-  Bell,
   Compass,
   MessageCircle,
   Moon,
@@ -312,16 +311,10 @@ export function AppNav({
     },
   ];
 
-  // 手机端底部标签栏：消息 / 联系人 / 朋友圈 / 通知 / 设置
+  // 手机端底部标签栏：消息 / 联系人 / 朋友圈 / 设置
+  // （通知入口已收纳到聊天/群聊列表头部的「新建」下拉菜单，见 create-menu.tsx）
   const MOBILE_TABS = [
     ...NAV_ITEMS,
-    {
-      href: '/notifications',
-      label: '通知',
-      icon: Bell,
-      badge: liveUnreadNotifications,
-      selected: isActive(pathname, '/notifications'),
-    },
     {
       href: '/settings',
       label: '设置',
