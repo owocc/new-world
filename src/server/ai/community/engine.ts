@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/db';
 import {
@@ -24,11 +24,15 @@ import { enqueueEvent, type CommunityEventPayload } from './events';
 /* Guards & helpers                                                    */
 /* ------------------------------------------------------------------ */
 
-const AI_AI_MAX_DEPTH = 1;
+const AI_AI_MAX_DEPTH = 2;
 /** a character won't be picked for autonomous behavior more than once per N minutes */
 const CHARACTER_COOLDOWN_MS = 5 * 60 * 1000;
 /** hard cap of AI reactions recorded on one post per event */
 const MAX_AI_LIKES_PER_POST = 4;
+/** 防无限回复：单条动态 6 小时内 AI 间回复（带父评论）总量上限 */
+const MAX_AI_REPLIES_PER_POST = 10;
+/** 防无限回复：统计窗口 */
+const REPLY_WINDOW_MS = 6 * 60 * 60 * 1000;
 
 function pickWeighted<T>(items: { item: T; weight: number }[]): T | null {
   const total = items.reduce((s, i) => s + Math.max(0, i.weight), 0);
@@ -302,9 +306,30 @@ ${memoryOf.length ? `\n你记得的事：\n${memoryOf.map((m) => `- ${m}`).join(
 }
 
 /* ------------------------------------------------------------------ */
-/* AI replies to another AI's comment (depth-capped)                   */
+/* AI responds to a comment (from user or another AI, depth-capped)    */
 /* ------------------------------------------------------------------ */
 
+/** 防无限回复：检查单条动态近期 AI 间回复总量，超限则不再继续对话链 */
+async function aiReplyBudgetExhausted(userId: string, postId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
+    .from(comments)
+    .where(
+      and(
+        eq(comments.postId, postId),
+        eq(comments.authorType, 'ai'),
+        isNotNull(comments.parentCommentId),
+        gte(comments.createdAt, new Date(Date.now() - REPLY_WINDOW_MS)),
+      ),
+    );
+  return (row?.count ?? 0) >= MAX_AI_REPLIES_PER_POST;
+}
+
+/**
+ * 被评论/被回复后的响应处理：
+ * - 目标评论来自用户（含用户回复 AI 评论的场景）：AI 思考是否回应，回应后通知用户；
+ * - 目标评论来自另一个 AI：AI 思考是否回复，回复后把话语权交回对方（depth 递增封顶）。
+ */
 async function handleAiCommentChain(
   userId: string,
   postId: string,
@@ -325,12 +350,79 @@ async function handleAiCommentChain(
     .from(aiCharacters)
     .where(and(eq(aiCharacters.id, actorCharacterId), eq(aiCharacters.status, 'active')))
     .limit(1);
+  if (!actor) return;
+
+  /* ---------- 目标是用户的评论/回复：AI 决定是否回应用户 ---------- */
+  if (target.authorType === 'user') {
+    const ownerName = await userName(userId);
+
+    // 用户回复的是某条 AI 评论：提示词中体现"回复了你"的语境
+    let repliedToActor = false;
+    if (target.parentCommentId) {
+      const [parent] = await db
+        .select()
+        .from(comments)
+        .where(eq(comments.id, target.parentCommentId))
+        .limit(1);
+      repliedToActor = parent?.authorType === 'ai' && parent.characterId === actor.id;
+    }
+
+    try {
+      const memoryOf = await getMemories(actor.id, 6);
+      const result = await runObject({
+        userId,
+        characterId: actor.id,
+        callType: 'reply',
+        system: characterSystemPrompt(actor, ownerName),
+        prompt: `在动态「${post.content}」下，${ownerName}${repliedToActor ? '回复了你的评论' : '发表了评论'}：
+
+"""
+${target.content}
+"""
+${memoryOf.length ? `\n你记得的事：\n${memoryOf.map((m) => `- ${m}`).join('\n')}` : ''}
+
+以你的口吻决定是否回应，1 句话左右。不感兴趣或没必要就 act=false。`,
+        schema: z.object({
+          act: z.boolean().describe('是否真的要回复'),
+          comment: z.string().describe('回复内容，act 为 false 时留空'),
+        }),
+        temperature: 1,
+        maxOutputTokens: 200,
+      });
+
+      if (result.act && result.comment.trim()) {
+        await insertAiComment({
+          postId,
+          userId,
+          characterId: actor.id,
+          content: result.comment.trim(),
+          parentCommentId: target.id,
+        });
+        await db.insert(notifications).values({
+          id: crypto.randomUUID(),
+          userId,
+          type: 'comment',
+          characterId: actor.id,
+          postId,
+          content: result.comment.trim(),
+        });
+      }
+    } catch (err) {
+      console.error('[community] ai reply to user failed', actor.name, err);
+    }
+    return;
+  }
+
+  /* ---------- 目标是另一个 AI 的评论：决定是否回复，并把话语权交回对方 ---------- */
+  if (await aiReplyBudgetExhausted(userId, postId)) return;
+  if (!target.characterId) return;
+
   const [replierChar] = await db
     .select()
     .from(aiCharacters)
-    .where(eq(aiCharacters.id, target.characterId!))
+    .where(eq(aiCharacters.id, target.characterId))
     .limit(1);
-  if (!actor || !replierChar) return;
+  if (!replierChar) return;
 
   // relationship awareness between the two AIs
   const rel = await db
@@ -344,37 +436,55 @@ async function handleAiCommentChain(
     )
     .limit(1);
 
-  const result = await runObject({
-    userId,
-    characterId: actor.id,
-    callType: 'reply',
-    system: characterSystemPrompt(
-      actor,
-      `${replierChar.name}${rel[0] ? `（你们是${rel[0].kind}）` : ''}`,
-    ),
-    prompt: `在动态「${post.content}」下，${replierChar.name} 评论了：
+  try {
+    const result = await runObject({
+      userId,
+      characterId: actor.id,
+      callType: 'reply',
+      system: characterSystemPrompt(
+        actor,
+        `${replierChar.name}${rel[0] ? `（你们是${rel[0].kind}）` : ''}`,
+      ),
+      prompt: `在动态「${post.content}」下，${replierChar.name} 评论了：
 
 """
 ${target.content}
 """
 
 以你的口吻回复这条评论，1 句话左右。不想理就 act=false。`,
-    schema: z.object({
-      act: z.boolean(),
-      comment: z.string(),
-    }),
-    temperature: 1,
-    maxOutputTokens: 200,
-  });
-
-  if (result.act && result.comment.trim()) {
-    await insertAiComment({
-      postId,
-      userId,
-      characterId: actor.id,
-      content: result.comment.trim(),
-      parentCommentId: commentId,
+      schema: z.object({
+        act: z.boolean().describe('是否真的要回复'),
+        comment: z.string().describe('回复内容，act 为 false 时留空'),
+      }),
+      temperature: 1,
+      maxOutputTokens: 200,
     });
+
+    if (result.act && result.comment.trim()) {
+      const replyId = await insertAiComment({
+        postId,
+        userId,
+        characterId: actor.id,
+        content: result.comment.trim(),
+        parentCommentId: target.id,
+      });
+
+      // 对方（AI）也获得一次"是否继续回复"的思考机会；depth 递增封顶防无限循环
+      await enqueueEvent(
+        userId,
+        'ai_comment_created',
+        {
+          postId,
+          commentId: replyId,
+          actorCharacterId: replierChar.id,
+          depth: depth + 1,
+          dedupeKey: `ai-reply:${replyId}:${replierChar.id}`,
+        },
+        { scheduledFor: new Date(Date.now() + 30_000 + Math.random() * 60_000) },
+      );
+    }
+  } catch (err) {
+    console.error('[community] ai-to-ai reply failed', actor.name, err);
   }
 }
 
@@ -389,10 +499,25 @@ async function handleUserComment(userId: string, postId: string, commentId: stri
   const characters = await activeCharacters(userId);
   if (characters.length === 0) return;
 
-  // occasionally one AI likes the user's comment-adjacent post again or replies
-  const candidate = pickWeighted(
-    characters.map((c) => ({ item: c, weight: c.commentRate * 0.4 })),
-  );
+  const [comment] = await db.select().from(comments).where(eq(comments.id, commentId)).limit(1);
+
+  // 用户回复了某条 AI 评论：由该 AI 优先响应（有来有回），否则随机挑一个感兴趣的角色
+  let candidate: (typeof characters)[number] | null = null;
+  if (comment?.parentCommentId) {
+    const [parent] = await db
+      .select()
+      .from(comments)
+      .where(eq(comments.id, comment.parentCommentId))
+      .limit(1);
+    if (parent?.authorType === 'ai' && parent.characterId) {
+      candidate = characters.find((c) => c.id === parent.characterId) ?? null;
+    }
+  }
+  if (!candidate) {
+    candidate = pickWeighted(
+      characters.map((c) => ({ item: c, weight: c.commentRate * 0.4 })),
+    );
+  }
   if (!candidate) return;
 
   await enqueueEvent(
