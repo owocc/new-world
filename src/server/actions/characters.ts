@@ -1,13 +1,13 @@
 'use server';
 
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/db';
-import { aiCharacters, aiRelationships } from '@/db/schema';
+import { aiCharacters, aiMemories, aiRelationships } from '@/db/schema';
 import { requireUserId } from '@/lib/session';
 import { deleteFromBlobStorage } from '@/server/media';
-
+import { summarizeDailyMemoriesForSingleCharacter } from '@/server/ai/nightly-memory';
 const characterSchema = z.object({
   name: z.string().trim().min(1, '名字必填').max(30),
   username: z
@@ -178,4 +178,30 @@ export async function deleteRelationship(fromCharacterId: string, toCharacterId:
     );
   revalidatePath('/characters');
   return { ok: true };
+}
+
+/**
+ * Server action: Trigger manual daily memory distillation for a single AI character.
+ */
+export async function triggerCharacterDailyMemoryAction(characterId: string) {
+  const userId = await requireUserId();
+  try {
+    const result = await summarizeDailyMemoriesForSingleCharacter(userId, characterId, { type: 'manual' });
+    // Query fresh memories for this character
+    const freshMemories = await db
+      .select()
+      .from(aiMemories)
+      .where(and(eq(aiMemories.characterId, characterId), eq(aiMemories.userId, userId)))
+      .orderBy(desc(aiMemories.importance), desc(aiMemories.createdAt))
+      .limit(40);
+
+    revalidatePath('/settings/developer');
+    revalidatePath(`/characters/${characterId}`);
+    revalidatePath('/characters/manage');
+    return { ok: true, result, memories: freshMemories };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '总结失败';
+    console.error(`[triggerCharacterDailyMemoryAction] failed for ${characterId}:`, err);
+    return { ok: false, error: message };
+  }
 }

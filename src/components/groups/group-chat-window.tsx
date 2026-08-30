@@ -64,6 +64,17 @@ const spin = stylex.keyframes({
   from: {transform: 'rotate(0deg)'},
   to: {transform: 'rotate(360deg)'},
 });
+
+const pokeShake = stylex.keyframes({
+  '0%': { transform: 'rotate(0deg)' },
+  '15%': { transform: 'rotate(-14deg)' },
+  '30%': { transform: 'rotate(12deg)' },
+  '45%': { transform: 'rotate(-10deg)' },
+  '60%': { transform: 'rotate(8deg)' },
+  '75%': { transform: 'rotate(-4deg)' },
+  '90%': { transform: 'rotate(2deg)' },
+  '100%': { transform: 'rotate(0deg)' },
+});
 const styles = stylex.create({
   root: {position: 'relative', display: 'flex', height: '100%', minHeight: 0, flexDirection: 'column', overflow: 'hidden'},
   header: {display: 'flex', height: '56px', flexShrink: 0, alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-background-surface)', paddingInline: '8px', '@media (min-width: 640px)': {paddingInline: '16px'}},
@@ -171,6 +182,17 @@ const styles = stylex.create({
   hidden: {display: 'none'},
   footerActions: {display: 'flex', alignItems: 'center', gap: '6px'},
   spin: {animationName: spin, animationDuration: '1s', animationTimingFunction: 'linear', animationIterationCount: 'infinite'},
+  avatarPokeWrap: {
+    display: 'inline-flex',
+    cursor: 'pointer',
+    userSelect: 'none',
+    transformOrigin: 'bottom center',
+  },
+  avatarPoking: {
+    animationName: pokeShake,
+    animationDuration: '500ms',
+    animationTimingFunction: 'ease-in-out',
+  },
 });
 export function GroupChatWindow({
   group,
@@ -195,6 +217,7 @@ export function GroupChatWindow({
   const [replyingTo, setReplyingTo] = useState<GroupMessageView | null>(null);
   const [showMentionPicker, setShowMentionPicker] = useState(false);
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const [pokingMessageId, setPokingMessageId] = useState<string | null>(null);
   const [showInfoDrawer, setShowInfoDrawer] = useState(false);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [activeLightboxMedia, setActiveLightboxMedia] = useState<{
@@ -477,8 +500,12 @@ export function GroupChatWindow({
     setShowMentionPicker(false);
   };
 
-  // Double click avatar triggers poke (拍一拍)
-  const handlePoke = async (characterId: string, characterName: string) => {
+  // Double click avatar triggers poke (拍一拍) - scoped only to clicked message
+  const handlePoke = async (characterId: string, characterName: string, messageId?: string) => {
+    if (messageId) {
+      setPokingMessageId(messageId);
+      setTimeout(() => setPokingMessageId((curr) => (curr === messageId ? null : curr)), 550);
+    }
     try {
       const tempId = `temp-poke-${Date.now()}`;
       const pokeContent = `${user.name || '我'} 拍了拍 ${characterName}`;
@@ -703,10 +730,11 @@ export function GroupChatWindow({
                   );
                 }
 
+                const isThisMsgPoking = pokingMessageId === m.id;
                 const charAvatar = m.senderCharacterId ? (
                   <div
-                    onDoubleClick={() => handlePoke(m.senderCharacterId!, m.senderName)}
-                    style={{ cursor: 'pointer' }}
+                    onDoubleClick={() => handlePoke(m.senderCharacterId!, m.senderName, m.id)}
+                    {...stylex.props(styles.avatarPokeWrap, isThisMsgPoking && styles.avatarPoking)}
                     title="双击拍一拍"
                   >
                     <UserAvatar

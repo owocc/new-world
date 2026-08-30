@@ -3,15 +3,19 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Code2, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Code2, CheckCircle2, Brain, Sparkles, Loader2 } from 'lucide-react';
 import { Card } from '@astryxdesign/core/Card';
 import { Text } from '@astryxdesign/core/Text';
 import { Button } from '@astryxdesign/core/Button';
 import { Switch } from '@astryxdesign/core/Switch';
 import { VStack } from '@astryxdesign/core/Stack';
+import { Item } from '@astryxdesign/core/Item';
+import { UserAvatar } from '@/components/user-avatar';
 import { useAppToast } from '@/lib/toast';
 import { saveDeveloperConfig } from '@/server/actions/settings';
+import { triggerCharacterDailyMemoryAction } from '@/server/actions/characters';
 import type { DeveloperConfig } from '@/server/settings';
+import type { aiCharacters } from '@/db/schema';
 import * as stylex from '@stylexjs/stylex';
 
 const styles = stylex.create({
@@ -87,12 +91,49 @@ const styles = stylex.create({
     backgroundColor: 'var(--color-background-muted)',
     color: 'var(--color-text-secondary)',
   },
+  memoryList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    marginTop: '8px',
+  },
+  memoryItem: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '10px 14px',
+    borderRadius: 'var(--radius-container)',
+    border: '1px solid var(--color-border)',
+    backgroundColor: 'var(--color-background-surface)',
+  },
+  memoryItemLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    minWidth: 0,
+  },
+  memoryItemInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    minWidth: 0,
+  },
+  spin: {
+    animationName: stylex.keyframes({
+      from: { transform: 'rotate(0deg)' },
+      to: { transform: 'rotate(360deg)' },
+    }),
+    animationDuration: '1s',
+    animationTimingFunction: 'linear',
+    animationIterationCount: 'infinite',
+  },
 });
 
 export function DeveloperSettings({
   developer,
+  characters = [],
 }: {
   developer: DeveloperConfig;
+  characters?: (typeof aiCharacters.$inferSelect)[];
 }) {
   const router = useRouter();
   const toast = useAppToast();
@@ -103,6 +144,7 @@ export function DeveloperSettings({
     showTokenStats: developer.showTokenStats ?? true,
   });
   const [saving, setSaving] = useState(false);
+  const [summarizingId, setSummarizingId] = useState<string | null>(null);
 
   const handleSave = async () => {
     setSaving(true);
@@ -113,6 +155,27 @@ export function DeveloperSettings({
     } else {
       toast.success('开发者设置已保存');
       router.refresh();
+    }
+  };
+
+  const handleManualMemorySummary = async (charId: string, charName: string) => {
+    setSummarizingId(charId);
+    try {
+      const res = await fetch(`/api/characters/${charId}/memories/summarize`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (data.ok && data.result) {
+        const { dmCount, groupCount, memoryCount } = data.result;
+        toast.success(`已完成「${charName}」今日记忆总结 (读取: ${dmCount + groupCount}条, 已覆写长期记忆: ${memoryCount}条)`);
+      } else {
+        toast.error(data.error || '记忆总结失败');
+      }
+    } catch (err) {
+      console.error('Manual memory distillation error:', err);
+      toast.error('网络异常，记忆总结失败');
+    } finally {
+      setSummarizingId(null);
     }
   };
 
@@ -219,6 +282,70 @@ export function DeveloperSettings({
               isLoading={saving}
             />
           </div>
+        </VStack>
+      </Card>
+
+      {/* Manual Daily Memory Consolidation Card */}
+      <Card variant="default">
+        <VStack gap={4}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Brain size={18} color="var(--color-primary, #6366f1)" />
+            <Text size="base" as="span" style={{ fontWeight: 600 }}>
+              手动触发 AI 今日长期记忆总结
+            </Text>
+          </div>
+          <Text type="supporting" size="sm" as="p">
+            默认系统会在每日 00:00 (UTC 16:00) 自动总结所有角色今日聊天记录。您也可以在此为单个角色手动提前触发，仅提取今日产生的新对话并沉淀为长期记忆：
+          </Text>
+
+          {characters.length === 0 ? (
+            <Text type="supporting" size="sm" as="p" style={{ textAlign: 'center', padding: '16px' }}>
+              暂无活跃的 AI 角色
+            </Text>
+          ) : (
+            <div {...stylex.props(styles.memoryList)}>
+              {characters.map((char) => {
+                const isProcessing = summarizingId === char.id;
+                return (
+                  <div key={char.id} {...stylex.props(styles.memoryItem)}>
+                    <div {...stylex.props(styles.memoryItemLeft)}>
+                      <UserAvatar
+                        name={char.name}
+                        emoji={char.avatarEmoji}
+                        color={char.avatarColor}
+                        url={char.avatarUrl}
+                        size={36}
+                      />
+                      <div {...stylex.props(styles.memoryItemInfo)}>
+                        <Text size="sm" as="span" style={{ fontWeight: 600 }}>
+                          {char.name}
+                        </Text>
+                        <Text type="supporting" size="sm" as="span" style={{ fontSize: '11px' }}>
+                          @{char.username}
+                        </Text>
+                      </div>
+                    </div>
+                    <div>
+                      <Button
+                        label={isProcessing ? '正在提炼记忆...' : '触发今日总结'}
+                        variant="secondary"
+                        size="sm"
+                        icon={
+                          isProcessing ? (
+                            <Loader2 size={14} {...stylex.props(styles.spin)} />
+                          ) : (
+                            <Sparkles size={14} />
+                          )
+                        }
+                        isDisabled={isProcessing || Boolean(summarizingId)}
+                        onClick={() => handleManualMemorySummary(char.id, char.name)}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </VStack>
       </Card>
     </VStack>

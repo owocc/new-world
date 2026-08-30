@@ -13,6 +13,9 @@ import {
   Settings2,
   Trash2,
   Users,
+  Brain,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 import {Button} from '@astryxdesign/core/Button';
 import {TextInput} from '@astryxdesign/core/TextInput';
@@ -26,7 +29,7 @@ import {HStack, VStack} from '@astryxdesign/core/Stack';
 import {UserAvatar} from '@/components/user-avatar';
 import {CharacterEditor, emptyCharacter, type CharacterFormValues} from '@/components/character-editor';
 import type {CharacterListItem} from '@/components/character-card';
-import {deleteCharacter, setCharacterStatus} from '@/server/actions/characters';
+import {deleteCharacter, setCharacterStatus, triggerCharacterDailyMemoryAction} from '@/server/actions/characters';
 import {useAppToast} from '@/lib/toast';
 
 const styles = stylex.create({
@@ -125,6 +128,32 @@ const styles = stylex.create({
     fontSize: 'var(--font-size-xs)',
     color: 'var(--color-text-secondary)',
   },
+  memoryCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  memoryBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '2px 8px',
+    borderRadius: '9999px',
+    fontSize: '11px',
+    fontWeight: 'var(--font-weight-medium)',
+    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+    color: 'var(--color-primary, #6366f1)',
+    border: '1px solid rgba(99, 102, 241, 0.18)',
+  },
+  spin: {
+    animationName: stylex.keyframes({
+      from: { transform: 'rotate(0deg)' },
+      to: { transform: 'rotate(360deg)' },
+    }),
+    animationDuration: '1s',
+    animationTimingFunction: 'linear',
+    animationIterationCount: 'infinite',
+  },
   actionButton: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -184,13 +213,13 @@ const styles = stylex.create({
 
 type EditorState = {mode: 'new'} | {mode: 'edit'; character: CharacterListItem} | null;
 type FilterTab = 'all' | 'active' | 'paused';
-type CharacterTableRow = CharacterListItem & Record<string, unknown>;
+type CharacterTableRow = CharacterListItem & { memoryCount?: number } & Record<string, unknown>;
 
 export function CharacterManagePanel({
   characters,
   providers,
 }: {
-  characters: CharacterListItem[];
+  characters: (CharacterListItem & { memoryCount?: number })[];
   providers: {id: string; name: string; providerType: string}[];
   relationships?: {id: string; fromCharacterId: string; toCharacterId: string; kind: string; note: string | null}[];
 }) {
@@ -200,7 +229,29 @@ export function CharacterManagePanel({
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [pending, startTransition] = useTransition();
+  const [summarizingId, setSummarizingId] = useState<string | null>(null);
 
+  const handleSummarizeMemory = async (c: CharacterListItem) => {
+    setSummarizingId(c.id);
+    try {
+      const res = await fetch(`/api/characters/${c.id}/memories/summarize`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (data.ok && data.result) {
+        const { dmCount, groupCount, memoryCount } = data.result;
+        toast.success(`已完成「${c.name}」今日记忆总结 (读取: ${dmCount + groupCount}条, 已覆写长期记忆: ${memoryCount}条)`);
+        router.refresh();
+      } else {
+        toast.error(data.error || '记忆总结失败');
+      }
+    } catch (err) {
+      console.error('Trigger character daily memory action failed', err);
+      toast.error('网络异常，记忆总结失败');
+    } finally {
+      setSummarizingId(null);
+    }
+  };
   const initialFor = (c: CharacterListItem): CharacterFormValues => ({
     name: c.name,
     username: c.username,
@@ -220,7 +271,7 @@ export function CharacterManagePanel({
     commentRate: c.commentRate,
     postRate: c.postRate,
     dmRate: c.dmRate,
-    memoryRetention: (c.memoryRetention as any) || 'normal',
+    memoryRetention: (c.memoryRetention as 'excellent' | 'normal' | 'slightly_forgetful' | 'forgetful') || 'normal',
     grudgeRate: c.grudgeRate ?? 0.3,
     providerId: c.providerId ?? '',
     modelId: c.modelId ?? '',
@@ -363,7 +414,7 @@ export function CharacterManagePanel({
             {
               key: 'name',
               header: '居民 / 别名',
-              width: proportional(2),
+              width: proportional(1.8),
               renderCell: (row) => (
                 <div {...stylex.props(styles.characterCell)}>
                   <UserAvatar
@@ -384,7 +435,7 @@ export function CharacterManagePanel({
             {
               key: 'relationshipToUser',
               header: '人设身份 / 备注',
-              width: proportional(1.5),
+              width: proportional(1.2),
               renderCell: (row) => (
                 <span {...stylex.props(styles.textCell)}>
                   {row.relationshipToUser || <span style={{color: 'var(--color-text-secondary)'}}>-</span>}
@@ -392,25 +443,40 @@ export function CharacterManagePanel({
               ),
             },
             {
-              key: 'interests',
-              header: '标签 / 兴趣',
+              key: 'memories',
+              header: '长期记忆 / 沉淀',
               width: proportional(1.5),
-              renderCell: (row) => (
-                <div {...stylex.props(styles.tagsCell)}>
-                  {row.interests ? (
-                    row.interests.split(/[,，、]/).slice(0, 2).map((t: string, idx: number) => (
-                      <Token key={idx} label={t.trim()} size="sm" />
-                    ))
-                  ) : (
-                    <span style={{color: 'var(--color-text-secondary)', fontSize: '11px'}}>-</span>
-                  )}
-                </div>
-              ),
+              renderCell: (row) => {
+                const isSummarizing = summarizingId === row.id;
+                const memCount = row.memoryCount ?? 0;
+                return (
+                  <div {...stylex.props(styles.memoryCell)}>
+                    <span {...stylex.props(styles.memoryBadge)}>
+                      <Brain size={12} />
+                      <span>{memCount} 条记忆</span>
+                    </span>
+                    <Button
+                      label={isSummarizing ? '提炼中…' : '总结'}
+                      variant="ghost"
+                      size="sm"
+                      icon={
+                        isSummarizing ? (
+                          <Loader2 size={12} {...stylex.props(styles.spin)} />
+                        ) : (
+                          <Sparkles size={12} />
+                        )
+                      }
+                      isDisabled={isSummarizing || Boolean(summarizingId)}
+                      onClick={() => handleSummarizeMemory(row)}
+                    />
+                  </div>
+                );
+              },
             },
             {
               key: 'status',
               header: '状态',
-              width: pixel(100),
+              width: pixel(95),
               renderCell: (row) => {
                 const isActive = row.status === 'active';
                 return (
@@ -442,14 +508,15 @@ export function CharacterManagePanel({
                     >
                       {isActive ? <PauseCircle size={15} /> : <PlayCircle size={15} />}
                     </button>
-                    <button
-                      type="button"
-                      aria-label="编辑"
-                      onClick={() => setEditor({mode: 'edit', character: row})}
-                      {...stylex.props(styles.actionButton)}
-                    >
-                      <Settings2 size={15} />
-                    </button>
+                    <Link href={`/characters/${row.id}?edit=1`} {...stylex.props(styles.buttonLink)}>
+                      <button
+                        type="button"
+                        aria-label="编辑"
+                        {...stylex.props(styles.actionButton)}
+                      >
+                        <Settings2 size={15} />
+                      </button>
+                    </Link>
                     <button
                       type="button"
                       disabled={pending}

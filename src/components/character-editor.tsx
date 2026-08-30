@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import * as stylex from '@stylexjs/stylex';
 import { Camera, Loader2, Save, Trash2, Upload } from 'lucide-react';
@@ -14,11 +14,14 @@ import {TabList, Tab} from '@astryxdesign/core/TabList';
 import {Collapsible} from '@astryxdesign/core/Collapsible';
 import {HStack, VStack} from '@astryxdesign/core/Stack';
 import {Section} from '@astryxdesign/core/Section';
+import {Badge} from '@astryxdesign/core/Badge';
 import {Text} from '@astryxdesign/core/Text';
 import { AvatarPicker } from '@/components/avatar-picker';
 import { nativeAttrs } from '@/lib/native-attrs';
 import { useAppToast } from '@/lib/toast';
-import {createCharacter, updateCharacter, type CharacterInput} from '@/server/actions/characters';
+import { Brain, Sparkles } from 'lucide-react';
+import {createCharacter, updateCharacter, triggerCharacterDailyMemoryAction, type CharacterInput} from '@/server/actions/characters';
+import type { CharacterMemoryItem } from '@/components/character-profile';
 
 const spin = stylex.keyframes({
   from: {transform: 'rotate(0deg)'},
@@ -101,6 +104,21 @@ const styles = stylex.create({
   spinner: {animationName: spin, animationDuration: '1s', animationTimingFunction: 'linear', animationIterationCount: 'infinite'},
   previewActions: {display: 'flex', alignItems: 'center', gap: 'var(--spacing-2)', marginTop: '6px'},
   fieldLabel: {marginBottom: '6px', fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)'},
+  memoryCard: {
+    padding: '12px 14px',
+    borderRadius: 'var(--radius-element)',
+    border: '1px solid var(--color-border)',
+    backgroundColor: 'var(--color-surface)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  memoryHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '8px',
+  },
 });
 
 export type CharacterFormValues = {
@@ -161,18 +179,53 @@ export function CharacterEditor({
   characterId,
   initial,
   providers,
+  memories = [],
   onDone,
 }: {
   characterId?: string;
   initial: CharacterFormValues;
   providers: {id: string; name: string; providerType: string}[];
+  memories?: CharacterMemoryItem[];
   onDone?: () => void;
 }) {
   const router = useRouter();
   const toast = useAppToast();
   const [values, setValues] = useState(initial);
   const [saving, setSaving] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
+  const [localMemories, setLocalMemories] = useState(memories);
   const [tab, setTab] = useState('profile');
+
+  useEffect(() => {
+    setLocalMemories(memories);
+  }, [memories]);
+  const handleTriggerSummary = async () => {
+    if (!characterId) return;
+
+    setSummarizing(true);
+    try {
+      const res = await fetch(`/api/characters/${characterId}/memories/summarize`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (data.ok && data.result) {
+        const { dmCount, groupCount, memoryCount } = data.result;
+        if (data.memories) {
+          setLocalMemories(data.memories);
+        }
+        toast.success(`总结完成！读取对话: ${dmCount + groupCount}条，已覆写长期记忆: ${memoryCount}条`);
+        router.refresh();
+      } else {
+        toast.error(data.error || '记忆总结失败');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '网络异常，记忆总结失败';
+      console.error('Trigger memory summary error:', err);
+      toast.error(msg);
+    } finally {
+      setSummarizing(false);
+    }
+  };
   const set = <K extends keyof CharacterFormValues>(key: K, value: CharacterFormValues[K]) =>
     setValues((v) => ({ ...v, [key]: value }));
   const submit = async () => {
@@ -228,6 +281,9 @@ export function CharacterEditor({
         <Tab value="persona" label="人设" />
         <Tab value="behavior" label="行为倾向" />
         <Tab value="model" label="模型" />
+        {characterId && (
+          <Tab value="memories" label={`长期记忆 (${localMemories.length})`} />
+        )}
       </TabList>
 
       {tab === 'profile' && (
@@ -363,6 +419,78 @@ export function CharacterEditor({
         </VStack>
       )}
 
+      {tab === 'memories' && characterId && (
+        <VStack gap={3}>
+          <HStack hAlign="between" vAlign="center" width="100%">
+            <HStack gap={2} vAlign="center">
+              <Brain size={16} color="var(--color-primary, #6366f1)" />
+              <Text weight="medium" as="span">
+                已沉淀长期记忆 ({localMemories.length})
+              </Text>
+            </HStack>
+            <Button
+              label={summarizing ? '正在总结今日记忆...' : '触发今日记忆总结'}
+              variant="secondary"
+              size="sm"
+              type="button"
+              icon={
+                summarizing ? (
+                  <Loader2 size={13} {...stylex.props(styles.spinner)} />
+                ) : (
+                  <Sparkles size={13} />
+                )
+              }
+              isDisabled={summarizing}
+              isLoading={summarizing}
+              clickAction={handleTriggerSummary}
+            />
+          </HStack>
+          {localMemories.length === 0 ? (
+            <Text type="supporting" size="sm" as="p" style={{ padding: '16px', textAlign: 'center' }}>
+              暂无已沉淀的长期记忆。每天 00:00 会自动总结今日对话，也可以点击上方按钮手动触发。
+            </Text>
+          ) : (
+            <VStack gap={2}>
+              {localMemories.map((mem) => (
+                <div key={mem.id} {...stylex.props(styles.memoryCard)}>
+                  <div {...stylex.props(styles.memoryHeader)}>
+                    <HStack gap={1.5} vAlign="center">
+                      <Badge
+                        label={`${mem.kind} · 重要度: ${Math.round(mem.importance * 100)}%`}
+                        variant={mem.kind === 'grudge' ? 'red' : mem.isFuzzy ? 'neutral' : 'blue'}
+                      />
+                      {mem.strength !== undefined && (
+                        <Badge
+                          label={`强度: ${Math.round(mem.strength * 100)}%`}
+                          variant="neutral"
+                        />
+                      )}
+                      {mem.isFuzzy && (
+                        <Badge
+                          label="模糊记忆 (低置信度)"
+                          variant="neutral"
+                        />
+                      )}
+                      {mem.reinforcementCount && mem.reinforcementCount > 1 ? (
+                        <Badge
+                          label={`强化×${mem.reinforcementCount}`}
+                          variant="green"
+                        />
+                      ) : null}
+                    </HStack>
+                    <Text type="supporting" size="sm" as="span" style={{ fontSize: '11px' }}>
+                      {new Date(mem.createdAt).toLocaleDateString()}
+                    </Text>
+                  </div>
+                  <Text as="div" style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--color-text-primary)' }}>
+                    {mem.content}
+                  </Text>
+                </div>
+              ))}
+            </VStack>
+          )}
+        </VStack>
+      )}
       <Section padding={0}>
         <Button
           label={saving ? '保存中…' : '保存'}

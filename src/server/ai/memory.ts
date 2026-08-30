@@ -337,16 +337,15 @@ const memoryDistillationSchema = z.object({
   memories: z
     .array(
       z.object({
-        action: z.enum(['create', 'reinforce', 'merge']).describe('create:全新事实; reinforce:强化已有记忆; merge:更新合并已有记忆'),
-        existingMemoryId: z.string().optional().describe('若 reinforce 或 merge，对应已有记忆的 ID'),
         kind: z.enum(['fact', 'preference', 'event', 'grudge', 'opinion']).describe('grudge:被冒犯/不满/记仇; preference:喜好厌恶; event:事件经历; fact:客观信息; opinion:观点看法'),
         content: z.string().describe('一句话提炼记忆（第三人称，如“用户下周要去深圳出差”、“觉得上次那家拉面馆很难吃”）'),
         importance: z.number().min(0).max(1).describe('重要程度：0.1轻微琐碎，0.9关键人生大事或核心原则'),
         emotionalWeight: z.number().min(-1).max(1).describe('情绪权重：-1强烈负面/记仇，0中性客观，+1极度感动/喜爱'),
       })
     )
-    .max(5)
-    .describe('从感知到的真实交流中提炼的记忆条目，没有值得记住的信息则返回空数组'),
+    .min(1)
+    .max(50)
+    .describe('包含历史记忆与本次交流后的完整长期记忆集合'),
 });
 
 /**
@@ -360,7 +359,8 @@ export async function consolidateMemories(args: {
   sourceId?: string;
   transcript: string;
   now?: Date;
-}) {
+  throwOnError?: boolean;
+}): Promise<{ extractedCount: number; memoryCount: number }> {
   const now = args.now ?? new Date();
 
   // Fetch character config
@@ -374,20 +374,20 @@ export async function consolidateMemories(args: {
     .where(and(eq(aiCharacters.id, args.characterId), eq(aiCharacters.userId, args.userId)))
     .limit(1);
 
-  if (!char) return;
+  if (!char) return { extractedCount: 0, memoryCount: 0 };
 
   const profile = getForgetfulnessProfile(char.memoryRetention);
 
-  // Fetch existing memories for this character
+  // The model receives the complete retained set, then returns its replacement.
   const existingRows = await db
     .select()
     .from(aiMemories)
     .where(eq(aiMemories.characterId, args.characterId))
     .orderBy(desc(aiMemories.lastReinforcedAt))
-    .limit(25);
+    .limit(50);
 
   const existingFormatted = existingRows
-    .map((m) => `[ID: ${m.id}] (${m.kind}, 强化${m.reinforcementCount}次) ${m.content}`)
+    .map((m) => `(${m.kind}) ${m.content}`)
     .join('\n');
 
   try {
@@ -395,88 +395,58 @@ export async function consolidateMemories(args: {
       userId: args.userId,
       characterId: args.characterId,
       callType: 'memory',
-      system: `你是虚拟角色「${char.name}」的记忆沉淀中枢。
-你的任务是从 TA 真正经历或读过的交流记录中，提炼出对 TA 有意义的长期记忆。
+      system: `你是虚拟角色「${char.name}」的长期记忆沉淀中枢。
+你的任务是把“角色已有长期记忆”和“本次角色真实感知的交流记录”合并为一份完整、去重后的长期记忆集合。
 核心原则：
-1. 聊天记录是客观历史，记忆是角色主观留下的印象。
-2. 避免无脑新建重复条目。如果已有类似记忆（参考已有列表），请选择 reinforce（强化）或 merge（合并更新）。
-3. 普通琐碎日常不要过度记录；关注个人喜好、承诺、重要事件、态度观点以及令角色不满或感动的事（grudge / emotionalWeight）。
-4. 格式必须是紧凑的一句话。`,
-      prompt: `【角色已有记忆】
+1. 保留仍然成立的历史记忆；只在新交流明确推翻、修正或过期时改写或删除。
+2. 从本次交流补充用户的个人信息（姓名/职业/习惯/喜好/日程）、重要讨论、约定、情感反馈。
+3. 只输出完整替换后的长期记忆集合：不要输出操作类型、ID、解释或 Markdown。
+4. 每条 content 必须是清晰紧凑的第三人称陈述句。`,
+      prompt: `【角色已有长期记忆】
 ${existingFormatted || '（暂无）'}
 
 【本次角色真实感知的交流记录】
 ${args.transcript}`,
       schema: memoryDistillationSchema,
       temperature: 0.2,
-      maxOutputTokens: 800,
+      maxOutputTokens: 3200,
     });
 
-    for (const item of result.memories) {
-      const isGrudge = item.kind === 'grudge' || item.emotionalWeight <= -0.4;
-      // Write probability check based on forgetfulness & emotional significance
-      const grudgeBoost = isGrudge ? char.grudgeRate * 0.7 : 0;
-      const importanceBoost = item.importance * 0.4;
-      const effectiveWriteChance = Math.min(1.0, profile.writeProbability + grudgeBoost + importanceBoost);
+    console.log(`[consolidateMemories] for ${char.name}, LLM returned ${result.memories.length} replacement memories`);
 
-      if (Math.random() > effectiveWriteChance) {
-        // Skipped due to forgetfulness/triviality
-        continue;
-      }
+    await db.transaction(async (tx) => {
+      await tx.delete(aiMemories).where(eq(aiMemories.characterId, args.characterId));
+      await tx.insert(aiMemories).values(
+        result.memories.map((item) => {
+          const isGrudge = item.kind === 'grudge' || item.emotionalWeight <= -0.4;
+          return {
+            id: crypto.randomUUID(),
+            userId: args.userId,
+            characterId: args.characterId,
+            kind: item.kind,
+            content: item.content,
+            strength: Math.min(1.0, 0.5 + item.importance * 0.3 + (isGrudge ? char.grudgeRate * 0.3 : 0)),
+            confidence: Math.min(1.0, profile.recallConfidenceBase + 0.1),
+            importance: item.importance,
+            emotionalWeight: item.emotionalWeight,
+            reinforcementCount: 1,
+            sourceType: args.sourceType,
+            sourceId: args.sourceId ?? null,
+            lastReinforcedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          };
+        }),
+      );
+    });
 
-      if ((item.action === 'reinforce' || item.action === 'merge') && item.existingMemoryId) {
-        const existing = existingRows.find((r) => r.id === item.existingMemoryId);
-        if (existing) {
-          const newCount = existing.reinforcementCount + 1;
-          const newStrength = Math.min(1.0, existing.strength + 0.35);
-          const newConfidence = Math.min(1.0, existing.confidence + 0.25);
-          const newContent = item.action === 'merge' ? item.content : existing.content;
-
-          await db
-            .update(aiMemories)
-            .set({
-              content: newContent,
-              kind: item.kind || existing.kind,
-              strength: newStrength,
-              confidence: newConfidence,
-              importance: Math.max(existing.importance, item.importance),
-              emotionalWeight: item.emotionalWeight,
-              reinforcementCount: newCount,
-              lastReinforcedAt: now,
-              updatedAt: now,
-            })
-            .where(eq(aiMemories.id, existing.id));
-          continue;
-        }
-      }
-
-      // Create new memory entry
-      const initialStrength = Math.min(1.0, 0.5 + item.importance * 0.3 + (isGrudge ? char.grudgeRate * 0.3 : 0));
-      const initialConfidence = Math.min(1.0, profile.recallConfidenceBase + 0.1);
-
-      await db.insert(aiMemories).values({
-        id: crypto.randomUUID(),
-        userId: args.userId,
-        characterId: args.characterId,
-        kind: item.kind,
-        content: item.content,
-        strength: initialStrength,
-        confidence: initialConfidence,
-        importance: item.importance,
-        emotionalWeight: item.emotionalWeight,
-        reinforcementCount: 1,
-        sourceType: args.sourceType,
-        sourceId: args.sourceId ?? null,
-        lastReinforcedAt: now,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-
-    // Prune completely decayed memories to keep database tidy
-    await pruneDecayedMemories(args.characterId, profile);
+    return { extractedCount: result.memories.length, memoryCount: result.memories.length };
   } catch (err) {
     console.error('[consolidateMemories] failed:', err);
+    if (args.throwOnError) {
+      throw err;
+    }
+    return { extractedCount: 0, memoryCount: 0 };
   }
 }
 

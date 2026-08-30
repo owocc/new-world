@@ -38,6 +38,16 @@ const bounce = stylex.keyframes({
   '40%': { transform: 'scale(1)' },
 });
 
+const pokeShake = stylex.keyframes({
+  '0%': { transform: 'rotate(0deg)' },
+  '15%': { transform: 'rotate(-14deg)' },
+  '30%': { transform: 'rotate(12deg)' },
+  '45%': { transform: 'rotate(-10deg)' },
+  '60%': { transform: 'rotate(8deg)' },
+  '75%': { transform: 'rotate(-4deg)' },
+  '90%': { transform: 'rotate(2deg)' },
+  '100%': { transform: 'rotate(0deg)' },
+});
 const styles = stylex.create({
   root: {
     display: 'flex',
@@ -382,8 +392,18 @@ const styles = stylex.create({
   hidden: {
     display: 'none',
   },
+  avatarPokeWrap: {
+    display: 'inline-flex',
+    cursor: 'pointer',
+    userSelect: 'none',
+    transformOrigin: 'bottom center',
+  },
+  avatarPoking: {
+    animationName: pokeShake,
+    animationDuration: '500ms',
+    animationTimingFunction: 'ease-in-out',
+  },
 });
-
 type CharacterRow = typeof aiCharacters.$inferSelect;
 
 type MessageItem = {
@@ -426,6 +446,7 @@ export function ChatWindow({
 
   const [messagesList, setMessagesList] = useState<MessageItem[]>(initialMessages);
   const [isTyping, setIsTyping] = useState(false);
+  const [pokingMessageId, setPokingMessageId] = useState<string | null>(null);
   const [turnStatus, setTurnStatus] = useState<string>('idle');
   const [showDevInspector, setShowDevInspector] = useState(false);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
@@ -683,7 +704,11 @@ export function ChatWindow({
   };
 
   // Double click avatar triggers poke (拍一拍)
-  const handlePoke = async () => {
+  const handlePoke = async (targetId?: string) => {
+    if (targetId) {
+      setPokingMessageId(targetId);
+      setTimeout(() => setPokingMessageId((curr) => (curr === targetId ? null : curr)), 550);
+    }
     try {
       const res = await fetch('/api/chat/poke', {
         method: 'POST',
@@ -701,18 +726,24 @@ export function ChatWindow({
     }
   };
 
-  const avatar = (
-    <div onDoubleClick={handlePoke} style={{ cursor: 'pointer' }} title="双击拍一拍">
-      <UserAvatar
-        name={character.name}
-        emoji={character.avatarEmoji}
-        color={character.avatarColor}
-        url={character.avatarUrl}
-        size={36}
-      />
-    </div>
-  );
-
+  const renderAvatar = (messageId?: string) => {
+    const isThisPoking = messageId ? pokingMessageId === messageId : false;
+    return (
+      <div
+        onDoubleClick={() => handlePoke(messageId || 'header')}
+        {...stylex.props(styles.avatarPokeWrap, isThisPoking && styles.avatarPoking)}
+        title="双击拍一拍"
+      >
+        <UserAvatar
+          name={character.name}
+          emoji={character.avatarEmoji}
+          color={character.avatarColor}
+          url={character.avatarUrl}
+          size={36}
+        />
+      </div>
+    );
+  };
   const userAvatar = (
     <UserAvatar name={user.name || '我'} url={user.imageUrl} size={36} />
   );
@@ -743,15 +774,7 @@ export function ChatWindow({
         >
           <ArrowLeft size={19} />
         </Link>
-        <div onDoubleClick={handlePoke} style={{ cursor: 'pointer' }} title="双击拍一拍">
-          <UserAvatar
-            name={character.name}
-            emoji={character.avatarEmoji}
-            color={character.avatarColor}
-            url={character.avatarUrl}
-            size={36}
-          />
-        </div>
+        {renderAvatar('header')}
         <div {...stylex.props(styles.headerInfo)}>
           <Link
             href={`/messages/${conversationId}?profile=1`}
@@ -813,7 +836,7 @@ export function ChatWindow({
                     <ChatMessage
                       key={m.id}
                       sender={isUser ? 'user' : 'assistant'}
-                      avatar={isUser ? userAvatar : avatar}
+                      avatar={isUser ? userAvatar : renderAvatar(m.id)}
                     >
                       <ChatMessageBubble variant="filled">
                         {/* Image attachments display */}

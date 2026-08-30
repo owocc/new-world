@@ -22,13 +22,13 @@ import { Badge } from '@astryxdesign/core/Badge';
 import { Text } from '@astryxdesign/core/Text';
 import { radiusVars } from '@astryxdesign/core/theme/tokens.stylex';
 import { useAppToast } from '@/lib/toast';
+import { triggerCharacterDailyMemoryAction } from '@/server/actions/characters';
 import {
   getConversationDebugContext,
   getGroupDebugContext,
   type ConversationDebugContext,
   type GroupDebugContext,
 } from '@/server/actions/debug';
-
 const styles = stylex.create({
   fixedLayout: {
     height: '80vh',
@@ -118,10 +118,36 @@ export function ChatContextInspector({
   const [activeTab, setActiveTab] = useState('prompt');
   const [loading, setLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
 
   const [dmContext, setDmContext] = useState<ConversationDebugContext | null>(null);
   const [groupContext, setGroupContext] = useState<GroupDebugContext | null>(null);
 
+  const targetCharacterId = mode === 'dm' ? dmContext?.character.id : groupContext?.selectedCharacter.id;
+  const targetCharacterName = mode === 'dm' ? dmContext?.character.name : groupContext?.selectedCharacter.name;
+
+  const handleSummarizeMemory = async () => {
+    if (!targetCharacterId) return;
+    setSummarizing(true);
+    try {
+      const res = await fetch(`/api/characters/${targetCharacterId}/memories/summarize`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (data.ok && data.result) {
+        const { dmCount, groupCount, memoryCount } = data.result;
+        toast.success(`已完成「${targetCharacterName || 'AI'}」今日记忆总结 (读取: ${dmCount + groupCount}条, 已覆写长期记忆: ${memoryCount}条)`);
+        await loadContext();
+      } else {
+        toast.error(data.error || '记忆总结失败');
+      }
+    } catch (err) {
+      console.error('Trigger memory distillation failed:', err);
+      toast.error('网络异常，记忆总结失败');
+    } finally {
+      setSummarizing(false);
+    }
+  };
   const loadContext = async () => {
     setLoading(true);
     if (mode === 'dm' && conversationId) {
@@ -211,13 +237,26 @@ export function ChatContextInspector({
                   }
                   variant="blue"
                 />
-                <Button
-                  label={loading ? '刷新中…' : '刷新上下文'}
-                  variant="ghost"
-                  size="sm"
-                  icon={<RefreshCw size={13} className={loading ? 'animate-spin' : ''} />}
-                  onClick={loadContext}
-                />
+                <HStack gap={2} vAlign="center">
+                  {targetCharacterId && (
+                    <Button
+                      label={summarizing ? '正在总结记忆...' : '触发今日记忆总结'}
+                      variant="secondary"
+                      size="sm"
+                      icon={<Sparkles size={13} />}
+                      isDisabled={summarizing || loading}
+                      isLoading={summarizing}
+                      onClick={handleSummarizeMemory}
+                    />
+                  )}
+                  <Button
+                    label={loading ? '刷新中…' : '刷新上下文'}
+                    variant="ghost"
+                    size="sm"
+                    icon={<RefreshCw size={13} className={loading ? 'animate-spin' : ''} />}
+                    onClick={loadContext}
+                  />
+                </HStack>
               </HStack>
 
               {/* Tab Navigation */}

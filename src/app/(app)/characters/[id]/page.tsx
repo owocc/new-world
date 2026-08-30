@@ -1,10 +1,14 @@
-import {and, eq} from 'drizzle-orm';
+import {and, desc, eq} from 'drizzle-orm';
 import {notFound} from 'next/navigation';
 import {db} from '@/db';
-import {aiCharacters, providerConfigs} from '@/db/schema';
+import {aiCharacters, aiMemories, providerConfigs} from '@/db/schema';
 import {requireUserId} from '@/lib/session';
 import {CharacterProfile} from '@/components/character-profile';
+import {CharacterEditor, type CharacterFormValues} from '@/components/character-editor';
 import {SendMessageButton} from '@/components/send-message-button';
+import {Button} from '@astryxdesign/core/Button';
+import {Settings2} from 'lucide-react';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,24 +23,83 @@ export async function generateMetadata({params}: {params: Promise<{id: string}>}
   return {title: character?.name ?? '联系人'};
 }
 
-export default async function CharacterViewPage({params}: {params: Promise<{id: string}>}) {
+export default async function CharacterViewPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{id: string}>;
+  searchParams: Promise<{edit?: string}>;
+}) {
   const {id} = await params;
+  const {edit} = await searchParams;
+  const isEditMode = edit === '1' || edit === 'true';
   const userId = await requireUserId();
 
-  const [character] = await db
-    .select()
-    .from(aiCharacters)
-    .where(and(eq(aiCharacters.id, id), eq(aiCharacters.userId, userId)))
-    .limit(1);
+  const [character, providers, memories] = await Promise.all([
+    db
+      .select()
+      .from(aiCharacters)
+      .where(and(eq(aiCharacters.id, id), eq(aiCharacters.userId, userId)))
+      .limit(1)
+      .then((rows) => rows[0]),
+    db
+      .select({id: providerConfigs.id, name: providerConfigs.name, providerType: providerConfigs.providerType})
+      .from(providerConfigs)
+      .where(eq(providerConfigs.userId, userId)),
+    db
+      .select()
+      .from(aiMemories)
+      .where(and(eq(aiMemories.characterId, id), eq(aiMemories.userId, userId)))
+      .orderBy(desc(aiMemories.importance), desc(aiMemories.createdAt))
+      .limit(40),
+  ]);
+
   if (!character) notFound();
 
-  const [provider] = character.providerId
-    ? await db
-        .select({name: providerConfigs.name})
-        .from(providerConfigs)
-        .where(eq(providerConfigs.id, character.providerId))
-        .limit(1)
-    : [];
+  if (isEditMode) {
+    const initialValues: CharacterFormValues = {
+      name: character.name,
+      username: character.username,
+      bio: character.bio,
+      avatarUrl: character.avatarUrl ?? '',
+      avatarEmoji: character.avatarEmoji,
+      avatarColor: character.avatarColor,
+      persona: character.persona,
+      personality: character.personality,
+      interests: character.interests,
+      expressionStyle: character.expressionStyle,
+      relationshipToUser: character.relationshipToUser,
+      systemPrompt: character.systemPrompt ?? '',
+      status: character.status as 'active' | 'paused',
+      chattiness: character.chattiness,
+      likeRate: character.likeRate,
+      commentRate: character.commentRate,
+      postRate: character.postRate,
+      dmRate: character.dmRate,
+      memoryRetention: (character.memoryRetention as 'excellent' | 'normal' | 'slightly_forgetful' | 'forgetful') || 'normal',
+      grudgeRate: character.grudgeRate ?? 0.3,
+      providerId: character.providerId ?? '',
+      modelId: character.modelId ?? '',
+      temperature: character.temperature != null ? String(character.temperature) : '',
+      topP: character.topP != null ? String(character.topP) : '',
+      maxTokens: character.maxTokens != null ? String(character.maxTokens) : '',
+    };
+
+    return (
+      <div style={{ maxWidth: '42rem', width: '100%', marginInline: 'auto' }}>
+        <CharacterEditor
+          characterId={character.id}
+          initial={initialValues}
+          providers={providers}
+          memories={memories}
+        />
+      </div>
+    );
+  }
+
+  const provider = character.providerId
+    ? providers.find((p) => p.id === character.providerId)
+    : undefined;
 
   const modelText = character.providerId
     ? `${provider?.name ?? '未知提供方'} / ${character.modelId ?? '默认模型'}`
@@ -46,7 +109,19 @@ export default async function CharacterViewPage({params}: {params: Promise<{id: 
     <CharacterProfile
       character={character}
       modelText={modelText ?? undefined}
-      actions={<SendMessageButton characterId={character.id} />}
+      memories={memories}
+      actions={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <SendMessageButton characterId={character.id} />
+          <Link href={`/characters/${character.id}?edit=1`} style={{ textDecoration: 'none' }}>
+            <Button
+              label="编辑居民"
+              variant="secondary"
+              icon={<Settings2 size={15} />}
+            />
+          </Link>
+        </div>
+      }
     />
   );
 }

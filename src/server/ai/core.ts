@@ -294,8 +294,9 @@ export async function runObject<T extends z.ZodType>(opts: {
   const resolved = await resolveModel(opts.userId, opts.characterId);
   const start = Date.now();
   try {
+    const model = createModelFor(resolved.provider, resolved.modelId);
     const result = await generateObject({
-      model: createModelFor(resolved.provider, resolved.modelId),
+      model,
       system: opts.system,
       ...(opts.messages && opts.messages.length > 0
         ? { messages: opts.messages }
