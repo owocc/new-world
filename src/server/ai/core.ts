@@ -229,7 +229,7 @@ export type RunTextOptions = {
   characterId?: string | null;
   callType: CallType;
   system: string;
-  prompt: string;
+  prompt?: string;
   temperature?: number;
   maxOutputTokens?: number;
 };
@@ -242,7 +242,7 @@ export async function runText(opts: RunTextOptions): Promise<string> {
     const result = await generateText({
       model: createModelFor(resolved.provider, resolved.modelId),
       system: opts.system,
-      prompt: opts.prompt,
+      prompt: opts.prompt ?? '',
       temperature: opts.temperature ?? resolved.temperature ?? undefined,
       maxOutputTokens: opts.maxOutputTokens ?? resolved.maxTokens ?? undefined,
     });
@@ -385,20 +385,22 @@ export async function runVisionObject<T extends z.ZodType>(opts: {
 /** Streaming generation for chat; usage is recorded on finish. */
 export async function runStream(opts: RunTextOptions & {
   messages: ModelMessage[];
+  tools?: Record<string, any>;
+  maxSteps?: number;
   onFinish?: (text: string) => void | Promise<void>;
 }) {
   const resolved = await resolveModel(opts.userId, opts.characterId);
   const start = Date.now();
-  const result = streamText({
+  const streamOptions: any = {
     model: createModelFor(resolved.provider, resolved.modelId),
     system: opts.system,
     messages: opts.messages,
     temperature: opts.temperature ?? resolved.temperature ?? undefined,
     maxOutputTokens: opts.maxOutputTokens ?? resolved.maxTokens ?? undefined,
-    onError: ({ error }) => {
+    onError: ({ error }: any) => {
       console.error('[ai] stream error', error);
     },
-    onFinish: async ({ usage, text }) => {
+    onFinish: async ({ usage, text }: any) => {
       await recordUsage({
         userId: opts.userId,
         characterId: opts.characterId ?? null,
@@ -408,7 +410,12 @@ export async function runStream(opts: RunTextOptions & {
       }).catch(console.error);
       await opts.onFinish?.(text);
     },
-  });
+  };
+  if (opts.tools) {
+    streamOptions.tools = opts.tools;
+    streamOptions.maxSteps = opts.maxSteps ?? 5;
+  }
+  const result = streamText(streamOptions);
   return result;
 }
 

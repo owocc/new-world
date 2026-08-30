@@ -38,6 +38,8 @@ export type CharacterProfileData = {
   interests: string;
   persona: string;
   expressionStyle: string;
+  memoryRetention?: string | null;
+  grudgeRate?: number | null;
 };
 
 function splitTags(value: string): string[] {
@@ -122,6 +124,21 @@ export function CharacterProfile({
               </div>
             </VStack>
           )}
+        </VStack>
+      )}
+      {/* memory retention trait */}
+      {character.memoryRetention && (
+        <VStack gap={1.5}>
+          <Text weight="medium" as="div">
+            记忆特质
+          </Text>
+          <div {...stylex.props(styles.tags)}>
+            {character.memoryRetention === 'excellent' && <Token label="记忆力 ★★★★★ 过目不忘" color="purple" />}
+            {character.memoryRetention === 'normal' && <Token label="记忆力 ★★★☆☆ 普通记忆" color="blue" />}
+            {character.memoryRetention === 'slightly_forgetful' && <Token label="记忆力 ★★☆☆☆ 有点健忘" color="orange" />}
+            {character.memoryRetention === 'forgetful' && <Token label="记忆力 ★☆☆☆☆ 鱼的记忆" color="red" />}
+            {character.grudgeRate && character.grudgeRate >= 0.5 && <Token label="⚡️ 情绪/记仇执念高" color="orange" />}
+          </div>
         </VStack>
       )}
 

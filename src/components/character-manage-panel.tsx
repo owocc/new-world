@@ -220,11 +220,13 @@ export function CharacterManagePanel({
     commentRate: c.commentRate,
     postRate: c.postRate,
     dmRate: c.dmRate,
+    memoryRetention: (c.memoryRetention as any) || 'normal',
+    grudgeRate: c.grudgeRate ?? 0.3,
     providerId: c.providerId ?? '',
     modelId: c.modelId ?? '',
-    temperature: c.temperature?.toString() ?? '',
-    topP: c.topP?.toString() ?? '',
-    maxTokens: c.maxTokens?.toString() ?? '',
+    temperature: c.temperature != null ? String(c.temperature) : '',
+    topP: c.topP != null ? String(c.topP) : '',
+    maxTokens: c.maxTokens != null ? String(c.maxTokens) : '',
   });
 
   const filteredCharacters = characters

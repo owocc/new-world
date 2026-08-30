@@ -419,10 +419,30 @@ export function ChatContextInspector({
                           {dmContext?.activeMemories.map((mem) => (
                             <div key={mem.id} {...stylex.props(styles.metaItem)}>
                               <HStack hAlign="between" vAlign="center" style={{ marginBottom: 4 }}>
-                                <Badge
-                                  label={`${mem.kind} (重要度: ${mem.importance})`}
-                                  variant="blue"
-                                />
+                                <HStack gap={1.5} vAlign="center">
+                                  <Badge
+                                    label={`${mem.kind} · 重要度: ${Math.round(mem.importance * 100)}%`}
+                                    variant={mem.kind === 'grudge' ? 'red' : mem.isFuzzy ? 'neutral' : 'blue'}
+                                  />
+                                  {mem.strength !== undefined && (
+                                    <Badge
+                                      label={`强度: ${Math.round(mem.strength * 100)}%`}
+                                      variant="neutral"
+                                    />
+                                  )}
+                                  {mem.isFuzzy && (
+                                    <Badge
+                                      label="模糊记忆 (低置信度)"
+                                      variant="neutral"
+                                    />
+                                  )}
+                                  {mem.reinforcementCount && mem.reinforcementCount > 1 && (
+                                    <Badge
+                                      label={`强化×${mem.reinforcementCount}`}
+                                      variant="green"
+                                    />
+                                  )}
+                                </HStack>
                                 <Text type="supporting" size="sm" as="span">
                                   {new Date(mem.createdAt).toLocaleDateString()}
                                 </Text>

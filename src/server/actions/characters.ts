@@ -32,6 +32,8 @@ const characterSchema = z.object({
   commentRate: z.coerce.number().min(0).max(1).default(0.4),
   postRate: z.coerce.number().min(0).max(1).default(0.15),
   dmRate: z.coerce.number().min(0).max(1).default(0.05),
+  memoryRetention: z.enum(['excellent', 'normal', 'slightly_forgetful', 'forgetful']).default('normal'),
+  grudgeRate: z.coerce.number().min(0).max(1).default(0.3),
   providerId: z.string().trim().optional().nullable(),
   modelId: z.string().trim().max(120).optional().nullable(),
   temperature: z.coerce.number().min(0).max(2).optional().nullable(),

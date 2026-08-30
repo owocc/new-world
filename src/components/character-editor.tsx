@@ -122,6 +122,8 @@ export type CharacterFormValues = {
   commentRate: number;
   postRate: number;
   dmRate: number;
+  memoryRetention: 'excellent' | 'normal' | 'slightly_forgetful' | 'forgetful';
+  grudgeRate: number;
   providerId: string;
   modelId: string;
   temperature: string;
@@ -299,8 +301,29 @@ export function CharacterEditor({
       {tab === 'behavior' && (
         <VStack gap={5}>
           <Text type="supporting" as="p">
-            这些概率决定 TA 在社区里的活跃程度。数值越高越活跃，但也会消耗更多 Token。
+            这些设置决定 TA 在社区里的活跃程度与独特的认知记忆风格。数值与性格差异让每个居民独一无二。
           </Text>
+
+          <Selector
+            label="记忆力 / 健忘程度"
+            description="影响长期记忆的形成概率、遗忘半衰期与细节清晰度"
+            value={values.memoryRetention}
+            onChange={(v) => set('memoryRetention', (v as any) || 'normal')}
+            options={[
+              { value: 'excellent', label: '★★★★★ 过目不忘 (博闻强识，极少遗忘细节)' },
+              { value: 'normal', label: '★★★☆☆ 普通记忆 (记得关键大事与喜好，琐碎会随时间淡化)' },
+              { value: 'slightly_forgetful', label: '★★☆☆☆ 有点健忘 (常需要提醒，“我记得好像说过...”，偶尔翻记录)' },
+              { value: 'forgetful', label: '★☆☆☆☆ 贵人多忘事 / 鱼的记忆 (“啊？你说过吗？等我翻翻记录...”)' },
+            ]}
+          />
+
+          <RateSlider
+            label="记仇 / 情绪执念度"
+            hint="数值越高，对被冒犯、争吵、感动等强烈情绪事件的记忆保留越久、越深刻"
+            value={values.grudgeRate}
+            onChange={(v) => set('grudgeRate', v)}
+          />
+
           <RateSlider label="聊天意愿" hint="回复私聊消息的积极性" value={values.chattiness} onChange={(v) => set('chattiness', v)} />
           <RateSlider label="点赞概率" hint="看到动态时点赞的可能性" value={values.likeRate} onChange={(v) => set('likeRate', v)} />
           <RateSlider label="评论概率" hint="决定评论动态的可能性" value={values.commentRate} onChange={(v) => set('commentRate', v)} />
@@ -375,6 +398,8 @@ export const emptyCharacter: CharacterFormValues = {
   commentRate: 0.4,
   postRate: 0.15,
   dmRate: 0.05,
+  memoryRetention: 'normal',
+  grudgeRate: 0.3,
   providerId: '',
   modelId: '',
   temperature: '',

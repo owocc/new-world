@@ -15,7 +15,7 @@ import {
 import { requireUserId, getSession } from '@/lib/session';
 import { resolveModel, resolveVisionModel } from '@/server/ai/core';
 import { characterSystemPrompt, chatMemoryBlock } from '@/server/ai/prompts';
-import { getRecentMessages, getMemories } from '@/server/ai/memory';
+import { getRecentMessages, getMemories, getActiveMemoriesForCharacter, getForgetfulnessProfile } from '@/server/ai/memory';
 import { formatAttachmentPromptBlock } from '@/server/ai/vision';
 import { buildPerceptionContext } from '@/server/ai/group/perception';
 import {
@@ -40,6 +40,9 @@ export type ConversationDebugContext = {
     systemPrompt: string | null;
     expressionStyle: string;
     relationshipToUser: string;
+    memoryRetention?: string;
+    grudgeRate?: number;
+    retentionLabel?: string;
   };
   model: {
     providerId: string;
@@ -88,6 +91,10 @@ export type ConversationDebugContext = {
     kind: string;
     content: string;
     importance: number;
+    strength?: number;
+    confidence?: number;
+    isFuzzy?: boolean;
+    reinforcementCount?: number;
     createdAt: Date;
   }>;
   rollingSummary: string | null;
@@ -175,12 +182,7 @@ export async function getConversationDebugContext(
         topP: null,
         maxTokens: null,
       })),
-      db
-        .select()
-        .from(aiMemories)
-        .where(eq(aiMemories.characterId, char.id))
-        .orderBy(desc(aiMemories.importance), desc(aiMemories.createdAt))
-        .limit(20),
+      getActiveMemoriesForCharacter(char.id, { limit: 20 }),
       getRecentMessages(conversationId, 30),
       db
         .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
@@ -188,11 +190,14 @@ export async function getConversationDebugContext(
         .where(eq(messages.conversationId, conversationId)),
     ]);
 
-    const memoryStrings = rawMemories.map((m) => m.content);
+    const memoryStrings = rawMemories.map((m) => m.formattedText);
     const memoryBlock = chatMemoryBlock(memoryStrings, conv.summary);
-    const basePersonaPrompt = characterSystemPrompt(char, userName);
+    const profile = getForgetfulnessProfile(char.memoryRetention);
+    const retentionLabel = `${profile.label}（${'★'.repeat(profile.stars)}${'☆'.repeat(5 - profile.stars)}）: ${profile.description}`;
+    const basePersonaPrompt = characterSystemPrompt(char, userName, {
+      retentionLabel,
+    });
     const systemPrompt = basePersonaPrompt + (memoryBlock ? `\n\n${memoryBlock}` : '');
-
     const chronologicalMsgs = [...recentMsgs].reverse();
     let totalChars = systemPrompt.length;
 
@@ -258,6 +263,9 @@ export async function getConversationDebugContext(
           systemPrompt: char.systemPrompt,
           expressionStyle: char.expressionStyle,
           relationshipToUser: char.relationshipToUser,
+          memoryRetention: char.memoryRetention,
+          grudgeRate: char.grudgeRate,
+          retentionLabel,
         },
         model: {
           providerId: resolvedModel.provider.id,
@@ -286,7 +294,11 @@ export async function getConversationDebugContext(
           kind: mem.kind,
           content: mem.content,
           importance: mem.importance,
-          createdAt: new Date(mem.createdAt),
+          strength: mem.strength,
+          confidence: mem.confidence,
+          isFuzzy: mem.isFuzzy,
+          reinforcementCount: mem.reinforcementCount,
+          createdAt: new Date(),
         })),
         rollingSummary: conv.summary,
         totalMessagesInConversation: count,

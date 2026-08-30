@@ -147,6 +147,11 @@ export const aiCharacters = sqliteTable('ai_characters', {
   postRate: real('post_rate').notNull().default(0.15),
   dmRate: real('dm_rate').notNull().default(0.05),
 
+  /* memory & cognitive traits */
+  /** excellent | normal | slightly_forgetful | forgetful */
+  memoryRetention: text('memory_retention').notNull().default('normal'),
+  /** grudge/emotional retention tendency: 0..1 (higher means holds emotional/negative/conflict memories much tighter) */
+  grudgeRate: real('grudge_rate').notNull().default(0.3),
   /* model override (null = inherit user default) */
   providerId: text('provider_id').references(() => providerConfigs.id, { onDelete: 'set null' }),
   modelId: text('model_id'),
@@ -419,12 +424,32 @@ export const aiMemories = sqliteTable('ai_memories', {
   characterId: text('character_id')
     .notNull()
     .references(() => aiCharacters.id, { onDelete: 'cascade' }),
-  /** fact | preference | event */
+  /** fact | preference | event | grudge | opinion */
   kind: text('kind').notNull().default('fact'),
+  /** original or synthesized memory text */
   content: text('content').notNull(),
+  /** memory strength: 0.0 ~ 1.0 (decays over time if not reinforced) */
+  strength: real('strength').notNull().default(0.6),
+  /** confidence score: 0.0 ~ 1.0 (lower means fuzzy, e.g. "我记得好像是...") */
+  confidence: real('confidence').notNull().default(0.8),
+  /** subjective importance: 0.0 ~ 1.0 */
   importance: real('importance').notNull().default(0.5),
+  /** emotional weight: -1.0 (grudge/negative) ~ 1.0 (deeply touched/positive) */
+  emotionalWeight: real('emotional_weight').notNull().default(0),
+  /** number of times this memory was reinforced / referenced */
+  reinforcementCount: integer('reinforcement_count').notNull().default(1),
+  /** dm | group | post | comment | direct_interaction */
+  sourceType: text('source_type').notNull().default('dm'),
+  /** source reference id (groupId, postId, conversationId) */
+  sourceId: text('source_id'),
+  /** last time this memory was reinforced or recalled */
+  lastReinforcedAt: ts('last_reinforced_at').notNull().default(now()),
   createdAt: ts('created_at').notNull().default(now()),
-}, (t) => [index('ai_memories_character_idx').on(t.characterId, t.createdAt)]);
+  updatedAt: ts('updated_at').notNull().default(now()),
+}, (t) => [
+  index('ai_memories_character_idx').on(t.characterId, t.strength, t.lastReinforcedAt),
+  index('ai_memories_user_idx').on(t.userId),
+]);
 
 /* ------------------------------------------------------------------ */
 /* Community event queue (AI behavior engine)                          */

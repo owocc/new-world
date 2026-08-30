@@ -70,7 +70,7 @@ export function formatGroupChatContextBlock(ctx: PerceptionContext, options?: { 
   return parts.join('\n\n');
 }
 
-export function buildGroupDecisionSystemPrompt(character: AiCharacter, userName: string, memories: string[] = []): string {
+export function buildGroupDecisionSystemPrompt(character: AiCharacter, userName: string, memories: string[] = [], retentionLabel?: string): string {
   const custom = character.systemPrompt?.trim();
   const identity = `你的身份：
 - 名字：${character.name}（@${character.username}）
@@ -79,10 +79,11 @@ export function buildGroupDecisionSystemPrompt(character: AiCharacter, userName:
 - 性格：${character.personality || '（无）'}
 - 兴趣：${character.interests || '（无）'}
 - 表达风格：${character.expressionStyle || '（无）'}
+- 记忆特征：${retentionLabel || '普通记忆'}${character.grudgeRate && character.grudgeRate >= 0.6 ? '（比较记仇/对令你不满的事格外深刻）' : ''}
 - 你和真人用户（${userName}）的关系：${character.relationshipToUser || '朋友'}`;
 
   const memoryBlock = memories.length > 0
-    ? `\n【你的长期记忆】\n${memories.map((m) => `- ${m}`).join('\n')}\n`
+    ? `\n【你的长期记忆（来自真实感知或私聊/群聊留下的印象）】\n${memories.map((m) => `- ${m}`).join('\n')}\n`
     : '';
 
   return (custom ? `${custom}\n\n${identity}` : identity) + memoryBlock + GROUP_COMMUNITY_RULES;

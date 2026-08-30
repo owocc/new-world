@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/db';
 import {
@@ -14,8 +14,9 @@ import {
   reactions,
   user,
 } from '@/db/schema';
-import { runObject, runText } from '../core';
-import { characterSystemPrompt, postPrompt } from '../prompts';
+import { NoProviderError, resolveModel, runObject, runText } from '@/server/ai/core';
+import { characterSystemPrompt, commentPrompt, postPrompt, replyPrompt } from '@/server/ai/prompts';
+import { getMemories } from '@/server/ai/memory';
 import { getCommunityConfig, setSetting } from '@/server/settings';
 import { enqueueEvent, type CommunityEventPayload } from './events';
 
@@ -229,12 +230,7 @@ async function handleNewPost(userId: string, postId: string, authorType: 'user' 
         act: z.boolean().describe('是否真的要评论'),
         comment: z.string().describe('评论内容，act 为 false 时留空'),
       });
-      const memoryOf = await db
-        .select({ kind: aiMemories.kind, content: aiMemories.content })
-        .from(aiMemories)
-        .where(eq(aiMemories.characterId, actor.id))
-        .orderBy(desc(aiMemories.importance), desc(aiMemories.createdAt))
-        .limit(6);
+      const memoryOf = await getMemories(actor.id, 6);
 
       const result = await runObject({
         userId,
@@ -247,7 +243,7 @@ async function handleNewPost(userId: string, postId: string, authorType: 'user' 
 ${post.content}
 """
 ${existingComments.length ? `\n已有的评论：\n${existingComments.map((c) => `- ${c.content}`).join('\n')}` : ''}
-${memoryOf.length ? `\n你记得的事：\n${memoryOf.map((m) => `- ${m.content}`).join('\n')}` : ''}
+${memoryOf.length ? `\n你记得的事：\n${memoryOf.map((m) => `- ${m}`).join('\n')}` : ''}
 
 根据你的性格、兴趣和与对方的关系，决定是否评论。不感兴趣可以 act=false 保持沉默。若评论，1~2 句话，自然口语。`,
         schema,
@@ -495,12 +491,7 @@ async function handlePulse(userId: string) {
     if (Math.random() > c.dmRate) continue;
     if (c.lastActiveAt && Date.now() - c.lastActiveAt.getTime() < CHARACTER_COOLDOWN_MS * 2) continue;
     try {
-      const memories = await db
-        .select({ content: aiMemories.content })
-        .from(aiMemories)
-        .where(eq(aiMemories.characterId, c.id))
-        .orderBy(desc(aiMemories.importance), desc(aiMemories.createdAt))
-        .limit(5);
+      const memories = await getMemories(c.id, 5);
 
       const content = await runText({
         userId,
@@ -508,7 +499,7 @@ async function handlePulse(userId: string) {
         callType: 'chat',
         system: characterSystemPrompt(c, ownerName),
         prompt: `你忽然想主动私聊 ${ownerName} 一下。结合你们的关系和你记得的事，写一条自然的第一句话（1~2 句）。不要问"在吗"。直接输出内容。
-${memories.length ? `\n你记得的事：\n${memories.map((m) => `- ${m.content}`).join('\n')}` : ''}`,
+${memories.length ? `\n你记得的事：\n${memories.map((m) => `- ${m}`).join('\n')}` : ''}`,
         temperature: 1,
         maxOutputTokens: 200,
       });

@@ -1,17 +1,17 @@
+import { and, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/db';
-import { aiMemories, groupMessages, user } from '@/db/schema';
+import { groupMessages, user } from '@/db/schema';
 import { resolveModel, runObject } from '@/server/ai/core';
+import { getForgetfulnessProfile, getMemories } from '@/server/ai/memory';
 import type { AiCharacter, GroupDecisionResult, PerceptionContext } from './types';
 import { calculateTopicAffinity, isWithinActiveHours, resolveSocialProfile } from './profile';
 import {
-  GROUP_DECISION_SCHEMA_INSTRUCTION,
   buildGroupDecisionSystemPrompt,
   formatGroupChatContextBlock,
   formatTimeAwarenessBlock,
+  GROUP_DECISION_SCHEMA_INSTRUCTION,
 } from './prompts';
-import { and, desc, eq } from 'drizzle-orm';
-
 const decisionSchema = z.object({
   action: z.enum(['none', 'react', 'reply', 'multi_message']).default('none'),
   reasoning: z.string().optional(),
@@ -101,14 +101,10 @@ export async function makeGroupDecision(
     }
   }
 
-  // 5. Fetch Character Memories for Knowledge Grounding
-  const memoryRows = await db
-    .select({ content: aiMemories.content })
-    .from(aiMemories)
-    .where(and(eq(aiMemories.characterId, character.id), eq(aiMemories.userId, userId)))
-    .orderBy(desc(aiMemories.importance), desc(aiMemories.createdAt))
-    .limit(8);
-  const memories = memoryRows.map((m) => m.content);
+  // 5. Fetch Character Memories grounded in human retention decay
+  const memories = await getMemories(character.id, 8);
+  const profileCfg = getForgetfulnessProfile(character.memoryRetention);
+  const retentionLabel = `${profileCfg.label}（${'★'.repeat(profileCfg.stars)}${'☆'.repeat(5 - profileCfg.stars)}）: ${profileCfg.description}`;
 
   const [humanUser] = await db
     .select({ name: user.name })
@@ -121,7 +117,7 @@ export async function makeGroupDecision(
   const resolved = await resolveModel(userId, character.id);
 
   // 7. Build Prompt
-  const systemPrompt = buildGroupDecisionSystemPrompt(character, humanName, memories);
+  const systemPrompt = buildGroupDecisionSystemPrompt(character, humanName, memories, retentionLabel);
   const timeBlock = formatTimeAwarenessBlock(ctx);
   const contextBlock = formatGroupChatContextBlock(ctx, { supportsVision: resolved.supportsVision });
   const userPrompt = `${timeBlock}\n\n${contextBlock}\n\n${GROUP_DECISION_SCHEMA_INSTRUCTION}`;

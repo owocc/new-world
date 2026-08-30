@@ -620,7 +620,7 @@ export function ChatWindow({
             href={`/messages/${conversationId}?profile=1`}
             {...stylex.props(styles.headerName, styles.headerNameLink)}
           >
-            {character.name}
+            {generating ? '正在输入中...' : character.name}
           </Link>
         </div>
         {isDevMode && (
@@ -706,20 +706,29 @@ export function ChatWindow({
                           </div>
                         )}
 
-                        {/* Message text */}
                         {text && text.trim() ? (
                           isUser ? (
                             <p {...stylex.props(styles.userMessage)}>{text}</p>
                           ) : (
                             <Markdown xstyle={styles.assistantMarkdown}>{text}</Markdown>
                           )
+                        ) : !isUser && generating && m.id === messages[messages.length - 1]?.id ? (
+                          <span {...stylex.props(styles.typing)} aria-label="正在输入">
+                            {[0, 1, 2].map((i) => (
+                              <span
+                                key={i}
+                                {...stylex.props(styles.typingDot)}
+                                style={{ animationDelay: `${i * 0.15}s` }}
+                              />
+                            ))}
+                          </span>
                         ) : null}
                       </ChatMessageBubble>
                     </ChatMessage>
                   );
                 })}
 
-                {status === 'submitted' && (
+                {status === 'submitted' && messages[messages.length - 1]?.role === 'user' && (
                   <ChatMessage sender="assistant" avatar={avatar}>
                     <ChatMessageBubble variant="filled">
                       <span {...stylex.props(styles.typing)} aria-label="正在输入">

@@ -134,8 +134,15 @@ export async function executeGroupDecision(
       characterId: character.id,
       kind: 'event',
       content: `[群聊「${ctx.group.name}」] ${decision.memoryFact}`,
+      strength: 0.7,
+      confidence: 0.8,
       importance: decision.memoryImportance ?? 0.6,
+      reinforcementCount: 1,
+      sourceType: 'group',
+      sourceId: ctx.group.id,
+      lastReinforcedAt: now,
       createdAt: now,
+      updatedAt: now,
     });
   }
 

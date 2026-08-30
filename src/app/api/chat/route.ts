@@ -4,7 +4,8 @@ import { conversations, messages } from '@/db/schema';
 import { getSession } from '@/lib/session';
 import { NoProviderError, resolveModel, runStream } from '@/server/ai/core';
 import { characterSystemPrompt, chatMemoryBlock } from '@/server/ai/prompts';
-import { buildChatContext, maybeSummarizeConversation, extractMemories } from '@/server/ai/memory';
+import { buildChatContext, maybeSummarizeConversation, extractMemories, getForgetfulnessProfile } from '@/server/ai/memory';
+import { createHistoryRecallTool } from '@/server/ai/recall';
 import { getConversation, markConversationRead } from '@/server/chat';
 import { linkMediaToMessage, getMediaForMessages } from '@/server/media';
 import { waitForMediaPerceptions, formatAttachmentPromptBlock } from '@/server/ai/vision';
@@ -78,9 +79,19 @@ export async function POST(req: Request) {
     });
 
     const memoryBlock = chatMemoryBlock(memories, conv.summary);
+    const profile = getForgetfulnessProfile(conv.character.memoryRetention);
+    const nowStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
     const system =
-      characterSystemPrompt(conv.character, session.user.name) + (memoryBlock ? `\n\n${memoryBlock}` : '');
+      characterSystemPrompt(conv.character, session.user.name, {
+        currentTime: nowStr,
+        retentionLabel: `${profile.label}（${'★'.repeat(profile.stars)}${'☆'.repeat(5 - profile.stars)}）: ${profile.description}`,
+      }) + (memoryBlock ? `\n\n${memoryBlock}` : '');
 
+    const recallTool = createHistoryRecallTool({
+      userId,
+      characterId: conv.character.id,
+      currentConversationId: convId,
+    });
     // Convert recent messages to ModelMessage format with vision perception reuse
     const contextMessages: ModelMessage[] = recent.map((m) => {
       if (m.role === 'assistant') {
@@ -114,8 +125,10 @@ export async function POST(req: Request) {
       characterId: conv.character.id,
       callType: 'chat',
       system,
-      prompt: text.trim() || '（用户发送了图片）',
       messages: contextMessages,
+      tools: {
+        recallHistory: recallTool,
+      },
       maxOutputTokens: 800,
       onFinish: async (fullText) => {
         if (!fullText.trim()) return;
