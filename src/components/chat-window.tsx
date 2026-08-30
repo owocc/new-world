@@ -462,8 +462,11 @@ export function ChatWindow({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
   const stickToBottomRef = useRef(true);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  // 悬浮输入框实测高度（含安全区与上下内边距），用作消息列表的底部 padding
+  const [composerHeight, setComposerHeight] = useState(0);
   // 已在可视范围内看过的最后一条 AI 消息（挂载时 markRead 覆盖了初始消息，故以初始值为起点）
   const lastSeenAssistantIdRef = useRef<string | null>(
     [...initialMessages].reverse().find((m) => m.role === 'assistant')?.id ?? null,
@@ -541,6 +544,22 @@ export function ChatWindow({
     el.scrollTop = el.scrollHeight;
     el.style.scrollBehavior = prevBehavior;
   }, []);
+
+  // 消息列表底部 padding 始终与输入框区域等高：
+  // ResizeObserver 跟踪悬浮输入框（含多行增长、附件抽屉、安全区）的实时高度，
+  // 贴底时同步校正滚动位置，避免列表内容被输入框遮挡或留出多余空档
+  useEffect(() => {
+    const el = footerRef.current;
+    if (!el) return;
+    const update = () => {
+      setComposerHeight(el.offsetHeight);
+      if (stickToBottomRef.current) scrollToEndInstant();
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [scrollToEndInstant]);
 
   // 点击消息列表进入会话后直接跳到最底部：
   // 初始渲染、markdown/图片加载会持续撑高内容，需要在帧内多次校正，
@@ -853,7 +872,12 @@ export function ChatWindow({
 
       {/* messages list */}
       <div {...stylex.props(styles.scrollAreaWrapper)}>
-        <div ref={scrollRef} onScroll={onScroll} {...stylex.props(styles.scrollArea)}>
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          {...stylex.props(styles.scrollArea)}
+          style={composerHeight ? {paddingBottom: composerHeight} : undefined}
+        >
           <div {...stylex.props(styles.messagesInner)}>
             {messagesList.length === 0 ? (
               <div {...stylex.props(styles.emptyState)}>
@@ -952,7 +976,7 @@ export function ChatWindow({
       />
 
       {/* Floating Borderless Composer */}
-      <footer {...stylex.props(styles.footer)}>
+      <footer ref={footerRef} {...stylex.props(styles.footer)}>
         <div {...stylex.props(styles.composerFloating)}>
           {/* Hidden File Picker */}
           <input

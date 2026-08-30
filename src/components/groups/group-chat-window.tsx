@@ -232,8 +232,11 @@ export function GroupChatWindow({
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
   const stickToBottomRef = useRef(true);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  // 悬浮输入框实测高度（含安全区与上下内边距），用作消息列表的底部 padding
+  const [composerHeight, setComposerHeight] = useState(0);
 
   // Sync initial messages when props change
   useEffect(() => {
@@ -266,6 +269,22 @@ export function GroupChatWindow({
     el.scrollTop = el.scrollHeight;
     el.style.scrollBehavior = prevBehavior;
   }, []);
+
+  // 消息列表底部 padding 始终与输入框区域等高：
+  // ResizeObserver 跟踪悬浮输入框（含多行增长、附件抽屉、安全区）的实时高度，
+  // 贴底时同步校正滚动位置，避免列表内容被输入框遮挡或留出多余空档
+  useEffect(() => {
+    const el = footerRef.current;
+    if (!el) return;
+    const update = () => {
+      setComposerHeight(el.offsetHeight);
+      if (stickToBottomRef.current) scrollToEndInstant();
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [scrollToEndInstant]);
 
   // 进入群聊后直接跳到最底部：初始渲染与图片加载会持续撑高内容，
   // 在帧内多次校正并用捕获监听图片 load 保持贴底
@@ -695,7 +714,10 @@ export function GroupChatWindow({
           onScroll={onScroll}
           {...stylex.props(styles.scroll)}
         >
-          <div {...stylex.props(styles.messages)}>
+          <div
+            {...stylex.props(styles.messages)}
+            style={composerHeight ? {paddingBottom: composerHeight} : undefined}
+          >
             <ChatMessageList gap={2}>
               {messages.map((m) => {
                 const isUser = m.senderType === 'user';
@@ -887,7 +909,7 @@ export function GroupChatWindow({
       />
 
       {/* Floating Borderless Composer */}
-      <footer {...stylex.props(styles.footer)}>
+      <footer ref={footerRef} {...stylex.props(styles.footer)}>
         <div {...stylex.props(styles.composerFloating)}>
           <div {...stylex.props(styles.composerWrap)}>
             {/* Hidden File Picker */}
