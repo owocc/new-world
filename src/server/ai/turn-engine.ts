@@ -435,19 +435,29 @@ export async function processTurn(
       })
       .where(and(eq(conversationTurns.id, turnId), eq(conversationTurns.generationId, generationId)));
 
-    // Create notification if conversation is not currently read
-    // Only create notification if lastReadAt is older than last message
+    // Create notification only if the conversation is not already read up to this message
+    // (user actively viewing the chat keeps lastReadAt fresh, so no notification needed)
     const previewContent = generatedBubbleTexts.join(' ');
-    await db.insert(notifications).values({
-      id: crypto.randomUUID(),
-      userId,
-      type: 'dm',
-      characterId,
-      conversationId,
-      content: previewContent.slice(0, 100),
-      read: false,
-      createdAt: lastMsgDate,
-    });
+    const [convReadState] = await db
+      .select({ lastReadAt: conversations.lastReadAt })
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .limit(1);
+    const alreadySeen =
+      convReadState?.lastReadAt != null &&
+      new Date(convReadState.lastReadAt).getTime() >= lastMsgDate.getTime();
+    if (!alreadySeen) {
+      await db.insert(notifications).values({
+        id: crypto.randomUUID(),
+        userId,
+        type: 'dm',
+        characterId,
+        conversationId,
+        content: previewContent.slice(0, 100),
+        read: false,
+        createdAt: lastMsgDate,
+      });
+    }
 
     // Step 5: Post-turn memory extraction & summary (asynchronously)
     try {

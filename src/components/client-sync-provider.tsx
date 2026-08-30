@@ -15,6 +15,7 @@ export type ClientSyncContextType = {
   unread: SyncUnreadState;
   chats: UnifiedChatItem[];
   refresh: () => Promise<void>;
+  ingestSync: (data: {unread?: SyncUnreadState; chats?: UnifiedChatItem[]}) => void;
   currentConversationId: string | null;
   setCurrentConversationId: (id: string | null) => void;
 };
@@ -51,6 +52,17 @@ export function ClientSyncProvider({
     setCurrentConversationId(null);
   }, [pathname]);
 
+  // 将任意同步响应中的未读数与会话列表应用到全局状态，
+  // 供聊天窗口等更快的轮询复用，避免侧栏列表落后于导航角标
+  const ingestSync = useCallback((data: {unread?: SyncUnreadState; chats?: UnifiedChatItem[]}) => {
+    if (data.unread) {
+      setUnread(data.unread);
+    }
+    if (data.chats) {
+      setChats(data.chats);
+    }
+  }, []);
+
   const performSync = useCallback(async () => {
     try {
       const since = lastSyncTimestampRef.current;
@@ -60,18 +72,12 @@ export function ClientSyncProvider({
       if (!data.ok) return;
 
       lastSyncTimestampRef.current = data.timestamp;
-
-      if (data.unread) {
-        setUnread(data.unread);
-      }
-      if (data.chats) {
-        setChats(data.chats);
-      }
+      ingestSync(data);
       // Notifications are gathered in Notification Center badge & popover (no floating toasts)
     } catch (err) {
       console.error('[client-sync] fetch error', err);
     }
-  }, []);
+  }, [ingestSync]);
 
   // Periodic polling & refetch on focus / visibility
   useEffect(() => {
@@ -79,7 +85,7 @@ export function ClientSyncProvider({
       if (document.visibilityState === 'visible') {
         performSync();
       }
-    }, 3500);
+    }, 2000);
 
     const onFocus = () => {
       performSync();
@@ -107,6 +113,7 @@ export function ClientSyncProvider({
         unread,
         chats,
         refresh: performSync,
+        ingestSync,
         currentConversationId,
         setCurrentConversationId,
       }}

@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { aiCharacters, conversations, messages } from '@/db/schema';
+import { aiCharacters, conversations, messages, notifications } from '@/db/schema';
 import { getMediaForMessages, type MediaAssetView } from '@/server/media';
 export type ConversationView = {
   id: string;
@@ -118,6 +118,17 @@ export async function markConversationRead(userId: string, conversationId: strin
     .update(conversations)
     .set({ lastReadAt: new Date() })
     .where(and(eq(conversations.id, conversationId), eq(conversations.userId, userId)));
+  // 打开会话即视为看到消息：同步清除通知中心里该会话的未读通知（Telegram/QQ 逻辑）
+  await db
+    .update(notifications)
+    .set({ read: true })
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        eq(notifications.conversationId, conversationId),
+        eq(notifications.read, false),
+      ),
+    );
 }
 
 export async function totalUnreadMessages(userId: string) {

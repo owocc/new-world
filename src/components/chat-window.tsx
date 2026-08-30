@@ -441,7 +441,7 @@ export function ChatWindow({
   isDevMode?: boolean;
 }) {
   const toast = useAppToast();
-  const { refresh: refreshSync } = useClientSync();
+  const { refresh: refreshSync, ingestSync } = useClientSync();
   const searchParams = useSearchParams();
   const profileOpen = searchParams?.get('profile') === '1';
 
@@ -464,6 +464,10 @@ export function ChatWindow({
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  // 已在可视范围内看过的最后一条 AI 消息（挂载时 markRead 覆盖了初始消息，故以初始值为起点）
+  const lastSeenAssistantIdRef = useRef<string | null>(
+    [...initialMessages].reverse().find((m) => m.role === 'assistant')?.id ?? null,
+  );
 
   // Poll conversation-specific sync
   const pollConversation = useCallback(async () => {
@@ -471,7 +475,12 @@ export function ChatWindow({
       const res = await fetch(`/api/chat/sync?conversationId=${conversationId}`);
       if (!res.ok) return;
       const data = await res.json();
-      if (!data.ok || !data.conversation) return;
+      if (!data.ok) return;
+
+      // 复用响应中现成的全局未读数与会话列表，
+      // 让侧栏列表/导航角标与聊天窗口保持同一更新节奏（避免列表延迟）
+      ingestSync({ unread: data.unread, chats: data.chats });
+      if (!data.conversation) return;
 
       const serverMsgs: MessageItem[] = (data.conversation.messages || []).map((m: any) => ({
         id: m.id,
@@ -495,7 +504,7 @@ export function ChatWindow({
     } catch (err) {
       console.error('[ChatWindow] sync error', err);
     }
-  }, [conversationId]);
+  }, [conversationId, ingestSync]);
 
   useEffect(() => {
     markRead(conversationId);
@@ -510,6 +519,51 @@ export function ChatWindow({
 
     return () => clearInterval(interval);
   }, [conversationId, pollConversation]);
+
+  // 停留在会话底部时，新到达的消息一旦可见即标记已读，
+  // markConversationRead 会同步清除该会话的通知中心未读记录（Telegram/QQ 逻辑）
+  useEffect(() => {
+    if (!isAtBottom || document.visibilityState !== 'visible') return;
+    const lastAssistant = [...messagesList].reverse().find((m) => m.role === 'assistant');
+    if (!lastAssistant || lastAssistant.id === lastSeenAssistantIdRef.current) return;
+    lastSeenAssistantIdRef.current = lastAssistant.id;
+    markRead(conversationId)
+      .then(() => refreshSync())
+      .catch(() => {});
+  }, [isAtBottom, messagesList, conversationId, refreshSync]);
+
+  // 瞬时跳到最底部（临时覆盖 scrollArea 的 smooth 行为），用于进入会话时直接查看最新消息
+  const scrollToEndInstant = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || !stickToBottomRef.current) return;
+    const prevBehavior = el.style.scrollBehavior;
+    el.style.scrollBehavior = 'auto';
+    el.scrollTop = el.scrollHeight;
+    el.style.scrollBehavior = prevBehavior;
+  }, []);
+
+  // 点击消息列表进入会话后直接跳到最底部：
+  // 初始渲染、markdown/图片加载会持续撑高内容，需要在帧内多次校正，
+  // 并监听图片 load（捕获阶段）保持贴底
+  useEffect(() => {
+    stickToBottomRef.current = true;
+    scrollToEndInstant();
+    let cancelled = false;
+    const retry = () => {
+      if (!cancelled) scrollToEndInstant();
+    };
+    const rafIds = [requestAnimationFrame(retry), requestAnimationFrame(retry)];
+    const timers = [100, 400].map((ms) => setTimeout(retry, ms));
+    const el = scrollRef.current;
+    const onLoadCapture = () => retry();
+    el?.addEventListener('load', onLoadCapture, true);
+    return () => {
+      cancelled = true;
+      rafIds.forEach((id) => cancelAnimationFrame(id));
+      timers.forEach((id) => clearTimeout(id));
+      el?.removeEventListener('load', onLoadCapture, true);
+    };
+  }, [conversationId, scrollToEndInstant]);
 
   // Auto-scroll when new messages arrive or typing status changes
   useEffect(() => {

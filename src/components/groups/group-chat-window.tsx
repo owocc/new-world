@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -31,6 +31,7 @@ import { GroupInfoDrawer } from './group-info-drawer';
 import { Code2 } from 'lucide-react';
 import { useAppToast } from '@/lib/toast';
 import { resolveMediaUrl } from '@/lib/utils';
+import { useClientSync } from '@/components/client-sync-provider';
 import {
   sendGroupMessage,
   toggleGroupReaction,
@@ -210,6 +211,7 @@ export function GroupChatWindow({
   isDevMode?: boolean;
 }) {
   const toast = useAppToast();
+  const { refresh: refreshSync } = useClientSync();
   const [isPending, startTransition] = useTransition();
   const [showDevInspector, setShowDevInspector] = useState(false);
   const [messages, setMessages] = useState<GroupMessageView[]>(initialMessages);
@@ -242,6 +244,50 @@ export function GroupChatWindow({
   useEffect(() => {
     markGroupAsRead(group.id).catch(console.error);
   }, [group.id]);
+
+  // 停留在群聊底部时，新到达的消息一旦可见即标记已读（Telegram/QQ 逻辑）
+  const lastSeenGroupMessageIdRef = useRef<string | null>(initialMessages.at(-1)?.id ?? null);
+  useEffect(() => {
+    if (!isAtBottom || document.visibilityState !== 'visible') return;
+    const last = messages[messages.length - 1];
+    if (!last || last.id === lastSeenGroupMessageIdRef.current) return;
+    lastSeenGroupMessageIdRef.current = last.id;
+    markGroupAsRead(group.id)
+      .then(() => refreshSync())
+      .catch(console.error);
+  }, [isAtBottom, messages, group.id, refreshSync]);
+
+  // 瞬时跳到最底部，用于进入群聊时直接查看最新消息
+  const scrollToEndInstant = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || !stickToBottomRef.current) return;
+    const prevBehavior = el.style.scrollBehavior;
+    el.style.scrollBehavior = 'auto';
+    el.scrollTop = el.scrollHeight;
+    el.style.scrollBehavior = prevBehavior;
+  }, []);
+
+  // 进入群聊后直接跳到最底部：初始渲染与图片加载会持续撑高内容，
+  // 在帧内多次校正并用捕获监听图片 load 保持贴底
+  useEffect(() => {
+    stickToBottomRef.current = true;
+    scrollToEndInstant();
+    let cancelled = false;
+    const retry = () => {
+      if (!cancelled) scrollToEndInstant();
+    };
+    const rafIds = [requestAnimationFrame(retry), requestAnimationFrame(retry)];
+    const timers = [100, 400].map((ms) => setTimeout(retry, ms));
+    const el = scrollRef.current;
+    const onLoadCapture = () => retry();
+    el?.addEventListener('load', onLoadCapture, true);
+    return () => {
+      cancelled = true;
+      rafIds.forEach((id) => cancelAnimationFrame(id));
+      timers.forEach((id) => clearTimeout(id));
+      el?.removeEventListener('load', onLoadCapture, true);
+    };
+  }, [group.id, scrollToEndInstant]);
 
   const scrollToBottom = () => {
     const el = scrollRef.current;
@@ -276,6 +322,7 @@ export function GroupChatWindow({
   }, []);
 
   // Real-time polling for group messages
+  const lastGroupMsgCountRef = useRef(initialMessages.length);
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -283,6 +330,11 @@ export function GroupChatWindow({
         if (res.ok) {
           const data = await res.json();
           if (data.ok && Array.isArray(data.messages)) {
+            // 群消息有更新时同步刷新全局未读数与会话列表，避免侧栏列表延迟
+            if (data.messages.length !== lastGroupMsgCountRef.current) {
+              lastGroupMsgCountRef.current = data.messages.length;
+              refreshSync();
+            }
             setMessages(data.messages);
           }
         }
@@ -292,7 +344,7 @@ export function GroupChatWindow({
     }, 3500);
 
     return () => clearInterval(interval);
-  }, [group.id]);
+  }, [group.id, refreshSync]);
 
   // Image Upload helper
   const uploadImageFile = async (file: File) => {
