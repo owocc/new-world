@@ -11,7 +11,9 @@ import '@/theme/my-world.css';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
-const THEME_COLORS = {light: '#faf9f7', dark: '#141210'} as const;
+// 与应用表面色一致（--color-background-surface，见 src/theme/my-world.js），
+// Android PWA 状态栏由 theme-color 填充，必须与页面顶部背景完全一致才无缝隙
+const THEME_COLORS = {light: '#FFFBF8', dark: '#1F1B18'} as const;
 
 // 始终把两条 theme-color meta 改写为当前生效的颜色：Android 安装后的 PWA
 // 取第一条 meta 且不理会 media 查询，所以不能依赖 media 自动切换。
