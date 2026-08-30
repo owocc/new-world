@@ -35,7 +35,7 @@ const SECTIONS = [
         href: '/settings/account',
         label: '账户与资料',
         icon: User,
-        isMatch: (p: string) => p === '/settings' || p.startsWith('/settings/account'),
+        isMatch: (p: string) => p.startsWith('/settings/account'),
       },
       {
         href: '/settings/appearance',

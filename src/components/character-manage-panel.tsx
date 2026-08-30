@@ -38,6 +38,10 @@ const styles = stylex.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 'var(--spacing-4)',
+    '@media (max-width: 639px)': {
+      flexWrap: 'wrap',
+      rowGap: 'var(--spacing-2)',
+    },
   },
   headerLeft: {
     display: 'flex',
@@ -64,10 +68,20 @@ const styles = stylex.create({
     gap: 'var(--spacing-2)',
     flexShrink: 0,
     flexWrap: 'nowrap',
+    '@media (max-width: 639px)': {
+      flex: '1 1 100%',
+      flexWrap: 'wrap',
+      rowGap: 'var(--spacing-2)',
+    },
   },
   searchWrap: {
     width: '220px',
     flexShrink: 0,
+    '@media (max-width: 639px)': {
+      flex: 1,
+      width: 'auto',
+      minWidth: 0,
+    },
   },
   buttonLink: {
     textDecoration: 'none',

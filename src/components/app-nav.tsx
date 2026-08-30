@@ -7,6 +7,7 @@ import { colorVars, radiusVars, shadowVars } from '@astryxdesign/core/theme/toke
 import { DropdownMenu } from '@astryxdesign/core/DropdownMenu';
 import { UserAvatar } from '@/components/user-avatar';
 import {
+  Bell,
   Compass,
   MessageCircle,
   Moon,
@@ -27,6 +28,9 @@ const styles = stylex.create({
     width: '100vw',
     overflow: 'hidden',
     backgroundColor: colorVars['--color-background-body'],
+    '@media (max-width: 639px)': {
+      flexDirection: 'column',
+    },
   },
   rail: {
     display: 'flex',
@@ -37,6 +41,9 @@ const styles = stylex.create({
     justifyContent: 'space-between',
     paddingBlock: 14,
     userSelect: 'none',
+    '@media (max-width: 639px)': {
+      display: 'none',
+    },
   },
   top: {
     display: 'flex',
@@ -135,6 +142,9 @@ const styles = stylex.create({
     flex: 1,
     padding: 12,
     paddingLeft: 0,
+    '@media (max-width: 639px)': {
+      padding: 0,
+    },
   },
   card: {
     display: 'flex',
@@ -147,6 +157,70 @@ const styles = stylex.create({
     borderColor: colorVars['--color-border'],
     borderRadius: radiusVars['--radius-page'],
     backgroundColor: colorVars['--color-background-surface'],
+    '@media (max-width: 639px)': {
+      border: 'none',
+      borderRadius: 0,
+    },
+  },
+  bottomBar: {
+    display: 'none',
+    '@media (max-width: 639px)': {
+      display: 'flex',
+      flexShrink: 0,
+      alignItems: 'stretch',
+      justifyContent: 'space-around',
+      width: '100%',
+      borderTop: '1px solid',
+      borderTopColor: colorVars['--color-border'],
+      backgroundColor: colorVars['--color-background-surface'],
+      paddingBottom: 'env(safe-area-inset-bottom)',
+      userSelect: 'none',
+      zIndex: 50,
+    },
+  },
+  tab: {
+    position: 'relative',
+    display: 'flex',
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    paddingBlock: 8,
+    color: colorVars['--color-text-secondary'],
+    textDecoration: 'none',
+    transitionProperty: 'color',
+    transitionDuration: '150ms',
+    ':focus-visible': {
+      outline: '2px solid',
+      outlineColor: colorVars['--color-accent'],
+      outlineOffset: -2,
+    },
+  },
+  tabActive: {
+    color: colorVars['--color-text-accent'],
+  },
+  tabLabel: {
+    fontSize: 10,
+    fontWeight: 500,
+    lineHeight: 1.2,
+  },
+  tabBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 'calc(50% - 20px)',
+    display: 'flex',
+    minWidth: 15,
+    height: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radiusVars['--radius-full'],
+    backgroundColor: colorVars['--color-accent'],
+    paddingInline: 4,
+    color: colorVars['--color-on-accent'],
+    fontSize: 9,
+    fontWeight: 700,
+    boxShadow: shadowVars['--shadow-low'],
   },
 });
 
@@ -208,6 +282,27 @@ export function AppNav({
       label: '朋友圈',
       icon: Compass,
       selected: isActive(pathname, '/feed') || isActive(pathname, '/post'),
+    },
+  ];
+
+  // 手机端底部标签栏：消息 / 联系人 / 朋友圈 / 通知 / 设置
+  const MOBILE_TABS = [
+    ...NAV_ITEMS,
+    {
+      href: '/notifications',
+      label: '通知',
+      icon: Bell,
+      badge: liveUnreadNotifications,
+      selected: isActive(pathname, '/notifications'),
+    },
+    {
+      href: '/settings',
+      label: '设置',
+      icon: Settings,
+      badge: 0,
+      selected:
+        isActive(pathname, '/settings') ||
+        isActive(pathname, '/usage'),
     },
   ];
 
@@ -309,6 +404,26 @@ export function AppNav({
           {children}
         </div>
       </main>
+
+      {/* Mobile Bottom Tab Bar */}
+      <nav {...stylex.props(styles.bottomBar)} aria-label="底部导航">
+        {MOBILE_TABS.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-label={item.label}
+              aria-current={item.selected ? 'page' : undefined}
+              {...stylex.props(styles.tab, item.selected ? styles.tabActive : styles.navIdle)}
+            >
+              <Icon size={22} strokeWidth={item.selected ? 2.2 : 1.8} />
+              <span {...stylex.props(styles.tabLabel)}>{item.label}</span>
+              {item.badge ? <UnreadBadge count={item.badge} /> : null}
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }

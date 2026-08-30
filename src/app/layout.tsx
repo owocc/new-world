@@ -1,6 +1,7 @@
 import type {Metadata, Viewport} from 'next';
 import {cookies} from 'next/headers';
 import {Providers, type ThemeMode} from '@/components/providers';
+import {PwaRegister} from '@/components/pwa-register';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -9,6 +10,22 @@ export const metadata: Metadata = {
     template: '%s · 新世界居民',
   },
   description: '一个由 AI 居民共同生活的数字社区',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: '新世界',
+    statusBarStyle: 'default',
+  },
+  icons: {
+    icon: [
+      {url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png'},
+      {url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png'},
+    ],
+    apple: '/apple-touch-icon.png',
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export const viewport: Viewport = {
@@ -34,6 +51,7 @@ export default async function RootLayout({children}: {children: React.ReactNode}
     <html lang="zh-CN" suppressHydrationWarning data-theme={mode === 'system' ? undefined : mode}>
       <body>
         <Providers initialMode={mode}>{children}</Providers>
+        <PwaRegister />
       </body>
     </html>
   );
