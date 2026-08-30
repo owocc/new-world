@@ -14,6 +14,7 @@ export async function scheduleGroupMessageAttention(
   senderCharacterId?: string | null,
   content: string = '',
   replyToMessageId?: string | null,
+  mentions?: { type: string; id: string; name?: string; username?: string }[],
 ): Promise<void> {
   const now = new Date();
 
@@ -53,8 +54,9 @@ export async function scheduleGroupMessageAttention(
   for (const { member, character } of aiMembers) {
     const profile = resolveSocialProfile(character);
 
-    // Check mention
+    // Check mention via content string or explicit mentions array
     const isMentioned =
+      (mentions && mentions.some((m) => m.type === 'ai' && (m.id === character.id || m.username === character.username))) ||
       content.includes(`@${character.name}`) ||
       content.includes(`@${character.username}`);
 
@@ -62,19 +64,22 @@ export async function scheduleGroupMessageAttention(
 
     let priority = 1;
     let triggerType = 'new_message';
+    let scheduledFor: Date;
 
     if (isMentioned) {
       priority = 3;
       triggerType = 'mention';
+      // When @mentioned directly, schedule immediately (due now) so it triggers 100% on fast-path tick
+      scheduledFor = now;
     } else if (isDirectlyReplied) {
       priority = 2;
       triggerType = 'reply';
+      scheduledFor = calculateScheduledTime(profile, priority, { now });
+    } else {
+      scheduledFor = calculateScheduledTime(profile, priority, { now });
     }
 
-    const scheduledFor = calculateScheduledTime(profile, priority, { now });
     const dedupeKey = `${groupId}:${character.id}`;
-
-    // Check if there is already a pending event for this (group, character)
     const [existing] = await db
       .select()
       .from(groupAttentionEvents)

@@ -305,7 +305,7 @@ export async function sendGroupMessage(groupId: string, input: z.input<typeof se
     if (mediaAssetIds.length > 0) {
       await waitForMediaPerceptions(userId, mediaAssetIds, 25000);
     }
-    await scheduleGroupMessageAttention(userId, groupId, msgId, null, content, replyToMessageId);
+    await scheduleGroupMessageAttention(userId, groupId, msgId, null, content, replyToMessageId, mentions);
     // Opportunistically run due events (e.g. fast-path @mentions)
     await tickGroupAttention(userId, groupId, 4);
   });
@@ -351,6 +351,19 @@ export async function toggleGroupReaction(groupId: string, messageId: string, em
 
   revalidatePath(`/groups/${groupId}`);
   return { ok: true };
+}
+
+/**
+ * Poke an AI member in a group.
+ */
+export async function pokeGroupMember(groupId: string, characterId: string) {
+  const userId = await requireUserId();
+  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/groups/${groupId}/poke`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ characterId }),
+  });
+  return res.json();
 }
 
 /**

@@ -172,6 +172,17 @@ export async function makeGroupDecision(
         memoryFact: result.memoryFact ?? undefined,
       };
     }
+    // If forced to engage (e.g. direct @mention or priority >= 3), guarantee reply
+    if ((opts.forceEngage || ctx.isMentioned) && result.action === 'none') {
+      return {
+        action: 'reply',
+        replyContent: result.replyContent?.trim() || '在呢，怎么啦？',
+        targetMessageId: fallbackTargetId,
+        reasoning: '被 @ 强制响应',
+        shouldFormMemory: result.shouldFormMemory,
+        memoryFact: result.memoryFact ?? undefined,
+      };
+    }
 
     return {
       action: 'none',
@@ -181,6 +192,9 @@ export async function makeGroupDecision(
     };
   } catch (err) {
     console.error(`[group-decision] error for ${character.name}:`, err);
+    if (opts.forceEngage || ctx.isMentioned) {
+      return { action: 'reply', replyContent: '收到~', reasoning: '决策异常保底回复' };
+    }
     return { action: 'none', reasoning: '决策模型调用异常，降级为静默阅读' };
   }
 }

@@ -23,6 +23,7 @@ import {
 import { Markdown } from '@astryxdesign/core/Markdown';
 import { Button } from '@astryxdesign/core/Button';
 import { Text } from '@astryxdesign/core/Text';
+import { Item } from '@astryxdesign/core/Item';
 import { UserAvatar } from '@/components/user-avatar';
 import { MediaLightbox } from '@/components/media-lightbox';
 import { ChatContextInspector } from '@/components/chat-context-inspector';
@@ -143,13 +144,19 @@ const styles = stylex.create({
   replyBarInner: {display: 'flex', minWidth: 0, alignItems: 'center', gap: '6px', overflow: 'hidden'},
   smallSecondary: {color: 'var(--color-text-secondary)'},
   smallButton: {padding: '2px', color: 'var(--color-text-secondary)', ':hover': {color: 'var(--color-text-primary)'}},
-  mentionBox: {border: '1px solid var(--color-border)', borderRadius: 'var(--radius-container)', backgroundColor: 'var(--color-background-surface)', padding: '8px', boxShadow: 'var(--shadow-med)'},
-  mentionHeader: {display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', paddingInline: '4px', fontSize: '11px', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-secondary)'},
+  mentionBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-container)',
+    backgroundColor: 'var(--color-background-surface)',
+    padding: '6px',
+    boxShadow: 'var(--shadow-med)',
+  },
+  mentionHeader: {display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', paddingInline: '6px', paddingBlock: '2px', fontSize: '11px', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-secondary)'},
   mentionLabel: {display: 'flex', alignItems: 'center', gap: '4px'},
-  mentionList: {display: 'flex', maxHeight: '128px', flexWrap: 'wrap', gap: '6px', overflowY: 'auto'},
-  mentionItem: {display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-container)', backgroundColor: 'var(--color-background-muted)', paddingInline: '10px', paddingBlock: '4px', fontSize: 'var(--font-size-xs)', transition: 'all 150ms ease', ':hover': {borderColor: 'var(--color-accent)', backgroundColor: 'var(--color-overlay-hover)'}},
-  mentionName: {fontWeight: 'var(--font-weight-medium)'},
-  mentionUsername: {fontSize: '10px', color: 'var(--color-text-secondary)'},
+  mentionList: {display: 'flex', flexDirection: 'column', maxHeight: '200px', gap: '2px', overflowY: 'auto'},
+  mentionItemWrap: {borderRadius: 'var(--radius-element)', overflow: 'hidden'},
   pendingRow: {display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', paddingBlock: '4px'},
   pendingItem: {position: 'relative', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-container)', backgroundColor: 'var(--color-background-surface)', padding: '6px 8px 6px 6px', fontSize: 'var(--font-size-xs)'},
   preview: {position: 'relative', display: 'flex', width: '48px', height: '48px', flexShrink: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 'var(--radius-element)', backgroundColor: 'var(--color-background-muted)'},
@@ -187,6 +194,7 @@ export function GroupChatWindow({
   const [inputValue, setInputValue] = useState('');
   const [replyingTo, setReplyingTo] = useState<GroupMessageView | null>(null);
   const [showMentionPicker, setShowMentionPicker] = useState(false);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
   const [showInfoDrawer, setShowInfoDrawer] = useState(false);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [activeLightboxMedia, setActiveLightboxMedia] = useState<{
@@ -458,6 +466,8 @@ export function GroupChatWindow({
     }
   };
 
+  const aiMembers = members.filter((m) => m.memberType === 'ai');
+
   const insertMention = (member: GroupMemberView) => {
     setInputValue((prev) => {
       // If the user already typed a trailing '@', replace it with '@Member ' rather than appending '@@Member '
@@ -466,6 +476,72 @@ export function GroupChatWindow({
     });
     setShowMentionPicker(false);
   };
+
+  // Double click avatar triggers poke (拍一拍)
+  const handlePoke = async (characterId: string, characterName: string) => {
+    try {
+      const tempId = `temp-poke-${Date.now()}`;
+      const pokeContent = `${user.name || '我'} 拍了拍 ${characterName}`;
+      const optimisticPoke: GroupMessageView = {
+        id: tempId,
+        groupId: group.id,
+        senderType: 'system',
+        senderCharacterId: null,
+        senderName: '系统',
+        senderUsername: 'system',
+        senderAvatarEmoji: '🤖',
+        senderAvatarColor: 'gray',
+        senderAvatarUrl: null,
+        content: pokeContent,
+        attachments: [],
+        replyTo: null,
+        mentions: [{ type: 'ai', id: characterId, name: characterName, username: '' }],
+        reactions: [],
+        createdAt: new Date(),
+      };
+      setMessages((prev) => [...prev, optimisticPoke]);
+      scrollToBottom();
+
+      const res = await fetch(`/api/groups/${group.id}/poke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ characterId }),
+      });
+      if (!res.ok) {
+        console.error('[GroupChatWindow] poke request failed');
+      }
+    } catch (err) {
+      console.error('[GroupChatWindow] poke error', err);
+    }
+  };
+  // Keyboard navigation when mention picker is open
+  useEffect(() => {
+    if (!showMentionPicker) {
+      setSelectedMentionIndex(0);
+      return;
+    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (aiMembers.length === 0) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedMentionIndex((prev) => (prev + 1) % aiMembers.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedMentionIndex((prev) => (prev - 1 + aiMembers.length) % aiMembers.length);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const selected = aiMembers[selectedMentionIndex];
+        if (selected) {
+          insertMention(selected);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowMentionPicker(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [showMentionPicker, selectedMentionIndex, aiMembers]);
 
   return (
     <div {...stylex.props(styles.root)}>
@@ -627,7 +703,21 @@ export function GroupChatWindow({
                   );
                 }
 
-                const charAvatar = (
+                const charAvatar = m.senderCharacterId ? (
+                  <div
+                    onDoubleClick={() => handlePoke(m.senderCharacterId!, m.senderName)}
+                    style={{ cursor: 'pointer' }}
+                    title="双击拍一拍"
+                  >
+                    <UserAvatar
+                      name={m.senderName}
+                      emoji={m.senderAvatarEmoji}
+                      color={m.senderAvatarColor}
+                      url={m.senderAvatarUrl}
+                      size={36}
+                    />
+                  </div>
+                ) : (
                   <UserAvatar
                     name={m.senderName}
                     emoji={m.senderAvatarEmoji}
@@ -763,26 +853,31 @@ export function GroupChatWindow({
                 </button>
               </div>
               <div {...stylex.props(styles.mentionList)}>
-                {members
-                  .filter((m) => m.memberType === 'ai')
-                  .map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
+                {aiMembers.map((m, idx) => (
+                  <div
+                    key={m.id}
+                    {...stylex.props(styles.mentionItemWrap)}
+                    onMouseEnter={() => setSelectedMentionIndex(idx)}
+                  >
+                    <Item
+                      startContent={
+                        <UserAvatar
+                          name={m.name}
+                          emoji={m.avatarEmoji}
+                          color={m.avatarColor}
+                          size={24}
+                          tooltip={false}
+                        />
+                      }
+                      label={m.name}
+                      description={`@${m.username}`}
+                      density="compact"
+                      layout="inline"
+                      isHighlighted={idx === selectedMentionIndex}
                       onClick={() => insertMention(m)}
-                      {...stylex.props(styles.mentionItem)}
-                    >
-                      <UserAvatar
-                        name={m.name}
-                        emoji={m.avatarEmoji}
-                        color={m.avatarColor}
-                        size={20}
-                        tooltip={false}
-                      />
-                      <span {...stylex.props(styles.mentionName)}>{m.name}</span>
-                      <span {...stylex.props(styles.mentionUsername)}>@{m.username}</span>
-                    </button>
-                  ))}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           )}

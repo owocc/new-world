@@ -194,19 +194,9 @@ export function calculateScheduledTime(
   let delayMs: number;
 
   if (priority >= 3) {
-    // High Priority: @Mention
+    // High Priority: @Mention -> Prompt response
     const [minMs, maxMs] = profile.mentionDelayMs;
-    // If active: short delay (e.g. 5s - 25s)
-    if (isActive) {
-      delayMs = minMs + Math.random() * (maxMs - minMs);
-    } else {
-      // If sleeping, either quick wake up (30% chance for urgent mentions) or deferred
-      if (Math.random() < 0.35) {
-        delayMs = 30 * 1000 + Math.random() * 60 * 1000;
-      } else {
-        delayMs = 20 * 60 * 1000 + Math.random() * 60 * 60 * 1000;
-      }
-    }
+    delayMs = minMs + Math.random() * (maxMs - minMs);
   } else if (priority === 2) {
     // Medium Priority: Direct reply to AI's previous message
     if (isActive) {
