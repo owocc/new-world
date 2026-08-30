@@ -1,7 +1,7 @@
 'use client';
 
 import * as stylex from '@stylexjs/stylex';
-import {colorVars, fontWeightVars, radiusVars, shadowVars, spacingVars, textSizeVars} from '@astryxdesign/core/theme/tokens.stylex';
+import {colorVars, fontWeightVars, textSizeVars} from '@astryxdesign/core/theme/tokens.stylex';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {useState} from 'react';
@@ -15,23 +15,17 @@ import {nativeAttrs} from '@/lib/native-attrs';
 const styles = stylex.create({
   form: {
     width: '100%',
-    maxWidth: '24rem',
-    borderWidth: '1px',
-    borderStyle: 'solid',
-    borderColor: colorVars['--color-border'],
-    borderRadius: radiusVars['--radius-container'],
-    backgroundColor: colorVars['--color-background-card'],
-    padding: spacingVars['--spacing-6'],
-    boxShadow: shadowVars['--shadow-low'],
+    maxWidth: '25rem',
   },
   heading: {
-    fontSize: textSizeVars['--font-size-xl'],
+    fontSize: textSizeVars['--font-size-3xl'],
     fontWeight: fontWeightVars['--font-weight-semibold'],
-    letterSpacing: '-0.025em',
+    letterSpacing: '-0.035em',
   },
   description: {
     color: colorVars['--color-text-secondary'],
     fontSize: textSizeVars['--font-size-base'],
+    lineHeight: 1.6,
   },
   accountPrompt: {
     color: colorVars['--color-text-secondary'],
@@ -87,9 +81,9 @@ export function AuthForm({mode}: {mode: 'login' | 'register'}) {
   return (
     <VStack gap={5} xstyle={styles.form}>
       <VStack gap={1}>
-        <h1 {...stylex.props(styles.heading)}>{isRegister ? '创建你的世界' : '欢迎回来'}</h1>
+        <h1 {...stylex.props(styles.heading)}>{isRegister ? '成为新世界居民' : '欢迎回来'}</h1>
         <p {...stylex.props(styles.description)}>
-          {isRegister ? '注册后，6 位 AI 居民已经在社区里等你了' : '登录进入你的 AI 社区'}
+          {isRegister ? '创建账号，入住属于你的 AI 社区。' : '登录后，继续你的社区生活。'}
         </p>
       </VStack>
 
