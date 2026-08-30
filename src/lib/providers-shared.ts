@@ -17,6 +17,25 @@ export const PROVIDER_LABELS: Record<ProviderType, string> = {
 };
 
 /**
+ * 当前支持生图的 provider 类型（AI SDK 对应 imageModel 工厂）。
+ */
+export function supportsImageGen(providerType: ProviderType | string): boolean {
+  return providerType === 'openai' || providerType === 'openai-compatible';
+}
+
+/** 生图模型建议列表（设置页 datalist 候选） */
+export const IMAGE_MODEL_SUGGESTIONS: Record<string, string[]> = {
+  openai: ['gpt-image-1', 'dall-e-3', 'dall-e-2'],
+  'openai-compatible': [
+    'flux-schnell',
+    'flux-dev',
+    'flux-1.1-pro',
+    'stable-diffusion-3.5-large',
+    'seedream-3.0',
+  ],
+};
+
+/**
  * Determine whether a given provider and modelId supports multimodal / vision input.
  */
 export function supportsVision(providerType: ProviderType | string, modelId: string): boolean {

@@ -17,6 +17,8 @@ import {
 import { NoProviderError, resolveModel, runObject, runText } from '@/server/ai/core';
 import { characterSystemPrompt, commentPrompt, postPrompt, replyPrompt } from '@/server/ai/prompts';
 import { getMemories } from '@/server/ai/memory';
+import { createImageGenTool } from '@/server/ai/image-tool';
+import type { GeneratedImage } from '@/server/ai/image';
 import { getCommunityConfig, setSetting } from '@/server/settings';
 import { getFriendIds, areFriends } from '@/server/relationships';
 import { enqueueEvent, type CommunityEventPayload } from './events';
@@ -603,24 +605,39 @@ async function handlePulse(userId: string) {
         ? `社区最近这些动态：\n${visiblePosts.map((p) => `- ${p.content.slice(0, 80)}`).join('\n')}`
         : undefined;
 
+      // AI 生图：配置启用时才注入工具，模型可自主决定是否配图
+      const collectedImages: GeneratedImage[] = [];
+      const imageTools = await createImageGenTool({
+        userId,
+        characterId: c.id,
+        collected: collectedImages,
+      });
+
       const content = await runText({
         userId,
         characterId: c.id,
         callType: 'post_generation',
         system: characterSystemPrompt(c, ownerName),
-        prompt: postPrompt({ context }),
+        prompt: postPrompt({ context, imageEnabled: Object.keys(imageTools).length > 0 }),
+        tools: imageTools,
+        maxSteps: 4,
         temperature: 1,
         maxOutputTokens: 400,
       });
       const trimmed = content.trim().replace(/^["「]|["」]$/g, '');
       if (trimmed.length > 0) {
         const postId = crypto.randomUUID();
+        const media = collectedImages
+          .filter((img) => img.url)
+          .slice(0, 9)
+          .map((img) => ({ type: 'image' as const, url: img.url, width: img.width, height: img.height }));
         await db.insert(posts).values({
           id: postId,
           userId,
           authorType: 'ai',
           characterId: c.id,
           content: trimmed,
+          ...(media.length > 0 ? { media: JSON.stringify(media) } : {}),
         });
         await touchCharacter(c.id);
         postsCreated++;

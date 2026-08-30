@@ -1,4 +1,4 @@
-import { generateText, generateObject, streamText, type LanguageModelUsage, type ModelMessage } from 'ai';
+import { generateText, generateObject, streamText, stepCountIs, type LanguageModelUsage, type ModelMessage } from 'ai';
 import type { z } from 'zod';
 import { db } from '@/db';
 import { aiCharacters, aiUsage } from '@/db/schema';
@@ -22,6 +22,7 @@ export type CallType =
   | 'summary'
   | 'system'
   | 'image_understanding'
+  | 'image_generation'
   | 'group_message'
   | 'group_attention'
   | 'group_decision'
@@ -232,6 +233,8 @@ export type RunTextOptions = {
   prompt?: string;
   messages?: ModelMessage[];
   tools?: Record<string, any>;
+  /** 工具调用循环上限（传入 tools 时建议设置，默认 1 步即工具调用后直接结束） */
+  maxSteps?: number;
   temperature?: number;
   maxOutputTokens?: number;
 };
@@ -247,7 +250,12 @@ export async function runText(opts: RunTextOptions): Promise<string> {
       ...(opts.messages && opts.messages.length > 0
         ? { messages: opts.messages }
         : { prompt: opts.prompt ?? '' }),
-      ...(opts.tools ? { tools: opts.tools } : {}),
+      ...(opts.tools
+        ? {
+            tools: opts.tools,
+            stopWhen: stepCountIs(opts.maxSteps ?? 3),
+          }
+        : {}),
       temperature: opts.temperature ?? resolved.temperature ?? undefined,
       maxOutputTokens: opts.maxOutputTokens ?? resolved.maxTokens ?? undefined,
     });

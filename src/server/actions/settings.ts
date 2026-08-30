@@ -9,10 +9,12 @@ import { requireUserId } from '@/lib/session';
 import { PROVIDER_TYPES, supportsVision } from '@/lib/providers-shared';
 import {
   setSetting,
+  setImageGenConfig,
   setNotificationPrefs,
   type CommunityConfig,
   type NotificationPrefs,
 } from '@/server/settings';
+import { generateCharacterImage } from '@/server/ai/image';
 import { generateObject } from 'ai';
 import { createModelFor, getProviderConfig, getModelPrice, fetchProviderModels } from '@/server/ai/providers';
 import {
@@ -201,6 +203,43 @@ export async function saveVisionConfig(input: z.input<typeof visionConfigSchema>
   await setSetting(userId, 'ai_vision', parsed.data);
   revalidatePath('/settings/vision');
   return { ok: true };
+}
+
+const imageGenConfigSchema = z.object({
+  enabled: z.boolean(),
+  providerId: z.string().nullable(),
+  modelId: z.string().nullable(),
+});
+
+export async function saveImageGenConfig(input: z.input<typeof imageGenConfigSchema>) {
+  const userId = await requireUserId();
+  const parsed = imageGenConfigSchema.safeParse(input);
+  if (!parsed.success) return { error: '保存失败' };
+  await setImageGenConfig(userId, parsed.data);
+  revalidatePath('/settings/image');
+  return { ok: true };
+}
+
+/**
+ * Server Action: 用一句固定提示词测试生图配置是否可用，返回预览图 URL。
+ */
+export async function testImageGenAction(
+  input: z.input<typeof imageGenConfigSchema> & { prompt?: string },
+): Promise<{ ok: true; imageUrl: string } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  const parsed = imageGenConfigSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: '配置无效' };
+  try {
+    const asset = await generateCharacterImage({
+      userId,
+      characterId: null,
+      prompt: input.prompt?.trim() || 'a cute cat sitting on a windowsill, warm afternoon light, photo',
+      persist: false,
+    });
+    return { ok: true, imageUrl: asset.url };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 export type VisionProfileSettingsView = {

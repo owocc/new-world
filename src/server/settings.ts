@@ -37,11 +37,23 @@ export type DeveloperConfig = {
   /** Show token stats in inspector */
   showTokenStats?: boolean;
 };
-
 export const DEFAULT_DEVELOPER_CONFIG: DeveloperConfig = {
   enabled: false,
   showRawPrompts: true,
   showTokenStats: true,
+};
+
+export type ImageGenConfig = {
+  /** Master switch for AI image generation（关闭后 AI 完全不会调用生图） */
+  enabled: boolean;
+  providerId: string | null;
+  modelId: string | null;
+};
+
+export const DEFAULT_IMAGE_GEN_CONFIG: ImageGenConfig = {
+  enabled: false,
+  providerId: null,
+  modelId: null,
 };
 
 export type CommunityConfig = {
@@ -113,6 +125,12 @@ export const getVisionConfig = (userId: string) =>
 
 export const setVisionConfig = (userId: string, config: VisionConfig) =>
   setSetting(userId, 'ai_vision', config);
+
+export const getImageGenConfig = (userId: string) =>
+  getSetting<ImageGenConfig>(userId, 'ai_image_gen', DEFAULT_IMAGE_GEN_CONFIG);
+
+export const setImageGenConfig = (userId: string, config: ImageGenConfig) =>
+  setSetting(userId, 'ai_image_gen', config);
 
 export const getDeveloperConfig = (userId: string) =>
   getSetting<DeveloperConfig>(userId, 'developer_config', DEFAULT_DEVELOPER_CONFIG);

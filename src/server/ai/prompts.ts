@@ -79,12 +79,17 @@ ${args.replyTo}
 请以你自己的口吻回复这条评论。1 句话左右，自然、符合你的性格。直接输出回复内容。`;
 }
 
-export function postPrompt(args: { context?: string }): string {
+export function postPrompt(args: { context?: string; imageEnabled?: boolean }): string {
   return `请以你自己的口吻发一条动态（朋友圈/推文风格）。要求：
 - 30~120 字，像真实用户随手发的：日常、观点、吐槽、分享都可以
 - 贴合你的人设、兴趣和表达方式
 - 不要 hashtag 堆砌，最多 1 个
-- 直接输出动态内容${args.context ? `\n\n背景：${args.context}` : ''}`;
+- 直接输出动态内容，不要任何前缀${
+    args.imageEnabled
+      ? `
+- 你可以使用 generate_image 工具配一张图（最多 1 张）。只有当动态确实适合配图（分享生活画面、所见所闻、作品等）才调用；纯观点/吐槽/感想就不要配图。调用后直接输出配文，配文要像正常人发图时写的文字，不要描述图片本身`
+      : ''
+  }${args.context ? `\n\n背景：${args.context}` : ''}`;
 }
 
 export const DECISION_SCHEMA_INSTRUCTION = `只输出 JSON。`;

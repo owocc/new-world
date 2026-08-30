@@ -18,8 +18,11 @@ import {
   extractMemories,
 } from './memory';
 import { createHistoryRecallTool } from './recall';
+import { createImageGenTool } from './image-tool';
+import { generateCharacterImage, type GeneratedImage } from './image';
 import { formatAttachmentPromptBlock, waitForMediaPerceptions } from './vision';
 import { getMediaForMessages, type MediaAssetView } from '@/server/media';
+import { messageAttachments } from '@/db/schema';
 import type { ModelMessage } from 'ai';
 
 /**
@@ -377,6 +380,44 @@ export async function processTurn(
       generatedBubbleTexts = ['嗯。'];
     }
 
+    // AI 生图：仅在生图配置启用时进行一次决策，模型依据人设和上下文自行判断是否配图；
+    // 未配置时 resolveImageModel 返回 enabled=false，这里完全不产生任何调用。
+    let chatImage: GeneratedImage | null = null;
+    const imageToolSet = await createImageGenTool({ userId, characterId, collected: [] });
+    if (Object.keys(imageToolSet).length > 0) {
+      try {
+        const decision = await runObject({
+          userId,
+          characterId,
+          callType: 'chat',
+          system,
+          messages: [
+            ...contextMessages,
+            {
+              role: 'user' as const,
+              content: `【内部决策，不要回复用户】基于以上对话和你的人设，判断你现在是否适合随消息发一张图片（例如对方想看某个东西、你在分享生活、用画面表达更自然）。没有明确需要就选择 false。`,
+            },
+          ],
+          schema: z.object({
+            act: z.boolean().describe('是否需要生成一张图片随消息发出'),
+            prompt: z.string().describe('act 为 true 时的图片画面描述；为 false 时留空'),
+          }),
+          temperature: 0.7,
+          maxOutputTokens: 300,
+        });
+        if (decision.act && decision.prompt.trim()) {
+          chatImage = await generateCharacterImage({
+            userId,
+            characterId,
+            prompt: decision.prompt.trim(),
+          });
+        }
+      } catch (imgErr) {
+        // 生图失败不影响文字消息
+        console.error('[turn-engine] image generation skipped', imgErr);
+      }
+    }
+
     // Step 4: Fencing check & Commit messages atomically
     const commitTime = new Date();
 
@@ -413,6 +454,16 @@ export async function processTurn(
         createdAt: msgCreatedAt,
       });
       createdMsgIds.push(msgId);
+    }
+
+    // 生图结果挂到最后一条 AI 消息上（复用聊天气泡的附件渲染）
+    if (chatImage?.id && createdMsgIds.length > 0) {
+      await db.insert(messageAttachments).values({
+        id: crypto.randomUUID(),
+        messageId: createdMsgIds[createdMsgIds.length - 1],
+        mediaAssetId: chatImage.id,
+        order: 0,
+      });
     }
 
     // Update conversation lastMessageAt
