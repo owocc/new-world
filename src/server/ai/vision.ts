@@ -1,5 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { get } from '@vercel/blob';
+import sharp from 'sharp';
 import { z } from 'zod';
 import { db } from '@/db';
 import { imagePerceptions, mediaAssets } from '@/db/schema';
@@ -58,38 +59,107 @@ export type ImagePerceptionRow = typeof imagePerceptions.$inferSelect;
 export const VISION_INTERPRETER_SYSTEM_PROMPT = BUILTIN_VISION_PROFILES.general.systemPrompt;
 
 /**
- * Resolve an image URL into a format usable by Vision APIs.
- * If the URL is private Blob Storage, fetches bytes securely and converts to base64 Data URL.
+ * Compress and resize an image buffer for optimal AI vision inference.
+ * Downscales large images to max 1280px on the longest side and converts to JPEG (quality 80)
+ * to significantly reduce payload size, token consumption, and network transfer time.
+ */
+export async function compressImageBufferForVision(inputBuffer: Buffer): Promise<{ buffer: Buffer; mimeType: string }> {
+  try {
+    const pipeline = sharp(inputBuffer, { failOn: 'none' });
+    const metadata = await pipeline.metadata();
+    const maxDimension = 1280;
+    let resizeNeeded = false;
+    let width = metadata.width;
+    let height = metadata.height;
+
+    if (width && height && (width > maxDimension || height > maxDimension)) {
+      resizeNeeded = true;
+      if (width > height) {
+        height = Math.round((height * maxDimension) / width);
+        width = maxDimension;
+      } else {
+        width = Math.round((width * maxDimension) / height);
+        height = maxDimension;
+      }
+    }
+
+    let transformer = pipeline.rotate(); // auto-orient based on EXIF
+    if (resizeNeeded && width && height) {
+      transformer = transformer.resize(width, height, { fit: 'inside', withoutEnlargement: true });
+    }
+
+    // Convert to compressed jpeg for AI vision
+    const outputBuffer = await transformer.jpeg({ quality: 80, mozjpeg: true }).toBuffer();
+    return { buffer: outputBuffer, mimeType: 'image/jpeg' };
+  } catch (err) {
+    console.warn('[vision] image compression via sharp failed, falling back to original bytes', err);
+    return { buffer: inputBuffer, mimeType: 'image/jpeg' };
+  }
+}
+
+/**
+ * Resolve an image URL into a compressed data URL suitable for Vision APIs.
+ * Fetches or decodes bytes, compresses/resizes them, and returns a lightweight base64 Data URL.
  */
 async function resolveImageForVision(blobUrl: string, mimeType: string): Promise<string> {
+  let rawBuffer: Buffer | null = null;
+  let detectedMime = mimeType || 'image/jpeg';
+
   if (blobUrl.startsWith('data:')) {
-    return blobUrl;
+    const commaIndex = blobUrl.indexOf(',');
+    if (commaIndex !== -1) {
+      const header = blobUrl.slice(0, commaIndex);
+      const base64Data = blobUrl.slice(commaIndex + 1);
+      const mimeMatch = header.match(/data:([^;]+)/);
+      if (mimeMatch) detectedMime = mimeMatch[1];
+      rawBuffer = Buffer.from(base64Data, 'base64');
+    }
   }
 
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (token && blobUrl.includes('blob.vercel-storage.com')) {
-    try {
-      const blobResponse = await get(blobUrl, {
-        access: 'private',
-        token,
-      });
-      if (blobResponse && blobResponse.stream) {
-        const stream = blobResponse.stream;
-        const reader = stream.getReader();
-        const chunks: Uint8Array[] = [];
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value) chunks.push(value);
+  if (!rawBuffer) {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    if (token && blobUrl.includes('blob.vercel-storage.com')) {
+      try {
+        const blobResponse = await get(blobUrl, {
+          access: 'private',
+          token,
+        });
+        if (blobResponse && blobResponse.stream) {
+          const stream = blobResponse.stream;
+          const reader = stream.getReader();
+          const chunks: Uint8Array[] = [];
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) chunks.push(value);
+          }
+          rawBuffer = Buffer.concat(chunks);
+          detectedMime = blobResponse.blob?.contentType || detectedMime;
         }
-        const totalBuffer = Buffer.concat(chunks);
-        const base64 = totalBuffer.toString('base64');
-        const contentType = blobResponse.blob?.contentType || mimeType || 'image/jpeg';
-        return `data:${contentType};base64,${base64}`;
+      } catch (err) {
+        console.warn('[vision] @vercel/blob get failed, trying fallback fetch', err);
+      }
+    }
+  }
+
+  // Fallback direct fetch if not data: or @vercel/blob
+  if (!rawBuffer) {
+    try {
+      const res = await fetch(blobUrl);
+      if (res.ok) {
+        const arrayBuf = await res.arrayBuffer();
+        rawBuffer = Buffer.from(arrayBuf);
+        detectedMime = res.headers.get('content-type') || detectedMime;
       }
     } catch (err) {
-      console.warn('[vision] @vercel/blob get failed, trying fallback fetch', err);
+      console.warn('[vision] direct fetch of image url failed', blobUrl, err);
     }
+  }
+
+  if (rawBuffer) {
+    const compressed = await compressImageBufferForVision(rawBuffer);
+    const base64 = compressed.buffer.toString('base64');
+    return `data:${compressed.mimeType};base64,${base64}`;
   }
 
   return blobUrl;

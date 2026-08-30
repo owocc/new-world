@@ -18,9 +18,10 @@ import {
   type ResolvedModel,
 } from '@/server/ai/core';
 import {
-  VISION_INTERPRETER_SYSTEM_PROMPT,
-  imagePerceptionSchema,
   formatAttachmentPromptBlock,
+  imagePerceptionSchema,
+  VISION_INTERPRETER_SYSTEM_PROMPT,
+  compressImageBufferForVision,
   type ImagePerceptionData,
 } from '@/server/ai/vision';
 import {
@@ -328,10 +329,9 @@ export async function testVisionModelAction(formData: FormData): Promise<TestVis
   if (!validation.valid) {
     return { ok: false, error: validation.error };
   }
-
   const mime = validation.verifiedMime || 'image/jpeg';
-  const base64Data = `data:${mime};base64,${buffer.toString('base64')}`;
-
+  const compressed = await compressImageBufferForVision(buffer);
+  const base64Data = `data:${compressed.mimeType};base64,${compressed.buffer.toString('base64')}`;
   let resolved: ResolvedModel;
   if (providerId) {
     const provider = await getProviderConfig(userId, providerId);
