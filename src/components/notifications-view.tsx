@@ -24,6 +24,8 @@ import {
 
 const styles = stylex.create({
   root: {
+    display: 'flex',
+    flexDirection: 'column',
     width: '100%',
     maxWidth: 720,
     marginInline: 'auto',
@@ -31,8 +33,12 @@ const styles = stylex.create({
     paddingRight: 16,
     paddingBottom: 48,
     paddingLeft: 16,
+    // 直接作为卡片（overflow hidden）内的滚动容器，长列表在页面内滑动
+    height: '100%',
+    overflowY: 'auto',
   },
   header: {
+    flexShrink: 0,
     display: 'flex',
     flexWrap: 'wrap',
     alignItems: 'center',
@@ -52,6 +58,7 @@ const styles = stylex.create({
     color: 'var(--color-text-primary)',
   },
   filter: {
+    flexShrink: 0,
     marginBottom: 16,
   },
   empty: {
@@ -66,6 +73,7 @@ const styles = stylex.create({
     color: 'var(--color-text-secondary)',
   },
   list: {
+    flexShrink: 0,
     overflow: 'hidden',
     border: '1px solid var(--color-border)',
     borderRadius: 12,
@@ -82,6 +90,13 @@ const styles = stylex.create({
     ':hover': {
       backgroundColor: 'color-mix(in srgb, var(--color-background-muted) 70%, transparent)',
     },
+    // 移动端：一行一条通知，垂直居中
+    '@media (max-width: 639px)': {
+      alignItems: 'center',
+      gap: 10,
+      paddingInline: 12,
+      paddingBlock: 12,
+    },
   },
   unreadItem: {
     backgroundColor: 'color-mix(in srgb, var(--color-background-muted) 70%, var(--color-background-surface))',
@@ -93,6 +108,9 @@ const styles = stylex.create({
     position: 'relative',
     flexShrink: 0,
     paddingTop: 2,
+    '@media (max-width: 639px)': {
+      paddingTop: 0,
+    },
   },
   unreadDot: {
     position: 'absolute',
@@ -107,6 +125,13 @@ const styles = stylex.create({
   itemContent: {
     minWidth: 0,
     flex: 1,
+    // 移动端：整行拍平成一行（头部 + 单行截断的预览）
+    '@media (max-width: 639px)': {
+      display: 'flex',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
   },
   itemHeader: {
     display: 'flex',
@@ -114,11 +139,17 @@ const styles = stylex.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 6,
+    // 移动端：头部（名字/类型/时间）整体收缩为固定段
+    '@media (max-width: 639px)': {
+      flexShrink: 0,
+      flexWrap: 'nowrap',
+    },
   },
   character: {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   characterName: {
     fontSize: 14,
@@ -135,6 +166,10 @@ const styles = stylex.create({
     color: 'var(--color-text-secondary)',
     transitionProperty: 'color',
     transitionDuration: '125ms',
+    // 移动端单行布局下隐藏"给你发来一条私信"文案，预览本身已能说明
+    '@media (max-width: 639px)': {
+      display: 'none',
+    },
   },
   actionHover: {
     color: 'var(--color-text-primary)',
@@ -152,6 +187,20 @@ const styles = stylex.create({
     color: 'var(--color-text-secondary)',
     WebkitBoxOrient: 'vertical',
     WebkitLineClamp: 3,
+    // 移动端：去掉盒子样式，单行省略号截断
+    '@media (max-width: 639px)': {
+      display: 'block',
+      flex: 1,
+      minWidth: 0,
+      marginTop: 0,
+      paddingBlock: 0,
+      paddingInline: 0,
+      borderRadius: 0,
+      backgroundColor: 'transparent',
+      whiteSpace: 'nowrap',
+      textOverflow: 'ellipsis',
+      lineHeight: 1.4,
+    },
   },
   chevron: {
     alignSelf: 'center',
@@ -160,6 +209,9 @@ const styles = stylex.create({
     color: 'color-mix(in srgb, var(--color-text-secondary) 50%, transparent)',
     transitionProperty: 'transform, color',
     transitionDuration: '125ms',
+    '@media (max-width: 639px)': {
+      marginLeft: 0,
+    },
   },
 });
 
