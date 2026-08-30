@@ -84,10 +84,23 @@ export type ChatMessageRow = {
   userId: string;
   role: 'user' | 'assistant';
   content: string;
+  /** text | transfer | red_packet */
+  type: string;
+  payload: Record<string, unknown> | null;
   usageId: string | null;
   attachments: MediaAssetView[];
   createdAt: Date;
 };
+
+function parseMessagePayload(raw: string | null): Record<string, unknown> | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function getConversationMessages(conversationId: string, limit = 100): Promise<ChatMessageRow[]> {
   const rows = await db
@@ -106,6 +119,8 @@ export async function getConversationMessages(conversationId: string, limit = 10
     userId: r.userId,
     role: r.role as 'user' | 'assistant',
     content: r.content,
+    type: r.type ?? 'text',
+    payload: parseMessagePayload(r.payload ?? null),
     usageId: r.usageId,
     attachments: mediaMap.get(r.id) ?? [],
     createdAt: new Date(r.createdAt),

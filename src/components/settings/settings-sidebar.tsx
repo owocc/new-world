@@ -10,6 +10,7 @@ import {
   Cpu,
   Eye,
   ImagePlus,
+  Wallet,
   Code2,
   FlaskConical,
   Settings2,
@@ -60,6 +61,12 @@ const SECTIONS = [
         label: '用量统计',
         icon: BarChart3,
         isMatch: (p: string) => p.startsWith('/settings/usage'),
+      },
+      {
+        href: '/settings/wallet',
+        label: '钱包',
+        icon: Wallet,
+        isMatch: (p: string) => p.startsWith('/settings/wallet'),
       },
       {
         href: '/settings/developer',

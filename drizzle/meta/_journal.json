@@ -57,6 +57,13 @@
       "when": 1788049055245,
       "tag": "0007_elite_veda",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788117873912,
+      "tag": "0008_swift_morlun",
+      "breakpoints": true
     }
   ]
 }

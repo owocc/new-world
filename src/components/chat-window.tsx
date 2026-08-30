@@ -5,7 +5,7 @@ import * as stylex from '@stylexjs/stylex';
 import { colorVars } from '@astryxdesign/core/theme/tokens.stylex';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ArrowLeft, Code2, Image as ImageIcon, Loader2, RefreshCw, X } from 'lucide-react';
+import { ArrowLeft, Banknote, Code2, Gift, Image as ImageIcon, Loader2, RefreshCw, X } from 'lucide-react';
 import { ChatContextInspector } from '@/components/chat-context-inspector';
 import { CharacterProfile } from '@/components/character-profile';
 import {
@@ -24,6 +24,9 @@ import { MediaLightbox } from '@/components/media-lightbox';
 import { useAppToast } from '@/lib/toast';
 import { resolveMediaUrl } from '@/lib/utils';
 import { markRead } from '@/server/actions/chat';
+import { claimRedPacketAction, ensureUserWalletAction } from '@/server/actions/wallet';
+import { MoneySendDialog, TransferBubble, RedPacketBubble, type TransferPayload, type RedPacketPayload } from '@/components/chat-money';
+import type { RedPacketStatusView } from '@/server/wallet';
 import { useClientSync } from '@/components/client-sync-provider';
 import type { aiCharacters } from '@/db/schema';
 import type { MediaAssetView } from '@/server/media';
@@ -411,6 +414,8 @@ type MessageItem = {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  type?: string;
+  payload?: Record<string, unknown> | null;
   attachments?: MediaAssetView[];
   createdAt: Date | string | number;
   pending?: boolean;
@@ -451,6 +456,8 @@ export function ChatWindow({
   const [turnStatus, setTurnStatus] = useState<string>('idle');
   const [showDevInspector, setShowDevInspector] = useState(false);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const [redPacketsMap, setRedPacketsMap] = useState<Record<string, RedPacketStatusView>>({});
+  const [moneyDialogOpen, setMoneyDialogOpen] = useState(false);
   const [activeLightboxMedia, setActiveLightboxMedia] = useState<{
     id?: string | null;
     url: string;
@@ -485,13 +492,27 @@ export function ChatWindow({
       ingestSync({ unread: data.unread, chats: data.chats });
       if (!data.conversation) return;
 
-      const serverMsgs: MessageItem[] = (data.conversation.messages || []).map((m: any) => ({
+      const serverMsgs: MessageItem[] = (data.conversation.messages || []).map((m: {
+        id: string;
+        role: 'user' | 'assistant' | 'system';
+        content: string;
+        type?: string;
+        payload?: Record<string, unknown> | null;
+        attachments?: MediaAssetView[];
+        createdAt: string;
+      }) => ({
         id: m.id,
         role: m.role,
         content: m.content,
+        type: m.type ?? 'text',
+        payload: m.payload ?? null,
         attachments: m.attachments,
         createdAt: m.createdAt,
       }));
+
+      if (data.conversation.redPackets) {
+        setRedPacketsMap(data.conversation.redPackets as Record<string, RedPacketStatusView>);
+      }
 
       // Merge server messages with any optimistic pending user messages
       setMessagesList((prev) => {
@@ -512,6 +533,8 @@ export function ChatWindow({
   useEffect(() => {
     markRead(conversationId);
     pollConversation();
+    // 确保用户钱包已开户（首次聊天时自动开户赠送）
+    ensureUserWalletAction().catch(() => {});
 
     // Fast polling in active chat window for real-time responsiveness
     const interval = setInterval(() => {
@@ -777,7 +800,23 @@ export function ChatWindow({
     }
   };
 
-  // Double click avatar triggers poke (拍一拍)
+  // 点击红包气泡：领取并刷新消息与钱包状态
+  const handleClaimRedPacket = async (redPacketId: string) => {
+    try {
+      const res = await claimRedPacketAction({ redPacketId });
+      if (res?.error) {
+        toast.error(res.error);
+      } else if (res?.ok) {
+        toast.success('已领取红包');
+      }
+    } catch (err) {
+      console.error('[ChatWindow] claim red packet error', err);
+      toast.error('网络错误，领取失败');
+    }
+    await pollConversation();
+  };
+
+  // 双击头像触发 poke (拍一拍)
   const handlePoke = async (targetId?: string) => {
     if (targetId) {
       setPokingMessageId(targetId);
@@ -838,6 +877,18 @@ export function ChatWindow({
         onClose={() => setShowDevInspector(false)}
         mode="dm"
         conversationId={conversationId}
+      />
+
+      {/* 转账 / 红包发送对话框 */}
+      <MoneySendDialog
+        conversationId={conversationId}
+        characterName={character.name}
+        isOpen={moneyDialogOpen}
+        onOpenChange={setMoneyDialogOpen}
+        onSent={() => {
+          pollConversation();
+          refreshSync();
+        }}
       />
 
       <header {...stylex.props(styles.header)}>
@@ -917,7 +968,22 @@ export function ChatWindow({
                       sender={isUser ? 'user' : 'assistant'}
                       avatar={isUser ? userAvatar : renderAvatar(m.id)}
                     >
-                      <ChatMessageBubble variant="filled">
+                      {m.type === 'transfer' && m.payload ? (
+                        <TransferBubble
+                          payload={m.payload as unknown as TransferPayload}
+                          senderIsUser={isUser}
+                          characterName={character.name}
+                        />
+                      ) : m.type === 'red_packet' && m.payload ? (
+                        <RedPacketBubble
+                          payload={m.payload as unknown as RedPacketPayload}
+                          status={redPacketsMap[String((m.payload as Record<string, unknown>).redPacketId)]}
+                          senderIsUser={isUser}
+                          characterName={character.name}
+                          onClaim={handleClaimRedPacket}
+                        />
+                      ) : (
+                        <ChatMessageBubble variant="filled">
                         {/* Image attachments display */}
                         {attachments.length > 0 && (
                           <div
@@ -960,6 +1026,7 @@ export function ChatWindow({
                           )
                         ) : null}
                       </ChatMessageBubble>
+                      )}
                     </ChatMessage>
                   );
                 })}
@@ -1060,6 +1127,22 @@ export function ChatWindow({
             }
             footerActions={
               <div {...stylex.props(styles.footerActions)}>
+                <Button
+                  label="转账"
+                  variant="ghost"
+                  size="sm"
+                  icon={<Banknote size={16} />}
+                  aria-label="转账"
+                  onClick={() => setMoneyDialogOpen(true)}
+                />
+                <Button
+                  label="红包"
+                  variant="ghost"
+                  size="sm"
+                  icon={<Gift size={16} />}
+                  aria-label="发红包"
+                  onClick={() => setMoneyDialogOpen(true)}
+                />
                 <Button
                   label="图片"
                   variant="ghost"

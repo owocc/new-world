@@ -258,6 +258,10 @@ export const messages = sqliteTable('messages', {
   /** user | assistant */
   role: text('role').notNull(),
   content: text('content').notNull(),
+  /** text | transfer | red_packet（非 text 时 payload 携带结构化数据） */
+  type: text('type').notNull().default('text'),
+  /** JSON payload：transfer {amount, currency, note}；red_packet {redPacketId, amount, currency, shareCount, greeting} */
+  payload: text('payload'),
   /** link message to its conversation turn */
   turnId: text('turn_id').references(() => conversationTurns.id, { onDelete: 'set null' }),
   usageId: text('usage_id'),
@@ -265,6 +269,100 @@ export const messages = sqliteTable('messages', {
 }, (t) => [
   index('messages_conversation_idx').on(t.conversationId, t.createdAt),
   index('messages_turn_idx').on(t.turnId),
+]);
+
+/* ------------------------------------------------------------------ */
+/* Wallet（多货币钱包：当前仅启用 New World 平台余额，预留扩展）        */
+/* ------------------------------------------------------------------ */
+
+export const walletAccounts = sqliteTable('wallet_accounts', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  /** user | ai */
+  ownerType: text('owner_type').notNull(),
+  characterId: text('character_id').references(() => aiCharacters.id, { onDelete: 'cascade' }),
+  /** 货币类型，当前仅 'nw'（New World 平台余额）；预留数字钱包等扩展 */
+  currency: text('currency').notNull().default('nw'),
+  /** 余额（最小货币单位，如「分」），避免浮点误差 */
+  balance: integer('balance').notNull().default(0),
+  createdAt: ts('created_at').notNull().default(now()),
+  updatedAt: ts('updated_at').notNull().default(now()),
+}, (t) => [
+  index('wallet_accounts_user_idx').on(t.userId),
+  uniqueIndex('wallet_accounts_unique_idx').on(t.userId, t.ownerType, t.characterId, t.currency),
+]);
+
+export const walletTransactions = sqliteTable('wallet_transactions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  accountId: text('account_id')
+    .notNull()
+    .references(() => walletAccounts.id, { onDelete: 'cascade' }),
+  /** in | out */
+  direction: text('direction').notNull(),
+  /** system_grant | transfer | red_packet_send | red_packet_claim */
+  type: text('type').notNull(),
+  /** 金额（正数，最小货币单位） */
+  amount: integer('amount').notNull(),
+  currency: text('currency').notNull().default('nw'),
+  /** 交易后余额快照 */
+  balanceAfter: integer('balance_after').notNull(),
+  counterpartyType: text('counterparty_type'),
+  counterpartyCharacterId: text('counterparty_character_id'),
+  counterpartyName: text('counterparty_name'),
+  messageId: text('message_id'),
+  redPacketId: text('red_packet_id'),
+  note: text('note'),
+  createdAt: ts('created_at').notNull().default(now()),
+}, (t) => [
+  index('wallet_transactions_account_idx').on(t.accountId, t.createdAt),
+  index('wallet_transactions_user_idx').on(t.userId, t.createdAt),
+]);
+
+export const redPackets = sqliteTable('red_packets', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  messageId: text('message_id'),
+  currency: text('currency').notNull().default('nw'),
+  /** 总金额（最小货币单位） */
+  totalAmount: integer('total_amount').notNull(),
+  shareCount: integer('share_count').notNull().default(1),
+  claimedCount: integer('claimed_count').notNull().default(0),
+  claimedAmount: integer('claimed_amount').notNull().default(0),
+  /** user | ai */
+  senderType: text('sender_type').notNull(),
+  senderCharacterId: text('sender_character_id'),
+  greeting: text('greeting'),
+  /** open | claimed_out | expired */
+  status: text('status').notNull().default('open'),
+  expiresAt: ts('expires_at'),
+  createdAt: ts('created_at').notNull().default(now()),
+}, (t) => [
+  index('red_packets_user_idx').on(t.userId),
+]);
+
+export const redPacketClaims = sqliteTable('red_packet_claims', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  redPacketId: text('red_packet_id')
+    .notNull()
+    .references(() => redPackets.id, { onDelete: 'cascade' }),
+  /** 'user' 或 characterId（同一领取者一个红包只能领一次） */
+  claimantKey: text('claimant_key').notNull(),
+  /** user | ai */
+  claimantType: text('claimant_type').notNull(),
+  amount: integer('amount').notNull(),
+  createdAt: ts('created_at').notNull().default(now()),
+}, (t) => [
+  uniqueIndex('red_packet_claims_unique_idx').on(t.redPacketId, t.claimantKey),
 ]);
 
 /* ------------------------------------------------------------------ */
