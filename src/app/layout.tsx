@@ -50,6 +50,13 @@ function parseMode(value?: string): ThemeMode {
   return value === 'dark' || value === 'light' ? value : 'system';
 }
 
+// 首帧绘制前运行的主题初始化（防闪烁兜底）：
+// 1. 优先 localStorage 中保存的显式主题（cookie 丢失时仍能恢复用户选择，并回写 cookie）；
+// 2. 否则沿用 SSR 按主题 cookie 渲染的 data-theme；
+// 3. 都没有时按 prefers-color-scheme 解析（仅首帧兜底，水合后 Theme(system) 会
+//    移除 data-theme，交还 light-dark() 继续跟随系统）。
+const themeInitScript = `(function(){try{var d=document.documentElement;var stored=localStorage.getItem('theme');var t=stored==='light'||stored==='dark'?stored:d.getAttribute('data-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';d.setAttribute('data-theme',t);}else if(d.getAttribute('data-theme')!==t){d.setAttribute('data-theme',t);document.cookie='theme='+t+'; path=/; max-age=31536000; samesite=lax';}}catch(e){}})();`;
+
 export default async function RootLayout({children}: {children: React.ReactNode}) {
   // The Theme provider syncs data-theme to <html>; rendering it here from the
   // cookie avoids a flash of the wrong color-scheme before hydration.
@@ -58,6 +65,7 @@ export default async function RootLayout({children}: {children: React.ReactNode}
   return (
     <html lang="zh-CN" suppressHydrationWarning data-theme={mode === 'system' ? undefined : mode}>
       <body>
+        <script dangerouslySetInnerHTML={{__html: themeInitScript}} />
         <Providers initialMode={mode}>{children}</Providers>
         <PwaRegister />
       </body>

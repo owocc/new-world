@@ -12,7 +12,7 @@
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    background-color: var(--color-background-body);
+    background-color: var(--background);
     height: 100%;
     width: 100%;
     overflow: hidden;
@@ -23,5 +23,27 @@
   }
   ::selection {
     background: var(--color-accent-muted);
+  }
+  /* 主题语义变量：light/dark 的取值由主题 token 的 light-dark() 定义
+     （见 src/theme/my-world.js），跟随 color-scheme 自动解析——
+     color-scheme 由 html[data-theme="light|dark"] 或系统深浅色驱动。 */
+  :root {
+    --background: var(--color-background-body);
+    --foreground: var(--color-text-primary);
+  }
+}
+
+@layer utilities {
+  /* iOS PWA 安全区域（配合 viewport-fit=cover）：
+     按需加到顶层 App 容器 / Header / 底部栏，不要全局加固定 padding。 */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-area-x {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 }

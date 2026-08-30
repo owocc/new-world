@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import type { ReactElement } from 'react';
 
 export type ThemeColorMode = 'light' | 'dark' | 'system';
 
@@ -41,4 +42,14 @@ export function useThemeColorSync(mode: ThemeColorMode): void {
     mq.addEventListener('change', apply);
     return () => mq.removeEventListener('change', apply);
   }, [mode]);
+}
+
+/**
+ * ThemeColorSync 客户端组件：渲染为 null，
+ * 挂载在 Providers 中让 <meta name="theme-color"> 始终跟随 App 实际主题
+ * （而非系统主题），主题切换后状态栏颜色立即更新。
+ */
+export function ThemeColorSync({ mode }: { mode: ThemeColorMode }): ReactElement | null {
+  useThemeColorSync(mode);
+  return null;
 }
