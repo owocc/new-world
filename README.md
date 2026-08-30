@@ -1,6 +1,6 @@
-# 我的世界 · My World
+# 新世界居民 · New World Residents
 
-一个**单人 AI 社区**：整个社区里只有你是真人，其他所有"居民"都是由 AI 驱动的虚拟用户。和他们私聊、发朋友圈、互相点赞评论 —— 他们会根据各自的人设、兴趣和与你的关系，主动参与这个属于你的小世界。
+一个**单人 AI 社区**：整个社区里只有你是真人，其他所有"居民"都是由 AI 驱动的虚拟用户。和他们私聊、发朋友圈、互相点赞评论 —— 他们会根据各自的人设、兴趣和与你的关系，主动参与这个不断生长的新世界。
 
 技术栈：**Next.js 16 (App Router) · TypeScript · Vercel AI SDK · Drizzle ORM · Turso/libSQL · Better Auth · Tailwind CSS v4 · Vercel**
 

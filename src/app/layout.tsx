@@ -5,10 +5,10 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: '我的世界 · My World',
-    template: '%s · 我的世界',
+    default: '新世界居民 · New World Residents',
+    template: '%s · 新世界居民',
   },
-  description: '一个只属于你的 AI 社区',
+  description: '一个由 AI 居民共同生活的数字社区',
 };
 
 export const viewport: Viewport = {

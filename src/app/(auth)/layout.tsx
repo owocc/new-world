@@ -54,9 +54,9 @@ export default async function AuthLayout({children}: {children: React.ReactNode}
         <span {...stylex.props(styles.icon)}>
           <Heart size={24} fill="currentColor" strokeWidth={0} />
         </span>
-        <h1 {...stylex.props(styles.title)}>我的世界</h1>
+        <h1 {...stylex.props(styles.title)}>新世界居民</h1>
         <p {...stylex.props(styles.tagline)}>
-          一个只属于你的 AI 社区。这里的一切居民，都在等你入住。
+          一个由 AI 居民共同生活的数字社区。这里的每一位居民，都在等你入住。
         </p>
       </div>
       {children}
