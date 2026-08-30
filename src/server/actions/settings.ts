@@ -7,7 +7,12 @@ import { db } from '@/db';
 import { modelConfigs, providerConfigs } from '@/db/schema';
 import { requireUserId } from '@/lib/session';
 import { PROVIDER_TYPES, supportsVision } from '@/lib/providers-shared';
-import { setSetting, type CommunityConfig } from '@/server/settings';
+import {
+  setSetting,
+  setNotificationPrefs,
+  type CommunityConfig,
+  type NotificationPrefs,
+} from '@/server/settings';
 import { generateObject } from 'ai';
 import { createModelFor, getProviderConfig, getModelPrice, fetchProviderModels } from '@/server/ai/providers';
 import {
@@ -534,4 +539,11 @@ export async function syncProviderModels(providerId: string) {
   revalidatePath('/settings/providers');
   revalidatePath('/settings/providers');
   return { ok: true as const, count: remoteModels.length };
+}
+
+export async function saveNotificationPrefs(prefs: NotificationPrefs) {
+  const userId = await requireUserId();
+  await setNotificationPrefs(userId, prefs);
+  revalidatePath('/settings/notifications');
+  return { ok: true };
 }

@@ -119,3 +119,27 @@ export const getDeveloperConfig = (userId: string) =>
 
 export const setDeveloperConfig = (userId: string, config: DeveloperConfig) =>
   setSetting(userId, 'developer_config', config);
+
+export type NotificationPrefs = {
+  /** 浏览器通知总开关（需同时授予浏览器通知权限） */
+  pushEnabled: boolean;
+  /** 私信 / 聊天消息通知 */
+  dm: boolean;
+  /** 朋友圈点赞通知 */
+  like: boolean;
+  /** 评论通知 */
+  comment: boolean;
+};
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  pushEnabled: false,
+  dm: true,
+  like: true,
+  comment: true,
+};
+
+export const getNotificationPrefs = (userId: string) =>
+  getSetting<NotificationPrefs>(userId, 'notification_prefs', DEFAULT_NOTIFICATION_PREFS);
+
+export const setNotificationPrefs = (userId: string, prefs: NotificationPrefs) =>
+  setSetting(userId, 'notification_prefs', prefs);

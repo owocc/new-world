@@ -9,20 +9,23 @@ import { totalUnreadMessages } from '@/server/chat';
 import { totalUnreadGroupMessages } from '@/server/groups';
 import { getUnifiedChats } from '@/server/unified-chat';
 import { getRecentNotifications } from '@/server/actions/feed';
+import { getNotificationPrefs } from '@/server/settings';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const userId = await requireUserId();
-  const [profile, unreadMsgs, unreadGroups, unreadNotifs, initialNotifs, chats] = await Promise.all([
-    getUserProfile(userId),
-    totalUnreadMessages(userId),
-    totalUnreadGroupMessages(userId),
-    db
-      .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
-      .from(notifications)
-      .where(and(eq(notifications.userId, userId), eq(notifications.read, false))),
-    getRecentNotifications(10),
-    getUnifiedChats(userId),
-  ]);
+  const [profile, unreadMsgs, unreadGroups, unreadNotifs, initialNotifs, chats, notificationPrefs] =
+    await Promise.all([
+      getUserProfile(userId),
+      totalUnreadMessages(userId),
+      totalUnreadGroupMessages(userId),
+      db
+        .select({ count: sql<number>`CAST(count(*) AS INTEGER)` })
+        .from(notifications)
+        .where(and(eq(notifications.userId, userId), eq(notifications.read, false))),
+      getRecentNotifications(10),
+      getUnifiedChats(userId),
+      getNotificationPrefs(userId),
+    ]);
 
   return (
     <ClientSyncProvider
@@ -33,6 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         totalChats: unreadMsgs + unreadGroups,
       }}
       initialChats={chats}
+      initialNotificationPrefs={notificationPrefs}
     >
       <AppNav
         user={{

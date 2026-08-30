@@ -64,3 +64,30 @@ self.addEventListener('fetch', (event) => {
       ),
   );
 });
+
+/* 浏览器通知点击：优先聚焦已打开的对应页面，否则新开窗口 */
+self.addEventListener('notificationclick', (event) => {
+  const target = event.notification.data?.url || '/';
+  event.notification.close();
+
+  event.waitUntil(
+    (async () => {
+      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const targetPath = new URL(target, self.location.origin).pathname;
+      // 已有打开对应路径的窗口：聚焦
+      for (const client of clientList) {
+        if (new URL(client.url).pathname === targetPath) {
+          return client.focus();
+        }
+      }
+      // 已有任意应用窗口：聚焦并导航
+      for (const client of clientList) {
+        if ('focus' in client && 'navigate' in client) {
+          await client.focus();
+          return client.navigate(target);
+        }
+      }
+      return self.clients.openWindow(target);
+    })(),
+  );
+});
