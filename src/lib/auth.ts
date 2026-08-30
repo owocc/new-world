@@ -5,6 +5,10 @@ import * as schema from '@/db/schema';
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL,
+  trustedOrigins: (process.env.BETTER_AUTH_TRUSTED_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
   database: drizzleAdapter(db, {
     provider: 'sqlite',
     schema,
