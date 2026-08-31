@@ -6,6 +6,7 @@ import {
   messages,
   redPacketClaims,
   redPackets,
+  transfers,
   user,
   walletAccounts,
   walletTransactions,
@@ -23,6 +24,8 @@ export const MIN_SHARES = 1;
 export const MAX_SHARES = 20;
 /** 红包有效期 */
 export const RED_PACKET_TTL_MS = 24 * 60 * 60 * 1000;
+/** 转账有效期（未收款超时退回） */
+export const TRANSFER_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type WalletOwnerType = 'user' | 'ai';
 
@@ -192,71 +195,6 @@ async function applyLedger(
 }
 
 /**
- * 转账：from → to。原子扣款/入账并成对记录流水。
- */
-export async function walletTransfer(args: {
-  userId: string;
-  from: OwnerRef;
-  to: OwnerRef;
-  amount: number;
-  currency?: string;
-  note?: string | null;
-  messageId?: string | null;
-}) {
-  const currency = args.currency ?? DEFAULT_WALLET_CURRENCY;
-  if (!getWalletCurrency(currency).enabled) {
-    throw new WalletError(`货币类型 ${currency} 尚未启用`);
-  }
-  if (!Number.isInteger(args.amount) || args.amount <= 0) {
-    throw new WalletError('转账金额无效');
-  }
-  if (args.amount > MAX_SINGLE_AMOUNT) {
-    throw new WalletError(`单笔转账不能超过 ${formatWalletMoney(MAX_SINGLE_AMOUNT, currency)}`);
-  }
-  if (args.from.ownerType === args.to.ownerType && (args.from.characterId ?? null) === (args.to.characterId ?? null)) {
-    throw new WalletError('不能转给自己');
-  }
-
-  const fromAccount = await requireAccount(args.userId, args.from, currency);
-  const toAccount = await requireAccount(args.userId, args.to, currency);
-
-  const [fromName, toName] = await Promise.all([
-    getName(args.userId, args.from.ownerType, args.from.characterId ?? null),
-    getName(args.userId, args.to.ownerType, args.to.characterId ?? null),
-  ]);
-
-  return db.transaction(async (tx) => {
-    await applyLedger(tx, {
-      accountId: fromAccount.id,
-      userId: args.userId,
-      direction: 'out',
-      type: 'transfer',
-      amount: args.amount,
-      currency,
-      counterpartyType: args.to.ownerType,
-      counterpartyCharacterId: args.to.characterId ?? null,
-      counterpartyName: toName,
-      messageId: args.messageId ?? null,
-      note: args.note ?? null,
-    });
-    await applyLedger(tx, {
-      accountId: toAccount.id,
-      userId: args.userId,
-      direction: 'in',
-      type: 'transfer',
-      amount: args.amount,
-      currency,
-      counterpartyType: args.from.ownerType,
-      counterpartyCharacterId: args.from.characterId ?? null,
-      counterpartyName: fromName,
-      messageId: args.messageId ?? null,
-      note: args.note ?? null,
-    });
-    return { ok: true as const };
-  });
-}
-
-/**
  * 发红包：立刻扣款，红包金额冻结在红包记录中，被领取时逐份入账。
  */
 export async function createRedPacket(args: {
@@ -409,6 +347,274 @@ export async function claimRedPacket(args: {
 
     return { amount, balanceAfter, currency: current.currency };
   });
+}
+
+/**
+ * 发起转账：立即从发送者扣款冻结，收款方确认收款后才入账；
+ * 超时未收款自动原路退回。
+ */
+export async function createTransfer(args: {
+  userId: string;
+  from: OwnerRef;
+  to: OwnerRef;
+  amount: number;
+  currency?: string;
+  note?: string | null;
+  messageId?: string | null;
+}) {
+  const currency = args.currency ?? DEFAULT_WALLET_CURRENCY;
+  if (!getWalletCurrency(currency).enabled) {
+    throw new WalletError(`货币类型 ${currency} 尚未启用`);
+  }
+  if (!Number.isInteger(args.amount) || args.amount <= 0) {
+    throw new WalletError('转账金额无效');
+  }
+  if (args.amount > MAX_SINGLE_AMOUNT) {
+    throw new WalletError(`单笔转账不能超过 ${formatWalletMoney(MAX_SINGLE_AMOUNT, currency)}`);
+  }
+  if (args.from.ownerType === args.to.ownerType && (args.from.characterId ?? null) === (args.to.characterId ?? null)) {
+    throw new WalletError('不能转给自己');
+  }
+
+  const fromAccount = await requireAccount(args.userId, args.from, currency);
+  const recipientName = await getName(args.userId, args.to.ownerType, args.to.characterId ?? null);
+
+  const id = crypto.randomUUID();
+  await db.transaction(async (tx) => {
+    await applyLedger(tx, {
+      accountId: fromAccount.id,
+      userId: args.userId,
+      direction: 'out',
+      type: 'transfer_send',
+      amount: args.amount,
+      currency,
+      counterpartyType: args.to.ownerType,
+      counterpartyCharacterId: args.to.characterId ?? null,
+      counterpartyName: recipientName,
+      messageId: args.messageId ?? null,
+      note: args.note ?? null,
+    });
+    await tx.insert(transfers).values({
+      id,
+      userId: args.userId,
+      messageId: args.messageId ?? null,
+      currency,
+      amount: args.amount,
+      note: args.note ?? null,
+      senderType: args.from.ownerType,
+      senderCharacterId: args.from.characterId ?? null,
+      recipientType: args.to.ownerType,
+      recipientCharacterId: args.to.characterId ?? null,
+      status: 'pending',
+      expiresAt: new Date(Date.now() + TRANSFER_TTL_MS),
+    });
+  });
+
+  return { id };
+}
+
+/** 收款方 account key：'user' 或 characterId（与红包 claimantKey 同约定） */
+function ownerKey(owner: OwnerRef): string | null {
+  return owner.ownerType === 'user' ? 'user' : owner.characterId ?? null;
+}
+
+/**
+ * 确认收款：核验收款人身份后把冻结金额入账（transfer_receive 流水）。
+ */
+export async function acceptTransfer(args: {
+  userId: string;
+  transferId: string;
+  acceptor: OwnerRef;
+}) {
+  const acceptorKey = ownerKey(args.acceptor);
+  if (!acceptorKey) throw new WalletError('收款人无效');
+
+  const [transfer] = await db
+    .select()
+    .from(transfers)
+    .where(and(eq(transfers.id, args.transferId), eq(transfers.userId, args.userId)))
+    .limit(1);
+  if (!transfer) throw new WalletError('转账不存在');
+  if (transfer.recipientType !== args.acceptor.ownerType) throw new WalletError('无权收取这笔转账');
+  if ((transfer.recipientCharacterId ?? null) !== (args.acceptor.characterId ?? null)) {
+    throw new WalletError('无权收取这笔转账');
+  }
+  if (transfer.senderType === args.acceptor.ownerType && (transfer.senderCharacterId ?? null) === (args.acceptor.characterId ?? null)) {
+    throw new WalletError('不能收取自己发出的转账');
+  }
+  if (transfer.status === 'expired' || (transfer.expiresAt && transfer.expiresAt.getTime() < Date.now())) {
+    throw new WalletError('转账已过期退回');
+  }
+
+  const acceptorAccount = await requireAccount(args.userId, args.acceptor, transfer.currency);
+  const senderName = await getName(args.userId, transfer.senderType as WalletOwnerType, transfer.senderCharacterId);
+
+  return db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ status: transfers.status })
+      .from(transfers)
+      .where(eq(transfers.id, args.transferId))
+      .limit(1);
+    if (!current || current.status !== 'pending') {
+      throw new WalletError('这笔转账已收款或已退回');
+    }
+
+    const balanceAfter = await applyLedger(tx, {
+      accountId: acceptorAccount.id,
+      userId: args.userId,
+      direction: 'in',
+      type: 'transfer_receive',
+      amount: transfer.amount,
+      currency: transfer.currency,
+      counterpartyType: transfer.senderType,
+      counterpartyCharacterId: transfer.senderCharacterId,
+      counterpartyName: senderName,
+      messageId: transfer.messageId,
+      note: transfer.note,
+    });
+
+    const claimedAt = new Date();
+    await tx
+      .update(transfers)
+      .set({ status: 'claimed', claimedAt })
+      .where(eq(transfers.id, args.transferId));
+
+    return { amount: transfer.amount, balanceAfter, currency: transfer.currency, claimedAt };
+  });
+}
+
+/** 转账过期未收款：原路退回发送者（transfer_refund 流水）。 */
+export async function refundExpiredTransfers(userId: string): Promise<number> {
+  const expired = await db
+    .select()
+    .from(transfers)
+    .where(
+      and(
+        eq(transfers.userId, userId),
+        eq(transfers.status, 'pending'),
+        lt(transfers.expiresAt, new Date()),
+      ),
+    )
+    .limit(50);
+  if (expired.length === 0) return 0;
+
+  let refunded = 0;
+  for (const transfer of expired) {
+    try {
+      const senderAccount = await getOrCreateWalletAccount({
+        userId,
+        ownerType: transfer.senderType as WalletOwnerType,
+        characterId: transfer.senderCharacterId,
+        currency: transfer.currency,
+      });
+      await db.transaction(async (tx) => {
+        const [current] = await tx
+          .select({ status: transfers.status })
+          .from(transfers)
+          .where(eq(transfers.id, transfer.id))
+          .limit(1);
+        if (!current || current.status !== 'pending') return;
+
+        await applyLedger(tx, {
+          accountId: senderAccount.id,
+          userId,
+          direction: 'in',
+          type: 'transfer_refund',
+          amount: transfer.amount,
+          currency: transfer.currency,
+          messageId: transfer.messageId,
+          note: '转账未收款退回',
+        });
+        await tx
+          .update(transfers)
+          .set({ status: 'expired' })
+          .where(eq(transfers.id, transfer.id));
+      });
+      refunded++;
+    } catch (err) {
+      console.error('[wallet] refund expired transfer failed', transfer.id, err);
+    }
+  }
+  return refunded;
+}
+
+/** 会话内收款方（指定 AI）待收款的转账（供 AI 决定是否收款） */
+export async function getPendingTransfersForCharacter(args: {
+  userId: string;
+  conversationId: string;
+  characterId: string;
+  limit?: number;
+}) {
+  const since = new Date(Date.now() - TRANSFER_TTL_MS);
+  const rows = await db
+    .select({
+      id: transfers.id,
+      amount: transfers.amount,
+      currency: transfers.currency,
+      note: transfers.note,
+    })
+    .from(transfers)
+    .innerJoin(messages, eq(transfers.messageId, messages.id))
+    .where(
+      and(
+        eq(transfers.userId, args.userId),
+        eq(transfers.recipientType, 'ai'),
+        eq(transfers.recipientCharacterId, args.characterId),
+        eq(transfers.status, 'pending'),
+        gte(transfers.createdAt, since),
+        eq(messages.conversationId, args.conversationId),
+      ),
+    )
+    .orderBy(desc(transfers.createdAt))
+    .limit(args.limit ?? 3);
+  return rows;
+}
+
+export type TransferStatusView = {
+  transferId: string;
+  amount: number;
+  currency: string;
+  note: string | null;
+  status: string;
+  senderType: string;
+  /** 当前用户是否已收款 */
+  myClaimedAmount: number | null;
+  claimedAt: Date | null;
+};
+
+/**
+ * 批量获取转账消息的收款状态（仅限当前 userId 的转账），供聊天气泡渲染。
+ */
+export async function getTransferStatuses(
+  userId: string,
+  transferIds: string[],
+): Promise<Map<string, TransferStatusView>> {
+  if (transferIds.length === 0) return new Map();
+
+  const rows = await db
+    .select()
+    .from(transfers)
+    .where(and(eq(transfers.userId, userId), inArray(transfers.id, transferIds)));
+
+  const result = new Map<string, TransferStatusView>();
+  for (const t of rows) {
+    const iClaimed =
+      t.status === 'claimed' &&
+      ((t.recipientType === 'user' && t.recipientCharacterId === null) ||
+        (t.recipientType === 'ai' && t.recipientCharacterId !== null));
+    result.set(t.id, {
+      transferId: t.id,
+      amount: t.amount,
+      currency: t.currency,
+      note: t.note,
+      status: t.status,
+      senderType: t.senderType,
+      // 「我」视角：只有用户作为收款方领取时才展示收款金额
+      myClaimedAmount: iClaimed && t.recipientType === 'user' ? t.amount : null,
+      claimedAt: t.claimedAt,
+    });
+  }
+  return result;
 }
 
 export type WalletAccountView = {

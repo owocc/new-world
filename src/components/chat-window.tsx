@@ -24,9 +24,9 @@ import { MediaLightbox } from '@/components/media-lightbox';
 import { useAppToast } from '@/lib/toast';
 import { resolveMediaUrl } from '@/lib/utils';
 import { markRead } from '@/server/actions/chat';
-import { claimRedPacketAction, ensureUserWalletAction } from '@/server/actions/wallet';
+import { acceptTransferAction, claimRedPacketAction, ensureUserWalletAction } from '@/server/actions/wallet';
 import { MoneySendDialog, TransferBubble, RedPacketBubble, type TransferPayload, type RedPacketPayload } from '@/components/chat-money';
-import type { RedPacketStatusView } from '@/server/wallet';
+import type { RedPacketStatusView, TransferStatusView } from '@/server/wallet';
 import { useClientSync } from '@/components/client-sync-provider';
 import type { aiCharacters } from '@/db/schema';
 import type { MediaAssetView } from '@/server/media';
@@ -457,6 +457,7 @@ export function ChatWindow({
   const [showDevInspector, setShowDevInspector] = useState(false);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [redPacketsMap, setRedPacketsMap] = useState<Record<string, RedPacketStatusView>>({});
+  const [transfersMap, setTransfersMap] = useState<Record<string, TransferStatusView>>({});
   const [moneyDialogOpen, setMoneyDialogOpen] = useState(false);
   const [activeLightboxMedia, setActiveLightboxMedia] = useState<{
     id?: string | null;
@@ -512,6 +513,9 @@ export function ChatWindow({
 
       if (data.conversation.redPackets) {
         setRedPacketsMap(data.conversation.redPackets as Record<string, RedPacketStatusView>);
+      }
+      if (data.conversation.transfers) {
+        setTransfersMap(data.conversation.transfers as Record<string, TransferStatusView>);
       }
 
       // Merge server messages with any optimistic pending user messages
@@ -803,7 +807,7 @@ export function ChatWindow({
   // 点击红包气泡：领取并刷新消息与钱包状态
   const handleClaimRedPacket = async (redPacketId: string) => {
     try {
-      const res = await claimRedPacketAction({ redPacketId });
+      const res = await claimRedPacketAction({ id: redPacketId });
       if (res?.error) {
         toast.error(res.error);
       } else if (res?.ok) {
@@ -812,6 +816,22 @@ export function ChatWindow({
     } catch (err) {
       console.error('[ChatWindow] claim red packet error', err);
       toast.error('网络错误，领取失败');
+    }
+    await pollConversation();
+  };
+
+  // 点击转账气泡：确认收款
+  const handleAcceptTransfer = async (transferId: string) => {
+    try {
+      const res = await acceptTransferAction({ id: transferId });
+      if (res?.error) {
+        toast.error(res.error);
+      } else if (res?.ok) {
+        toast.success('已收款');
+      }
+    } catch (err) {
+      console.error('[ChatWindow] accept transfer error', err);
+      toast.error('网络错误，收款失败');
     }
     await pollConversation();
   };
@@ -971,8 +991,10 @@ export function ChatWindow({
                       {m.type === 'transfer' && m.payload ? (
                         <TransferBubble
                           payload={m.payload as unknown as TransferPayload}
+                          status={transfersMap[String((m.payload as Record<string, unknown>).transferId)]}
                           senderIsUser={isUser}
                           characterName={character.name}
+                          onAccept={handleAcceptTransfer}
                         />
                       ) : m.type === 'red_packet' && m.payload ? (
                         <RedPacketBubble

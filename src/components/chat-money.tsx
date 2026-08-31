@@ -13,8 +13,8 @@ import { Text } from '@astryxdesign/core/Text';
 import { useAppToast } from '@/lib/toast';
 import { nativeAttrs } from '@/lib/native-attrs';
 import { formatWalletMoney } from '@/lib/wallet-currency';
-import { sendRedPacketAction, sendTransferAction } from '@/server/actions/wallet';
-import type { RedPacketStatusView } from '@/server/wallet';
+import { sendRedPacketAction, sendTransferAction, acceptTransferAction } from '@/server/actions/wallet';
+import type { RedPacketStatusView, TransferStatusView } from '@/server/wallet';
 
 const spin = stylex.keyframes({
   from: { transform: 'rotate(0deg)' },
@@ -122,6 +122,7 @@ const styles = stylex.create({
 });
 
 export type TransferPayload = {
+  transferId: string;
   amount: number;
   currency: string;
   note: string | null;
@@ -135,18 +136,39 @@ export type RedPacketPayload = {
   greeting: string;
 };
 
-/** 转账消息气泡 */
+/** 转账消息气泡：待收款（收款方可点击）/ 已收款 / 已退回 */
 export function TransferBubble({
   payload,
+  status,
   senderIsUser,
   characterName,
+  onAccept,
 }: {
   payload: TransferPayload;
+  status?: TransferStatusView;
   senderIsUser: boolean;
   characterName: string;
+  onAccept: (transferId: string) => void;
 }) {
-  return (
-    <div {...stylex.props(styles.card, styles.transferCard)}>
+  const transferStatus = status?.status ?? 'pending';
+  const expired = transferStatus === 'expired';
+  const claimed = transferStatus === 'claimed';
+  const canAccept = !senderIsUser && !claimed && !expired;
+
+  const footerText = senderIsUser
+    ? expired
+      ? '对方未收款，已退回'
+      : claimed
+        ? `${characterName} 已收款`
+        : `待 ${characterName} 收款`
+    : expired
+      ? '已超时退回'
+      : claimed
+        ? '已收款'
+        : '点击收款';
+
+  const body = (
+    <>
       <div {...stylex.props(styles.cardBody)}>
         <span {...stylex.props(styles.iconCircle)}>
           <Banknote size={20} />
@@ -159,11 +181,23 @@ export function TransferBubble({
           {payload.note ? <span {...stylex.props(styles.cardNote)}>{payload.note}</span> : null}
         </span>
       </div>
-      <div {...stylex.props(styles.cardFooter)}>
-        {senderIsUser ? `已转账给 ${characterName}` : `${characterName} 给你转账`}
-      </div>
-    </div>
+      <div {...stylex.props(styles.cardFooter)}>{footerText}</div>
+    </>
   );
+
+  if (canAccept) {
+    return (
+      <button
+        type="button"
+        onClick={() => onAccept(payload.transferId)}
+        {...stylex.props(styles.card, styles.transferCard, styles.cardClickable)}
+      >
+        {body}
+      </button>
+    );
+  }
+
+  return <div {...stylex.props(styles.card, styles.transferCard)}>{body}</div>;
 }
 
 /** 红包消息气泡：点击领取 / 展示领取明细 */

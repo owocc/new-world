@@ -111,6 +111,9 @@ const styles = stylex.create({
 const TX_TYPE_LABELS: Record<string, string> = {
   system_grant: '开户赠送',
   transfer: '转账',
+  transfer_send: '转出',
+  transfer_receive: '收到转账',
+  transfer_refund: '转账退回',
   red_packet_send: '发出红包',
   red_packet_claim: '领取红包',
   red_packet_refund: '红包退回',

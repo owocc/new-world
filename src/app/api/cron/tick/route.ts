@@ -5,7 +5,7 @@ import { processDueEvents, maybePulse } from '@/server/ai/community/engine';
 import { tickGroupAttention } from '@/server/ai/group/engine';
 import { tickTurns } from '@/server/ai/turn-engine';
 import { cleanupOrphanMedia } from '@/server/media';
-import { refundExpiredRedPackets } from '@/server/wallet';
+import { refundExpiredRedPackets, refundExpiredTransfers } from '@/server/wallet';
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
@@ -27,9 +27,12 @@ export async function GET(req: Request) {
       await processDueEvents(u.id, 8);
       await tickGroupAttention(u.id, undefined, 8);
       await tickTurns({ userId: u.id, limit: 8 });
-      // 过期未领完的红包退回给发送者
+      // 过期未领完的红包 / 未收款的转账原路退回
       await refundExpiredRedPackets(u.id).catch((err) =>
         console.error('[cron] red packet refund failed', u.id, err),
+      );
+      await refundExpiredTransfers(u.id).catch((err) =>
+        console.error('[cron] transfer refund failed', u.id, err),
       );
       processed++;
     } catch (err) {

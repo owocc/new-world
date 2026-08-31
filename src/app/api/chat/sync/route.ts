@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { notifications } from '@/db/schema';
 import { requireUserId } from '@/lib/session';
 import { getConversationMessages, totalUnreadMessages } from '@/server/chat';
-import { getRedPacketStatuses, type RedPacketStatusView } from '@/server/wallet';
+import { getRedPacketStatuses, getTransferStatuses, type RedPacketStatusView, type TransferStatusView } from '@/server/wallet';
 import { totalUnreadGroupMessages } from '@/server/groups';
 import { getUnifiedChats } from '@/server/unified-chat';
 import { getConversationTurnState, tickTurns } from '@/server/ai/turn-engine';
@@ -34,6 +34,7 @@ export async function GET(req: Request) {
     let conversationData: {
       messages: Awaited<ReturnType<typeof getConversationMessages>>;
       redPackets: Record<string, RedPacketStatusView>;
+      transfers: Record<string, TransferStatusView>;
       isTyping: boolean;
       turnStatus: string;
     } | null = null;
@@ -44,7 +45,7 @@ export async function GET(req: Request) {
         getConversationTurnState(conversationId),
       ]);
 
-      // 红包消息附带领取状态（谁领了多少、我是否已领）
+      // 红包消息附带领取状态、转账消息附带收款状态（谁收了多少、我是否已收）
       const redPacketIds = messagesList
         .filter((m) => m.type === 'red_packet' && m.payload?.redPacketId)
         .map((m) => String(m.payload!.redPacketId));
@@ -52,9 +53,17 @@ export async function GET(req: Request) {
       const redPackets: Record<string, RedPacketStatusView> = {};
       for (const [id, status] of redPacketMap) redPackets[id] = status;
 
+      const transferIds = messagesList
+        .filter((m) => m.type === 'transfer' && m.payload?.transferId)
+        .map((m) => String(m.payload!.transferId));
+      const transferMap = await getTransferStatuses(userId, transferIds);
+      const transfers: Record<string, TransferStatusView> = {};
+      for (const [id, status] of transferMap) transfers[id] = status;
+
       conversationData = {
         messages: messagesList,
         redPackets,
+        transfers,
         isTyping: turnState.isTyping,
         turnStatus: turnState.status,
       };

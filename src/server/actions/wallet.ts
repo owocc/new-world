@@ -11,10 +11,11 @@ import {
   MAX_SINGLE_AMOUNT,
   MIN_SHARES,
   WalletError,
+  acceptTransfer,
   claimRedPacket,
   createRedPacket,
+  createTransfer,
   getOrCreateWalletAccount,
-  walletTransfer,
 } from '@/server/wallet';
 import { formatWalletMoney, parseWalletAmountToMinor } from '@/lib/wallet-currency';
 
@@ -56,7 +57,7 @@ const transferSchema = z.object({
   note: z.string().trim().max(100).optional(),
 });
 
-/** 用户 → AI 转账：创建转账消息并原子过账 */
+/** 用户 → AI 转账：创建转账消息并冻结金额，对方确认收款后才入账 */
 export async function sendTransferAction(input: z.input<typeof transferSchema>) {
   const userId = await requireUserId();
   const parsed = transferSchema.safeParse(input);
@@ -69,18 +70,21 @@ export async function sendTransferAction(input: z.input<typeof transferSchema>) 
 
   try {
     const conv = await requireConversation(userId, parsed.data.conversationId);
-    const messageId = await createPayloadMessage({
-      conversationId: conv.id,
-      userId,
-      type: 'transfer',
-      payload: { amount, currency: 'nw', note: parsed.data.note ?? null },
-    });
-    await walletTransfer({
+    const transferId = crypto.randomUUID();
+    const messageId = crypto.randomUUID();
+    await createTransfer({
       userId,
       from: { ownerType: 'user' },
       to: { ownerType: 'ai', characterId: conv.characterId },
       amount,
       note: parsed.data.note ?? null,
+      messageId,
+    });
+    await createPayloadMessage({
+      conversationId: conv.id,
+      userId,
+      type: 'transfer',
+      payload: { transferId, amount, currency: 'nw', note: parsed.data.note ?? null },
       messageId,
     });
     revalidatePath('/settings/wallet');
@@ -142,7 +146,7 @@ export async function sendRedPacketAction(input: z.input<typeof redPacketSchema>
   }
 }
 
-const claimSchema = z.object({ redPacketId: z.string().min(1) });
+const claimSchema = z.object({ id: z.string().min(1) });
 
 /** 用户拆 AI（或自己发出后由 AI 领取体系之外）的红包 */
 export async function claimRedPacketAction(input: z.input<typeof claimSchema>) {
@@ -153,7 +157,7 @@ export async function claimRedPacketAction(input: z.input<typeof claimSchema>) {
   try {
     const result = await claimRedPacket({
       userId,
-      redPacketId: parsed.data.redPacketId,
+      redPacketId: parsed.data.id,
       claimant: { ownerType: 'user' },
     });
     revalidatePath('/settings/wallet');
@@ -162,6 +166,27 @@ export async function claimRedPacketAction(input: z.input<typeof claimSchema>) {
     if (err instanceof WalletError) return { error: err.message };
     console.error('[wallet] claim failed', err);
     return { error: '领取失败，请稍后再试' };
+  }
+}
+
+/** 用户确认收款（AI 发来的转账） */
+export async function acceptTransferAction(input: z.input<typeof claimSchema>) {
+  const userId = await requireUserId();
+  const parsed = claimSchema.safeParse(input);
+  if (!parsed.success) return { error: '收款失败' };
+
+  try {
+    const result = await acceptTransfer({
+      userId,
+      transferId: parsed.data.id,
+      acceptor: { ownerType: 'user' },
+    });
+    revalidatePath('/settings/wallet');
+    return { ok: true as const, amount: result.amount, currency: result.currency };
+  } catch (err) {
+    if (err instanceof WalletError) return { error: err.message };
+    console.error('[wallet] accept transfer failed', err);
+    return { error: '收款失败，请稍后再试' };
   }
 }
 

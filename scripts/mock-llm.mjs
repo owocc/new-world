@@ -43,17 +43,19 @@ function pickText(messages, kind) {
       comment: act ? `（${name}的测试评论）这条说出了我的心声，赞！` : '',
     });
   }
-  // 聊天回合（异步 turn）：从【钱包】上下文里解析待领红包 id，模拟 AI 决定领取
+  // 聊天回合（异步 turn）：按固定钱包协议模拟决策——领红包、收转账、回转账
   const redPacketIdMatch = sys.match(/红包还没领：id=([0-9a-f-]+)/);
-  if (redPacketIdMatch && !user.includes('内部决策')) {
-    return JSON.stringify({
-      messages: [`哈哈红包我都忘了，这就领！谢谢啦～`],
-      claim_red_packet_ids: [redPacketIdMatch[1]],
-    });
-  }
-  // 内部金钱决策（转账/红包）
-  if (user.includes('【内部决策，不要回复用户】') && user.includes('转账或一个红包')) {
-    return JSON.stringify({ act: false, kind: 'transfer', target: 'user', amountYuan: 1, note: '' });
+  const pendingTransferMatch = sys.match(/转账还没收款：id=([0-9a-f-]+)/);
+  if ((redPacketIdMatch || pendingTransferMatch) && !user.includes('内部决策')) {
+    const result = { messages: ['好嘞，钱的事这就处理！'], claim_red_packet_ids: [], accept_transfer_ids: [] };
+    if (pendingTransferMatch) result.accept_transfer_ids = [pendingTransferMatch[1]];
+    if (redPacketIdMatch) result.claim_red_packet_ids = [redPacketIdMatch[1]];
+    // 用户提到「转回」「转给你」时模拟发一笔转账
+    if (user.includes('转回') || user.includes('转给你')) {
+      result.messages = ['行，那我转回给你，你查收一下～'];
+      result.transfer_out = { to: 'user', amount: 8.88, note: '测试转账回传' };
+    }
+    return JSON.stringify(result);
   }
   // 内部生图决策
   if (user.includes('【内部决策，不要回复用户】') && user.includes('是否适合随消息发一张图片')) {

@@ -347,6 +347,32 @@ export const redPackets = sqliteTable('red_packets', {
   index('red_packets_user_idx').on(t.userId),
 ]);
 
+export const transfers = sqliteTable('transfers', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  messageId: text('message_id'),
+  currency: text('currency').notNull().default('nw'),
+  /** 金额（最小货币单位），发送时即从发送者扣款冻结 */
+  amount: integer('amount').notNull(),
+  note: text('note'),
+  /** user | ai */
+  senderType: text('sender_type').notNull(),
+  senderCharacterId: text('sender_character_id'),
+  /** user | ai */
+  recipientType: text('recipient_type').notNull(),
+  recipientCharacterId: text('recipient_character_id'),
+  /** pending | claimed | expired */
+  status: text('status').notNull().default('pending'),
+  expiresAt: ts('expires_at'),
+  claimedAt: ts('claimed_at'),
+  createdAt: ts('created_at').notNull().default(now()),
+}, (t) => [
+  index('transfers_user_idx').on(t.userId),
+  index('transfers_status_idx').on(t.status, t.expiresAt),
+]);
+
 export const redPacketClaims = sqliteTable('red_packet_claims', {
   id: text('id').primaryKey(),
   userId: text('user_id')
