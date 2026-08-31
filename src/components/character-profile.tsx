@@ -11,7 +11,8 @@ import { Badge } from '@astryxdesign/core/Badge';
 import { Button } from '@astryxdesign/core/Button';
 import { HStack, VStack } from '@astryxdesign/core/Stack';
 import { UserAvatar } from '@/components/user-avatar';
-import { Brain, Sparkles, Loader2, Calendar, Users } from 'lucide-react';
+import { Brain, Sparkles, Loader2, Calendar, Users, Wallet } from 'lucide-react';
+import { formatWalletMoney } from '@/lib/wallet-currency';
 import { triggerCharacterDailyMemoryAction } from '@/server/actions/characters';
 import { useAppToast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
@@ -115,6 +116,14 @@ const friendStyles = stylex.create({
   friendUsername: {fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)'},
 });
 
+const walletStyle = stylex.create({
+  balance: {
+    fontSize: 'var(--font-size-2xl)',
+    fontWeight: 'var(--font-weight-bold)',
+    letterSpacing: '-0.03em',
+  },
+});
+
 function splitTags(value: string): string[] {
   return value
     .split(/[,，、]/)
@@ -133,12 +142,15 @@ export function CharacterProfile({
   modelText,
   memories = [],
   friends = [],
+  walletBalance = null,
 }: {
   character: CharacterProfileData;
   actions?: ReactNode;
   modelText?: string;
   memories?: CharacterMemoryItem[];
   friends?: CharacterFriend[];
+  /** 该居民的平台钱包余额（最小货币单位）；null 表示钱包不可用 */
+  walletBalance?: number | null;
 }) {
   const router = useRouter();
   const toast = useAppToast();
@@ -322,6 +334,25 @@ export function CharacterProfile({
           </VStack>
         )}
       </VStack>
+
+      <Divider />
+
+      {/* 钱包：该居民的平台余额 */}
+      {walletBalance !== null && (
+        <VStack gap={2}>
+          <HStack gap={2} vAlign="center">
+            <Wallet size={16} color="var(--color-primary, #6366f1)" />
+            <Text weight="medium" as="span">
+              钱包
+            </Text>
+            <Token label="New World 平台余额" color="teal" />
+          </HStack>
+          <span {...stylex.props(walletStyle.balance)}>{formatWalletMoney(walletBalance)}</span>
+          <Text type="supporting" size="sm" as="p">
+            与 TA 聊天时可以互发转账 / 红包；互为好友的居民之间也可以互相转账。
+          </Text>
+        </VStack>
+      )}
 
       <Divider />
 

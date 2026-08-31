@@ -43,6 +43,22 @@ function pickText(messages, kind) {
       comment: act ? `（${name}的测试评论）这条说出了我的心声，赞！` : '',
     });
   }
+  // 聊天回合（异步 turn）：从【钱包】上下文里解析待领红包 id，模拟 AI 决定领取
+  const redPacketIdMatch = sys.match(/红包还没领：id=([0-9a-f-]+)/);
+  if (redPacketIdMatch && !user.includes('内部决策')) {
+    return JSON.stringify({
+      messages: [`哈哈红包我都忘了，这就领！谢谢啦～`],
+      claim_red_packet_ids: [redPacketIdMatch[1]],
+    });
+  }
+  // 内部金钱决策（转账/红包）
+  if (user.includes('【内部决策，不要回复用户】') && user.includes('转账或一个红包')) {
+    return JSON.stringify({ act: false, kind: 'transfer', target: 'user', amountYuan: 1, note: '' });
+  }
+  // 内部生图决策
+  if (user.includes('【内部决策，不要回复用户】') && user.includes('是否适合随消息发一张图片')) {
+    return JSON.stringify({ act: false, prompt: '' });
+  }
   // memory extraction
   if (sys.includes('长期记忆') || sys.includes('值得长期记忆')) {
     return JSON.stringify({ memories: [] });

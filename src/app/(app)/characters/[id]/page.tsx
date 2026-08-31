@@ -3,6 +3,7 @@ import {notFound} from 'next/navigation';
 import {db} from '@/db';
 import {aiCharacters, aiMemories, aiRelationships, providerConfigs} from '@/db/schema';
 import {requireUserId} from '@/lib/session';
+import {getOrCreateWalletAccount} from '@/server/wallet';
 import {CharacterProfile} from '@/components/character-profile';
 import {CharacterEditor, type CharacterFormValues} from '@/components/character-editor';
 import {SendMessageButton} from '@/components/send-message-button';
@@ -55,6 +56,15 @@ export default async function CharacterViewPage({
   ]);
 
   if (!character) notFound();
+
+  // 钱包：查看该居民的余额（首次访问自动开户，含开户赠送）
+  let walletBalance: number | null = null;
+  try {
+    const wallet = await getOrCreateWalletAccount({userId, ownerType: 'ai', characterId: character.id});
+    walletBalance = wallet.balance;
+  } catch {
+    walletBalance = null;
+  }
 
   // 好友列表：任一方向的关系登记即互为好友（与社区引擎的可见性判定一致）
   const friendRows = await db
@@ -144,6 +154,7 @@ export default async function CharacterViewPage({
       modelText={modelText ?? undefined}
       memories={memories}
       friends={friends}
+      walletBalance={walletBalance}
       actions={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <SendMessageButton characterId={character.id} />

@@ -1,7 +1,8 @@
-import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   aiCharacters,
+  aiRelationships,
   messages,
   redPacketClaims,
   redPackets,
@@ -9,6 +10,7 @@ import {
   walletAccounts,
   walletTransactions,
 } from '@/db/schema';
+import { getSetting, setSetting } from '@/server/settings';
 import { DEFAULT_WALLET_CURRENCY, formatWalletMoney, getWalletCurrency } from '@/lib/wallet-currency';
 
 /** 新钱包开户赠送（分）：让平台内互相转钱可以先玩起来 */
@@ -579,7 +581,7 @@ export async function getRedPacketStatuses(
   return result;
 }
 
-/** 会话内用户发出、且指定 AI 未领取的红包（供 AI 引擎自动拆红包） */
+/** 会话内用户发出、且指定 AI 未领取的红包（供 AI 引擎做「是否领取」决策） */
 export async function getUnclaimedRedPacketsForCharacter(args: {
   userId: string;
   conversationId: string;
@@ -594,6 +596,7 @@ export async function getUnclaimedRedPacketsForCharacter(args: {
       shareCount: redPackets.shareCount,
       claimedCount: redPackets.claimedCount,
       currency: redPackets.currency,
+      greeting: redPackets.greeting,
     })
     .from(redPackets)
     .innerJoin(messages, eq(redPackets.messageId, messages.id))
@@ -620,4 +623,149 @@ export async function getUnclaimedRedPacketsForCharacter(args: {
     if (!claimed) result.push(packet);
   }
   return result;
+}
+
+/**
+ * 红包过期退回：过期未领完的红包，剩余金额原路退回发送者并记流水（type=red_packet_refund）。
+ * 幂等：仅处理 status='open' 且已过期的红包，事务内二次校验。
+ */
+export async function refundExpiredRedPackets(userId: string): Promise<number> {
+  const expired = await db
+    .select()
+    .from(redPackets)
+    .where(
+      and(
+        eq(redPackets.userId, userId),
+        eq(redPackets.status, 'open'),
+        lt(redPackets.expiresAt, new Date()),
+      ),
+    )
+    .limit(50);
+  if (expired.length === 0) return 0;
+
+  let refunded = 0;
+  for (const packet of expired) {
+    const remaining = packet.totalAmount - packet.claimedAmount;
+    if (remaining <= 0) {
+      await db.update(redPackets).set({ status: 'expired' }).where(eq(redPackets.id, packet.id));
+      continue;
+    }
+    try {
+      const senderAccount = await getOrCreateWalletAccount({
+        userId,
+        ownerType: packet.senderType as WalletOwnerType,
+        characterId: packet.senderCharacterId,
+        currency: packet.currency,
+      });
+      await db.transaction(async (tx) => {
+        // 事务内二次确认仍未被领取
+        const [current] = await tx
+          .select({ status: redPackets.status, claimedAmount: redPackets.claimedAmount })
+          .from(redPackets)
+          .where(eq(redPackets.id, packet.id))
+          .limit(1);
+        if (!current || current.status !== 'open') return;
+
+        await applyLedger(tx, {
+          accountId: senderAccount.id,
+          userId,
+          direction: 'in',
+          type: 'red_packet_refund',
+          amount: remaining,
+          currency: packet.currency,
+          redPacketId: packet.id,
+          note: '红包未领完退回',
+        });
+        await tx
+          .update(redPackets)
+          .set({ status: 'expired' })
+          .where(eq(redPackets.id, packet.id));
+      });
+      refunded++;
+    } catch (err) {
+      console.error('[wallet] refund expired red packet failed', packet.id, err);
+    }
+  }
+  return refunded;
+}
+
+/**
+ * AI 之间的好友转账到账通知：查询自上次水印以来该 AI 收到的转账（含用户与 AI 转入），
+ * 返回可注入上下文的描述并推进水印，保证每条到账只提示一次。
+ */
+export async function getWalletNoticesForCharacter(args: {
+  userId: string;
+  characterId: string;
+}): Promise<string[]> {
+  const watermarkKey = `wallet_notice_until:${args.characterId}`;
+  const lastUntil = await getSetting<string | null>(args.userId, watermarkKey, null);
+  const since = lastUntil ? new Date(lastUntil) : new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  // 只保留「转入到该 AI 账户」的流水
+  const [myAccount] = await db
+    .select({ id: walletAccounts.id })
+    .from(walletAccounts)
+    .where(
+      and(
+        eq(walletAccounts.userId, args.userId),
+        eq(walletAccounts.ownerType, 'ai'),
+        eq(walletAccounts.characterId, args.characterId),
+      ),
+    )
+    .limit(1);
+  if (!myAccount) return [];
+
+  const rows = await db
+    .select({
+      amount: walletTransactions.amount,
+      currency: walletTransactions.currency,
+      note: walletTransactions.note,
+      counterpartyName: walletTransactions.counterpartyName,
+      createdAt: walletTransactions.createdAt,
+    })
+    .from(walletTransactions)
+    .where(
+      and(
+        eq(walletTransactions.accountId, myAccount.id),
+        eq(walletTransactions.direction, 'in'),
+        eq(walletTransactions.type, 'transfer'),
+        gte(walletTransactions.createdAt, since),
+      ),
+    )
+    .orderBy(desc(walletTransactions.createdAt))
+    .limit(20);
+
+  if (rows.length === 0) return [];
+
+  const notices = rows.map(
+    (r) =>
+      `你收到来自 ${r.counterpartyName ?? '好友'} 的转账 ${formatWalletMoney(r.amount, r.currency)}${r.note ? `（备注：${r.note}）` : ''}。`,
+  );
+
+  const newest = rows[0]?.createdAt ?? new Date();
+  await setSetting(args.userId, watermarkKey, new Date(newest.getTime() + 1).toISOString());
+  return notices;
+}
+
+/** AI 的好友名单（互为好友，任一方向登记即算），供 AI 决定向好友转账 */
+export async function getFriendListForCharacter(args: {
+  userId: string;
+  characterId: string;
+}): Promise<Array<{ id: string; name: string }>> {
+  const rows = await db
+    .select({
+      friendId: aiCharacters.id,
+      friendName: aiCharacters.name,
+    })
+    .from(aiRelationships)
+    .innerJoin(
+      aiCharacters,
+      sql`(${aiCharacters.id} = ${aiRelationships.toCharacterId} AND ${aiRelationships.fromCharacterId} = ${args.characterId}) OR (${aiCharacters.id} = ${aiRelationships.fromCharacterId} AND ${aiRelationships.toCharacterId} = ${args.characterId})`,
+    )
+    .where(and(eq(aiRelationships.userId, args.userId), eq(aiCharacters.status, 'active')))
+    .limit(50);
+  return rows
+    .map((r) => ({ id: r.friendId, name: r.friendName }))
+    .filter((f) => f.id !== args.characterId)
+    .filter((f, i, arr) => arr.findIndex((x) => x.id === f.id) === i);
 }

@@ -26,10 +26,14 @@ import { messageAttachments } from '@/db/schema';
 import {
   claimRedPacket,
   createRedPacket,
+  getFriendListForCharacter,
   getOrCreateWalletAccount,
   getUnclaimedRedPacketsForCharacter,
+  getWalletNoticesForCharacter,
+  refundExpiredRedPackets,
   walletTransfer,
   WalletError,
+  type WalletOwnerType,
 } from '@/server/wallet';
 import { formatWalletMoney } from '@/lib/wallet-currency';
 import type { ModelMessage } from 'ai';
@@ -275,11 +279,17 @@ export async function processTurn(
       conversationId,
     });
 
+    // 钱包上下文：余额、待领红包（AI 自主决定是否领取）、AI 间到账通知、好友名单
     const moneyContextParts: string[] = [];
     let walletBalance = 0;
+    const unclaimedRedPacketIds: string[] = [];
+    let friendList: Array<{ id: string; name: string }> = [];
     try {
       const account = await getOrCreateWalletAccount({ userId, ownerType: 'ai', characterId });
       walletBalance = account.balance;
+
+      // 过期未领完的红包先退回，保证上下文里的红包都还可领
+      await refundExpiredRedPackets(userId).catch(() => {});
 
       const unclaimed = await getUnclaimedRedPacketsForCharacter({
         userId,
@@ -287,28 +297,32 @@ export async function processTurn(
         characterId,
       });
       for (const packet of unclaimed) {
-        try {
-          const result = await claimRedPacket({
-            userId,
-            redPacketId: packet.id,
-            claimant: { ownerType: 'ai', characterId },
-          });
-          moneyContextParts.push(
-            `你刚拆开了 ${userName} 发的红包，领到 ${formatWalletMoney(result.amount, result.currency)}，记得自然地道声谢或反应一下。`,
-          );
-        } catch (claimErr) {
-          console.warn('[turn-engine] auto claim red packet skipped', claimErr);
-        }
-      }
-      if (walletBalance > 0) {
         moneyContextParts.push(
-          `你的钱包余额：${formatWalletMoney(walletBalance)}（New World 平台余额）。`,
+          `${userName} 给你发了一个红包还没领：id=${packet.id}，共 ${formatWalletMoney(packet.totalAmount, packet.currency)} / ${packet.shareCount} 份（剩余 ${packet.shareCount - packet.claimedCount} 份），祝福语「${packet.greeting ?? '恭喜发财'}」。是否领取由你决定；过期未领完的部分会退回给对方。`,
+        );
+        unclaimedRedPacketIds.push(packet.id);
+      }
+
+      // AI 间好友转账到账通知（用户转账会以消息形式出现在对话里，无需在此重复）
+      const notices = await getWalletNoticesForCharacter({ userId, characterId });
+      moneyContextParts.push(...notices);
+
+      if (walletBalance > 0) {
+        moneyContextParts.push(`你的钱包余额：${formatWalletMoney(walletBalance)}（New World 平台余额）。`);
+      }
+
+      friendList = await getFriendListForCharacter({ userId, characterId });
+      if (friendList.length > 0) {
+        moneyContextParts.push(
+          `你的好友：${friendList.map((f) => `${f.name}(${f.id})`).join('、')}。你们互为好友，可以互相转账。`,
         );
       }
     } catch (walletErr) {
       console.warn('[turn-engine] wallet context skipped', walletErr);
     }
-    const walletBlock = moneyContextParts.length ? `\n\n【钱包】\n${moneyContextParts.join('\n')}` : '';
+    const walletBlock = moneyContextParts.length
+      ? `\n\n【钱包】\n${moneyContextParts.join('\n')}`
+      : '';
 
     const memoryBlock = chatMemoryBlock(memories, conv.summary);
     const profile = getForgetfulnessProfile(character.memoryRetention);
@@ -337,7 +351,8 @@ export async function processTurn(
   ]
 }
 \`\`\`
-最多不超过 ${MAX_MESSAGES_PER_TURN} 条。如果没有特殊需要拆分，返回 1~2 条最自然。内容不要带多余的 markdown json 外壳，直接按 schema 生成。`;
+最多不超过 ${MAX_MESSAGES_PER_TURN} 条。如果没有特殊需要拆分，返回 1~2 条最自然。内容不要带多余的 markdown json 外壳，直接按 schema 生成。
+若【钱包】上下文中有待领红包，你可以在同一个 JSON 里通过 "claim_red_packet_ids" 字段声明要领取的红包 id（不领就不填该字段）。`;
 
     const recallTool = createHistoryRecallTool({
       userId,
@@ -356,6 +371,17 @@ export async function processTurn(
       if (!isAssistant && !isSystem && m.attachments && m.attachments.length > 0) {
         const attachmentBlock = formatAttachmentPromptBlock(m.attachments);
         if (attachmentBlock) promptBlocks.push(attachmentBlock);
+      }
+
+      // 转账/红包消息（content 为空或仅祝福语）转成 AI 可读的结构化描述
+      if (m.type === 'transfer' || m.type === 'red_packet') {
+        const payload = (m.payload ?? {}) as Record<string, unknown>;
+        const amount = typeof payload.amount === 'number' ? payload.amount : typeof payload.totalAmount === 'number' ? payload.totalAmount : 0;
+        const moneyText =
+          m.type === 'transfer'
+            ? `[转账] ${isAssistant ? `你给 ${userName} 转账了` : `${userName} 给你转账了`}${amount ? ` ${formatWalletMoney(amount)}` : ''}${typeof payload.note === 'string' && payload.note ? `，备注：${payload.note}` : ''}`
+            : `[红包] ${isAssistant ? `你发给 ${userName}` : `${userName} 发给你`}一个红包${typeof payload.greeting === 'string' && payload.greeting ? `「${payload.greeting}」` : ''}${amount ? `，共 ${formatWalletMoney(amount)}` : ''}${typeof payload.shareCount === 'number' ? ` / ${payload.shareCount} 份` : ''}`;
+        promptBlocks.push(moneyText);
       }
 
       if (m.content) {
@@ -379,9 +405,15 @@ export async function processTurn(
         .min(1)
         .max(MAX_MESSAGES_PER_TURN)
         .describe('List of separate message bubbles to send in order'),
+      claim_red_packet_ids: z
+        .array(z.string())
+        .max(5)
+        .optional()
+        .describe('决定领取的红包 id 列表（仅当【钱包】上下文中有待领红包且你确实想领时填写，否则留空）'),
     });
 
     let generatedBubbleTexts: string[] = [];
+    let claimRedPacketIds: string[] = [];
     let usageId: string | undefined;
 
     try {
@@ -400,6 +432,10 @@ export async function processTurn(
       });
 
       generatedBubbleTexts = (generated?.messages || []).filter((t) => t && t.trim().length > 0);
+      // AI 自主决定的领红包动作（固定 JSON 字段，服务端只认本会话确实待领的 id）
+      claimRedPacketIds = (generated?.claim_red_packet_ids ?? []).filter((id: string) =>
+        unclaimedRedPacketIds.includes(id),
+      );
     } catch (objErr) {
       // Fallback: If structured generation fails, generate text and split on double newlines
       console.warn('[turn-engine] structured generation fallback to text generation', objErr);
@@ -513,6 +549,19 @@ export async function processTurn(
       });
     }
 
+    // 处理 AI 决定领取的红包（固定 JSON 字段 claim_red_packet_ids）
+    for (const redPacketId of claimRedPacketIds) {
+      try {
+        await claimRedPacket({
+          userId,
+          redPacketId,
+          claimant: { ownerType: 'ai', characterId },
+        });
+      } catch (claimErr) {
+        console.warn('[turn-engine] ai claim red packet skipped', redPacketId, claimErr);
+      }
+    }
+
     // 钱包：AI 决定是否随消息发转账/红包（仅在语境明确相关时才做这次决策）。
     // 金额与余额服务端强校验，失败只影响本条金钱消息，不影响文字。
     const recentUserText = turnUserMessages.map((m) => m.content).join('\n');
@@ -521,6 +570,9 @@ export async function processTurn(
       moneyContextParts.length > 0;
     if (moneyIntent) {
       try {
+        const friendHint = friendList.length
+          ? `也可以选择 target="friend" 转账给一位好友（friendName 填好友名字：${friendList.map((f) => f.name).join('、')}），例如帮好友垫付、还钱、请客等语境。`
+          : '';
         const decision = await runObject({
           userId,
           characterId,
@@ -530,12 +582,14 @@ export async function processTurn(
             ...contextMessages,
             {
               role: 'user' as const,
-              content: `【内部决策，不要回复用户】基于以上对话和你的人设，判断你现在是否应该给 ${userName} 发一笔转账或一个红包（比如对方提到钱、你答应给零花钱、你想请客、你想回应收红包等）。没有明确动机就选 false。金额要在你的余额（${formatWalletMoney(walletBalance)}）范围内，且单笔不超过 N$200。`,
+              content: `【内部决策，不要回复用户】基于以上对话和你的人设，判断你现在是否应该发一笔转账或一个红包（比如对方提到钱、你答应给零花钱、你想请客、你想回应收红包等）。没有明确动机就选 false。金额要在你的余额（${formatWalletMoney(walletBalance)}）范围内，且单笔不超过 N$200。${friendHint}`,
             },
           ],
           schema: z.object({
             act: z.boolean().describe('是否真的要发转账或红包'),
             kind: z.enum(['transfer', 'red_packet']).describe('transfer=转账；red_packet=红包'),
+            target: z.enum(['user', 'friend']).default('user').describe('转账对象：user=当前聊天用户；friend=好友居民（仅转账支持好友）'),
+            friendName: z.string().optional().describe('target 为 friend 时填好友名字'),
             amountYuan: z.number().min(0.01).max(200).describe('金额（元）'),
             shareCount: z.number().int().min(1).max(5).optional().describe('红包份数（仅红包）'),
             note: z.string().max(50).describe('转账备注或红包祝福语'),
@@ -544,7 +598,21 @@ export async function processTurn(
           maxOutputTokens: 200,
         });
 
-        if (decision.act && decision.note) {
+        // 解析转账目标：friend 需在好友名单中命中（互为好友才能互相转账）
+        let transferTarget: { ownerType: WalletOwnerType; characterId?: string | null } = { ownerType: 'user' };
+        if (decision.target === 'friend' && decision.kind === 'transfer') {
+          const friend = friendList.find(
+            (f) => f.name === decision.friendName?.trim() || f.id === decision.friendName?.trim(),
+          );
+          if (friend) {
+            transferTarget = { ownerType: 'ai', characterId: friend.id };
+          } else {
+            console.warn('[turn-engine] friend transfer target not found:', decision.friendName);
+          }
+        }
+        const isFriendTransfer = transferTarget.ownerType === 'ai';
+        // AI 间转账没有聊天气泡可挂：仅记账，对方会在下次回合的「钱包到账通知」里看到
+        if (decision.act && decision.note && !(isFriendTransfer && decision.kind === 'red_packet')) {
           const amountCents = Math.max(1, Math.round(decision.amountYuan * 100));
           const moneyMsgId = crypto.randomUUID();
           const moneyCreatedAt = new Date(commitTime.getTime() + generatedBubbleTexts.length * 150 + 150);
@@ -553,10 +621,10 @@ export async function processTurn(
               await walletTransfer({
                 userId,
                 from: { ownerType: 'ai', characterId },
-                to: { ownerType: 'user' },
+                to: transferTarget,
                 amount: amountCents,
                 note: decision.note,
-                messageId: moneyMsgId,
+                messageId: isFriendTransfer ? null : moneyMsgId,
               });
             } else {
               const { id: redPacketId } = await createRedPacket({
@@ -585,7 +653,7 @@ export async function processTurn(
                 createdAt: moneyCreatedAt,
               });
             }
-            if (decision.kind === 'transfer') {
+            if (decision.kind === 'transfer' && !isFriendTransfer) {
               await db.insert(messages).values({
                 id: moneyMsgId,
                 conversationId,
@@ -598,11 +666,13 @@ export async function processTurn(
                 createdAt: moneyCreatedAt,
               });
             }
-            // 金钱消息时间戳晚于文字气泡，保持会话「最后消息时间」正确
-            await db
-              .update(conversations)
-              .set({ lastMessageAt: moneyCreatedAt })
-              .where(eq(conversations.id, conversationId));
+            if (!isFriendTransfer) {
+              // 金钱消息时间戳晚于文字气泡，保持会话「最后消息时间」正确
+              await db
+                .update(conversations)
+                .set({ lastMessageAt: moneyCreatedAt })
+                .where(eq(conversations.id, conversationId));
+            }
           } catch (sendErr) {
             if (sendErr instanceof WalletError) {
               console.warn('[turn-engine] ai money send skipped:', sendErr.message);

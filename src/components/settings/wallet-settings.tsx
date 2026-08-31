@@ -113,6 +113,7 @@ const TX_TYPE_LABELS: Record<string, string> = {
   transfer: '转账',
   red_packet_send: '发出红包',
   red_packet_claim: '领取红包',
+  red_packet_refund: '红包退回',
 };
 
 export function WalletSettings({
