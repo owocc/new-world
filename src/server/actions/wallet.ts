@@ -2,9 +2,10 @@
 
 import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/db';
-import { conversations, messages } from '@/db/schema';
+import { conversations, messages, transfers } from '@/db/schema';
 import { requireUserId } from '@/lib/session';
 import {
   MAX_SHARES,
@@ -18,7 +19,7 @@ import {
   getOrCreateWalletAccount,
 } from '@/server/wallet';
 import { formatWalletMoney, parseWalletAmountToMinor } from '@/lib/wallet-currency';
-
+import { appendMessageToTurn, tickTurns, QUIET_WINDOW_MS } from '@/server/ai/turn-engine';
 /** 校验会话归属并取到角色 */
 async function requireConversation(userId: string, conversationId: string) {
   const [conv] = await db
@@ -87,6 +88,36 @@ export async function sendTransferAction(input: z.input<typeof transferSchema>) 
       payload: { transferId, amount, currency: 'nw', note: parsed.data.note ?? null },
       messageId,
     });
+
+    // 更新会话最后消息时间
+    const now = new Date();
+    await db
+      .update(conversations)
+      .set({
+        lastMessageAt: now,
+        lastReadAt: now,
+      })
+      .where(eq(conversations.id, conv.id));
+
+    // 转账入队 AI 轮次并触发后台异步回复
+    await appendMessageToTurn({
+      conversationId: conv.id,
+      userId,
+      characterId: conv.characterId,
+      messageId,
+    });
+
+    after(async () => {
+      try {
+        const { promise, resolve } = Promise.withResolvers<void>();
+        setTimeout(resolve, QUIET_WINDOW_MS + 300);
+        await promise;
+        await tickTurns({ userId, conversationId: conv.id, limit: 2 });
+      } catch (err) {
+        console.error('[wallet/sendTransferAction] background turn processing error:', err);
+      }
+    });
+
     revalidatePath('/settings/wallet');
     return { ok: true as const, messageId };
   } catch (err) {
@@ -137,6 +168,36 @@ export async function sendRedPacketAction(input: z.input<typeof redPacketSchema>
       content: greeting,
       messageId,
     });
+
+    // 更新会话最后消息时间
+    const now = new Date();
+    await db
+      .update(conversations)
+      .set({
+        lastMessageAt: now,
+        lastReadAt: now,
+      })
+      .where(eq(conversations.id, conv.id));
+
+    // 红包入队 AI 轮次并触发后台异步回复
+    await appendMessageToTurn({
+      conversationId: conv.id,
+      userId,
+      characterId: conv.characterId,
+      messageId,
+    });
+
+    after(async () => {
+      try {
+        const { promise, resolve } = Promise.withResolvers<void>();
+        setTimeout(resolve, QUIET_WINDOW_MS + 300);
+        await promise;
+        await tickTurns({ userId, conversationId: conv.id, limit: 2 });
+      } catch (err) {
+        console.error('[wallet/sendRedPacketAction] background turn processing error:', err);
+      }
+    });
+
     revalidatePath('/settings/wallet');
     return { ok: true as const, messageId };
   } catch (err) {
@@ -181,6 +242,71 @@ export async function acceptTransferAction(input: z.input<typeof claimSchema>) {
       transferId: parsed.data.id,
       acceptor: { ownerType: 'user' },
     });
+
+    // 如果该转账关联了会话消息，写入一条系统提示并触发 AI 对话轮次
+    const [transferRow] = await db
+      .select({ messageId: transfers.messageId })
+      .from(transfers)
+      .where(and(eq(transfers.id, parsed.data.id), eq(transfers.userId, userId)))
+      .limit(1);
+
+    if (transferRow?.messageId) {
+      const [origMsg] = await db
+        .select({ conversationId: messages.conversationId })
+        .from(messages)
+        .where(eq(messages.id, transferRow.messageId))
+        .limit(1);
+
+      if (origMsg?.conversationId) {
+        const [conv] = await db
+          .select({ id: conversations.id, characterId: conversations.characterId })
+          .from(conversations)
+          .where(and(eq(conversations.id, origMsg.conversationId), eq(conversations.userId, userId)))
+          .limit(1);
+
+        if (conv) {
+          const now = new Date();
+          const systemMsgId = crypto.randomUUID();
+          const noticeContent = `你已确认收取了对方发来的转账（${formatWalletMoney(result.amount, result.currency)}）`;
+
+          await db.insert(messages).values({
+            id: systemMsgId,
+            conversationId: conv.id,
+            userId,
+            role: 'system',
+            content: noticeContent,
+            createdAt: now,
+          });
+
+          await db
+            .update(conversations)
+            .set({
+              lastMessageAt: now,
+              lastReadAt: now,
+            })
+            .where(eq(conversations.id, conv.id));
+
+          await appendMessageToTurn({
+            conversationId: conv.id,
+            userId,
+            characterId: conv.characterId,
+            messageId: systemMsgId,
+          });
+
+          after(async () => {
+            try {
+              const { promise, resolve } = Promise.withResolvers<void>();
+              setTimeout(resolve, QUIET_WINDOW_MS + 300);
+              await promise;
+              await tickTurns({ userId, conversationId: conv.id, limit: 2 });
+            } catch (err) {
+              console.error('[wallet/acceptTransferAction] background turn processing error:', err);
+            }
+          });
+        }
+      }
+    }
+
     revalidatePath('/settings/wallet');
     return { ok: true as const, amount: result.amount, currency: result.currency };
   } catch (err) {
@@ -189,7 +315,6 @@ export async function acceptTransferAction(input: z.input<typeof claimSchema>) {
     return { error: '收款失败，请稍后再试' };
   }
 }
-
 /** 确保当前用户主钱包存在（聊天页首次打开时调用） */
 export async function ensureUserWalletAction() {
   const userId = await requireUserId();

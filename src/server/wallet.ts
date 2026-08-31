@@ -934,7 +934,7 @@ export async function getWalletNoticesForCharacter(args: {
       and(
         eq(walletTransactions.accountId, myAccount.id),
         eq(walletTransactions.direction, 'in'),
-        eq(walletTransactions.type, 'transfer'),
+        inArray(walletTransactions.type, ['transfer', 'transfer_receive']),
         gte(walletTransactions.createdAt, since),
       ),
     )

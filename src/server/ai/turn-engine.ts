@@ -467,13 +467,15 @@ export async function processTurn(
 }
 \`\`\`
 最多不超过 ${MAX_MESSAGES_PER_TURN} 条。如果没有特殊需要拆分，返回 1~2 条最自然。内容不要带多余的 markdown json 外壳，直接按 schema 生成。
-输出为一段固定 JSON，钱包相关可选字段（不需要就别填）：
-- "claim_red_packet_ids"：要领取的红包 id 数组（对应【钱包】上下文里待领的红包）；
-- "accept_transfer_ids"：要收款的转账 id 数组（对应【钱包】上下文里待收款的转账）；
-- "transfer_out"：{"to": "user 或好友名字", "amount": 金额元, "note": "备注"}，给当前用户或好友转账；
-- "red_packet_out"：{"to": "user", "amount": 金额元, "shares": 份数, "greeting": "祝福语"}，发红包。
-金额都要在你的余额范围内，单笔不超过 N$200；是否领红包/收款、是否转账全由你依人设与语境决定。`;
-
+输出为一段固定 JSON，钱包相关字段说明（根据你的性格、当前话题及钱包上下文自主决定，不需要操作时留空或不填）：
+- "accept_transfer_ids"：决定收款的转账 id 列表（对应【钱包】上下文里待收款的转账。若对方给你转账，你可以选择在回复中收款，也可以拒绝或暂不收；如果收了款，在回复里可以自然表达感谢或调侃）；
+- "claim_red_packet_ids"：决定领取的红包 id 列表（对应【钱包】上下文里待领的红包）；
+- "transfer_out"：{"to": "user 或好友名字", "amount": 金额元, "note": "备注"}，主动给当前用户或好友转账（例如还钱、请客、打赏、送零花钱等）；
+- "red_packet_out"：{"to": "user", "amount": 金额元, "shares": 份数, "greeting": "祝福语"}，主动给当前用户发红包（例如过节、祝贺、活跃气氛等）。
+重要规则：
+1. 转账与发红包必须在你当前拥有的钱包余额范围内，单笔金额不超过 N$200。
+2. 当收到用户的转账或红包时，请在 messages 气泡中自然地给予人设契合的情绪反馈（如感谢、惊喜、傲娇、推辞等），不要假装没看见。
+3. 若你执行了转账(transfer_out)或发红包(red_packet_out)，系统会自动生成对应的转账/红包卡片，你的 messages 只需要说你的心里话，不要在文本里手写假卡片格式。`;
     const recallTool = createHistoryRecallTool({
       userId,
       characterId,
