@@ -47,6 +47,105 @@ export const QUIET_WINDOW_MS = 2500; // 2.5s of no new messages triggers schedul
 export const MAX_COLLECT_WINDOW_MS = 15000; // 15s max collect duration before forcing scheduled
 export const LEASE_DURATION_MS = 60000; // 60s lease for worker execution
 export const MAX_MESSAGES_PER_TURN = 4; // Max AI message bubbles per turn to avoid spamming
+
+type FallbackTurnResult = {
+  messages: string[];
+  claimRedPacketIds: string[];
+  acceptTransferIds: string[];
+  transferOut: { to: string; amount: number; note: string | null } | null;
+  redPacketOut: { to: string; amount: number; shares: number | null; greeting: string | null } | null;
+};
+
+/**
+ * runText 兜底输出的解析：模型按提示词可能整段输出固定 JSON（常带 ```json 围栏），
+ * 这里统一解析成气泡与钱包动作，绝不让原始 JSON 文本落进消息内容。
+ */
+export function parseFallbackTurnResponse(
+  rawText: string,
+  valid: { redPacketIds: string[]; transferIds: string[] },
+): FallbackTurnResult {
+  const result: FallbackTurnResult = {
+    messages: [],
+    claimRedPacketIds: [],
+    acceptTransferIds: [],
+    transferOut: null,
+    redPacketOut: null,
+  };
+  let text = rawText.trim();
+  if (!text) return result;
+
+  const applyObject = (obj: Record<string, unknown>) => {
+    if (Array.isArray(obj.messages)) {
+      const bubbles = obj.messages.filter(
+        (m): m is string => typeof m === 'string' && m.trim().length > 0,
+      );
+      if (bubbles.length > 0) result.messages = bubbles.slice(0, MAX_MESSAGES_PER_TURN);
+    }
+    if (Array.isArray(obj.claim_red_packet_ids)) {
+      result.claimRedPacketIds = obj.claim_red_packet_ids.filter(
+        (id): id is string => typeof id === 'string' && valid.redPacketIds.includes(id),
+      );
+    }
+    if (Array.isArray(obj.accept_transfer_ids)) {
+      result.acceptTransferIds = obj.accept_transfer_ids.filter(
+        (id): id is string => typeof id === 'string' && valid.transferIds.includes(id),
+      );
+    }
+    if (obj.transfer_out && typeof obj.transfer_out === 'object') {
+      const t = obj.transfer_out as Record<string, unknown>;
+      if (typeof t.to === 'string' && typeof t.amount === 'number' && t.amount > 0) {
+        result.transferOut = {
+          to: t.to,
+          amount: t.amount,
+          note: typeof t.note === 'string' ? t.note : null,
+        };
+      }
+    }
+    if (obj.red_packet_out && typeof obj.red_packet_out === 'object') {
+      const r = obj.red_packet_out as Record<string, unknown>;
+      if (typeof r.to === 'string' && typeof r.amount === 'number' && r.amount > 0) {
+        result.redPacketOut = {
+          to: r.to,
+          amount: r.amount,
+          shares: typeof r.shares === 'number' ? r.shares : 1,
+          greeting: typeof r.greeting === 'string' ? r.greeting : '恭喜发财，大吉大利',
+        };
+      }
+    }
+  };
+
+  // 1) 优先提取 ```json 围栏块
+  let plain = text;
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) {
+    plain = (text.slice(0, fence.index ?? 0) + ' ' + text.slice((fence.index ?? 0) + fence[0].length)).trim();
+    try {
+      applyObject(JSON.parse(fence[1]) as Record<string, unknown>);
+    } catch {
+      // 围栏内容不是合法 JSON，按普通文本处理
+    }
+  }
+
+  // 2) 剩余文本整体是 JSON 也尝试解析
+  if (result.messages.length === 0 && plain) {
+    try {
+      applyObject(JSON.parse(plain) as Record<string, unknown>);
+      if (result.messages.length > 0) plain = '';
+    } catch {
+      // 普通文本
+    }
+  }
+
+  // 3) 剩余普通文本拆成气泡
+  if (result.messages.length === 0 && plain) {
+    result.messages = plain
+      .split(/\n\n+|\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, MAX_MESSAGES_PER_TURN);
+  }
+  return result;
+}
 export const MAX_RETRY_COUNT = 3; // Max retries before failing a turn
 
 export type TurnStatus = 'collecting' | 'scheduled' | 'processing' | 'completed' | 'failed';
@@ -521,11 +620,17 @@ export async function processTurn(
       });
 
       if (rawText && rawText.trim()) {
-        const parts = rawText
-          .split(/\n\n+/)
-          .map((p) => p.trim())
-          .filter((p) => p.length > 0);
-        generatedBubbleTexts = parts.slice(0, MAX_MESSAGES_PER_TURN);
+        // 模型可能整段输出固定 JSON（常带 ```json 围栏），统一解析，
+        // 绝不让原始 JSON 文本落进消息内容
+        const parsed = parseFallbackTurnResponse(rawText, {
+          redPacketIds: unclaimedRedPacketIds,
+          transferIds: pendingTransferIds,
+        });
+        generatedBubbleTexts = parsed.messages;
+        claimRedPacketIds = parsed.claimRedPacketIds;
+        acceptTransferIds = parsed.acceptTransferIds;
+        transferOut = parsed.transferOut;
+        redPacketOut = parsed.redPacketOut;
       }
     }
 
